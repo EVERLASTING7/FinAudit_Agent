@@ -1,0 +1,269 @@
+{
+  "document_type": "dep-005-companion-validator-candidate-v1",
+  "contract_revision": "DEP-005-R1",
+  "status": "diagnostic_not_approvable",
+  "approved": false,
+  "schema_draft": "https://json-schema.org/draft/2020-12/schema",
+  "network_calls": false,
+  "secret_resolution": false,
+  "creates_manifest": false,
+  "creates_profile_instance": false,
+  "creates_artifact_hash": false,
+  "purpose": "记录 JSON Schema 2020-12 难以表达的跨字段校验与阻断项；本文件不是可执行验证器、批准制品或运行证据。",
+  "candidate_files": [
+    "database-backup-manifest-v1.schema.json",
+    "backup-encryption-profile-v1.schema.json",
+    "minio-backup-inventory-v1.schema.json",
+    "qdrant-rebuild-profile-v1.schema.json"
+  ],
+  "intentionally_not_created": [
+    "restore-verification-manifest-v1.schema.json"
+  ],
+  "validation_order": [
+    "strict_json_source_v1",
+    "local_draft_2020_12_schema_v1",
+    "cross_field_v1",
+    "cross_artifact_v1",
+    "runtime_evidence_v1",
+    "approval_aggregation_v1"
+  ],
+  "cross_field_validators": [
+    {
+      "id": "DEP5-XV-001",
+      "applies_to": [
+        "database-backup-manifest-v1.schema.json"
+      ],
+      "assertion": "artifact_sha256 == encrypted_artifact_sha256",
+      "failure_code": "DEP5_ARTIFACT_HASH_BINDING_MISMATCH"
+    },
+    {
+      "id": "DEP5-XV-002",
+      "applies_to": [
+        "database-backup-manifest-v1.schema.json"
+      ],
+      "assertion": "backup_completed_at >= backup_started_at",
+      "failure_code": "DEP5_BACKUP_TIME_ORDER_INVALID"
+    },
+    {
+      "id": "DEP5-XV-003",
+      "applies_to": [
+        "database-backup-manifest-v1.schema.json"
+      ],
+      "assertion": "last_verified_anchor.chain_id == chain_id and last_verified_anchor.utc_date == covered_through_utc_date",
+      "failure_code": "DEP5_CHAIN_ANCHOR_BINDING_MISMATCH"
+    },
+    {
+      "id": "DEP5-XV-004",
+      "applies_to": [
+        "database-backup-manifest-v1.schema.json"
+      ],
+      "assertion": "unsealed_tail_range.snapshot_txid_snapshot_hash == snapshot_txid_snapshot_hash",
+      "failure_code": "DEP5_TAIL_SNAPSHOT_BINDING_MISMATCH"
+    },
+    {
+      "id": "DEP5-XV-005",
+      "applies_to": [
+        "database-backup-manifest-v1.schema.json"
+      ],
+      "assertion": "initialized_unsealed.start_utc_date == utc_date(chain_epoch_utc); sealed.start_utc_date == covered_through_utc_date + 1 day",
+      "failure_code": "DEP5_TAIL_START_DATE_INVALID"
+    },
+    {
+      "id": "DEP5-XV-006",
+      "applies_to": [
+        "database-backup-manifest-v1.schema.json"
+      ],
+      "assertion": "first_log <= last_log by (created_at,id) and row_count equals rows visible in the exported MVCC snapshot",
+      "failure_code": "DEP5_TAIL_RANGE_INVALID"
+    },
+    {
+      "id": "DEP5-XV-007",
+      "applies_to": [
+        "minio-backup-inventory-v1.schema.json"
+      ],
+      "assertion": "entry_count == entries.length and source/backup composite version identities are unique",
+      "failure_code": "DEP5_INVENTORY_CARDINALITY_INVALID"
+    },
+    {
+      "id": "DEP5-XV-008",
+      "applies_to": [
+        "database-backup-manifest-v1.schema.json",
+        "minio-backup-inventory-v1.schema.json"
+      ],
+      "assertion": "database_backup_id, source_environment_id, snapshot_txid_snapshot_hash and inventory_entry_count bind to the same inventory instance",
+      "failure_code": "DEP5_DATABASE_INVENTORY_BINDING_MISMATCH"
+    },
+    {
+      "id": "DEP5-XV-009",
+      "applies_to": [
+        "minio-backup-inventory-v1.schema.json"
+      ],
+      "assertion": "each backup object is create-only, hash/size verified, and stored in an independently approved failure domain and write authority",
+      "failure_code": "DEP5_INDEPENDENT_COPY_NOT_PROVEN"
+    },
+    {
+      "id": "DEP5-XV-010",
+      "applies_to": [
+        "backup-encryption-profile-v1.schema.json"
+      ],
+      "assertion": "algorithm, AAD order, nonce uniqueness, tool compatibility and key retention match one approved non-secret profile instance",
+      "failure_code": "DEP5_ENCRYPTION_PROFILE_NOT_BOUND"
+    },
+    {
+      "id": "DEP5-XV-011",
+      "applies_to": [
+        "qdrant-rebuild-profile-v1.schema.json"
+      ],
+      "assertion": "expected_point_count and consistency hash equal PostgreSQL membership facts; fixed evaluation meets an approved metric and threshold",
+      "failure_code": "DEP5_QDRANT_VERIFICATION_NOT_PROVEN"
+    },
+    {
+      "id": "DEP5-XV-012",
+      "applies_to": [
+        "database-backup-manifest-v1.schema.json",
+        "minio-backup-inventory-v1.schema.json",
+        "qdrant-rebuild-profile-v1.schema.json"
+      ],
+      "assertion": "all instance hashes use RFC 8785 JCS; all Schema hashes use raw UTF-8 bytes; binary artifact hashes use raw artifact bytes",
+      "failure_code": "DEP5_HASH_DOMAIN_INVALID"
+    },
+    {
+      "id": "DEP5-XV-013",
+      "applies_to": [
+        "database-backup-manifest-v1.schema.json",
+        "minio-backup-inventory-v1.schema.json"
+      ],
+      "assertion": "inventory publication precedes database manifest publication and neither object key/version is overwritten",
+      "failure_code": "DEP5_PUBLICATION_ORDER_INVALID"
+    },
+    {
+      "id": "DEP5-XV-014",
+      "applies_to": [
+        "companion-validator.json"
+      ],
+      "assertion": "network_calls == false and secret_resolution == false for diagnostic validation",
+      "failure_code": "DEP5_DIAGNOSTIC_BOUNDARY_VIOLATION"
+    }
+  ],
+  "open_items": [
+    {
+      "id": "DEP5-OPEN-001",
+      "title": "restore input Schema missing",
+      "blocking_scope": [
+        "approved_artifact",
+        "restore_execution"
+      ],
+      "required_decision": "新增独立 restore-input Schema，或明确其属于哪个已批准 envelope；companion 不得冒充该 Schema。"
+    },
+    {
+      "id": "DEP5-OPEN-002",
+      "title": "versioned backup profile missing",
+      "blocking_scope": [
+        "approved_artifact",
+        "backup_execution"
+      ],
+      "required_decision": "定义 backup profile 的 Schema、实例 hash、工具参数和与 database manifest 的绑定字段。"
+    },
+    {
+      "id": "DEP5-OPEN-003",
+      "title": "restore result and null matrix incomplete",
+      "blocking_scope": [
+        "restore_verification_schema"
+      ],
+      "required_decision": "冻结 PostgreSQL、MinIO、chain、Qdrant、Redis、smoke、E2E 的精确 result object、enum 与失败/not-run/pending null 矩阵。"
+    },
+    {
+      "id": "DEP5-OPEN-004",
+      "title": "restore verification does not bind restore input",
+      "blocking_scope": [
+        "restore_verification_schema"
+      ],
+      "required_decision": "加入 restore_input_sha256、environment policy version/hash 与 source chain 绑定。"
+    },
+    {
+      "id": "DEP5-OPEN-005",
+      "title": "restore stage order evidence missing",
+      "blocking_scope": [
+        "restore_verification_schema",
+        "traffic_release"
+      ],
+      "required_decision": "定义每阶段 outcome、evidence、时间戳及 fork verified/service started/traffic opened 的可比较顺序。"
+    },
+    {
+      "id": "DEP5-OPEN-006",
+      "title": "Qdrant snapshot artifact and evaluation threshold missing",
+      "blocking_scope": [
+        "qdrant_profile_approval",
+        "restore_execution"
+      ],
+      "required_decision": "定义 snapshot artifact ref/version/hash，以及固定评测指标、阈值和通过算法。"
+    },
+    {
+      "id": "DEP5-OPEN-007",
+      "title": "MinIO encryption semantics unresolved",
+      "blocking_scope": [
+        "inventory_schema_approval",
+        "backup_execution"
+      ],
+      "required_decision": "选择客户端 envelope encryption 或服务端静态加密，并据此定义 source/backup hash、size、nonce、AAD 和 envelope 元数据。"
+    },
+    {
+      "id": "DEP5-OPEN-008",
+      "title": "database manifest encryption profile binding incomplete",
+      "blocking_scope": [
+        "database_manifest_schema_approval"
+      ],
+      "required_decision": "除 encryption_profile_version 外，加入 Schema raw hash 与 Profile instance JCS hash。"
+    },
+    {
+      "id": "DEP5-OPEN-009",
+      "title": "environment policy Schema and approval binding missing",
+      "blocking_scope": [
+        "approved_artifact",
+        "rpo_rto_acceptance"
+      ],
+      "required_decision": "定义 environment policy Schema，并在审批记录和 restore evidence 中绑定 version/hash。"
+    },
+    {
+      "id": "DEP5-OPEN-010",
+      "title": "companion and test-vector integrity binding missing",
+      "blocking_scope": [
+        "approved_artifact"
+      ],
+      "required_decision": "在审批完整性链中绑定 companion、正反测试向量和 package inventory 的 version/hash。"
+    },
+    {
+      "id": "DEP5-OPEN-011",
+      "title": "backup failure no-replace audit carrier missing",
+      "blocking_scope": [
+        "backup_failure_audit"
+      ],
+      "required_decision": "定义 database manifest 发布前失败时的 no-replace failure evidence；不得写 operation_logs。"
+    },
+    {
+      "id": "DEP5-OPEN-012",
+      "title": "canonical array ordering missing",
+      "blocking_scope": [
+        "stable_jcs_hash"
+      ],
+      "required_decision": "冻结 inventory entries、fact counts、version mappings 和 errors 的规范排序规则。"
+    },
+    {
+      "id": "DEP5-OPEN-013",
+      "title": "critical primitive types and enums not approved",
+      "blocking_scope": [
+        "all_schema_approval"
+      ],
+      "required_decision": "审批 version literal、system identifier、LSN、txid snapshot、distance metric、outcome enum、ID 和 object-key 字符集；当前 Schema 值仅为诊断候选。"
+    },
+    {
+      "id": "DEP5-OPEN-014",
+      "title": "approval and traffic-release attestation Schema missing",
+      "blocking_scope": [
+        "joint_approval",
+        "traffic_release"
+      ],
+      "required_decision": "冻结 selected_decisions 结构、必需角色聚合、notes/evidence_uri 安全约束，并定义独立 traffic-release attestation；当前批准不含 production。"
+    }
+  ]
+}

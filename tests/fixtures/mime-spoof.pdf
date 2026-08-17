@@ -1,0 +1,3 @@
+MZSYNTHETIC TEST DATA - SAFE NON-EXECUTABLE MIME SPOOF
+This is not a PE image and contains no executable code.
+Expected result: FILE_SIGNATURE_MISMATCH.

@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:dep-005:backup-encryption-profile:v1",
+  "title": "DEP-005 backup encryption profile v1 candidate schema",
+  "description": "只允许非秘密加密元数据；候选 Schema 不包含或生成真实 key、凭据、endpoint、Profile 实例或 hash。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_version",
+    "algorithm",
+    "key_source",
+    "key_id_format",
+    "envelope_version",
+    "aad_schema_version",
+    "aad_fields",
+    "nonce_policy",
+    "tool_name",
+    "tool_version",
+    "plaintext_staging_policy",
+    "key_rotation_policy",
+    "key_retention_policy"
+  ],
+  "properties": {
+    "profile_version": {
+      "$ref": "#/$defs/version"
+    },
+    "algorithm": {
+      "$ref": "#/$defs/algorithm"
+    },
+    "key_source": {
+      "$ref": "#/$defs/keySource"
+    },
+    "key_id_format": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "envelope_version": {
+      "$ref": "#/$defs/version"
+    },
+    "aad_schema_version": {
+      "$ref": "#/$defs/version"
+    },
+    "aad_fields": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}$"
+      }
+    },
+    "nonce_policy": {
+      "$ref": "#/$defs/noncePolicy"
+    },
+    "tool_name": {
+      "$ref": "#/$defs/token"
+    },
+    "tool_version": {
+      "$ref": "#/$defs/version"
+    },
+    "plaintext_staging_policy": {
+      "$ref": "#/$defs/plaintextStagingPolicy"
+    },
+    "key_rotation_policy": {
+      "$ref": "#/$defs/keyRotationPolicy"
+    },
+    "key_retention_policy": {
+      "$ref": "#/$defs/keyRetentionPolicy"
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+    },
+    "algorithm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "key_size_bits",
+        "nonce_size_bytes",
+        "tag_size_bytes"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "AES-256-GCM",
+            "XCHACHA20-POLY1305"
+          ]
+        },
+        "key_size_bits": {
+          "type": "integer",
+          "enum": [
+            256
+          ]
+        },
+        "nonce_size_bytes": {
+          "type": "integer",
+          "enum": [
+            12,
+            24
+          ]
+        },
+        "tag_size_bytes": {
+          "type": "integer",
+          "const": 16
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "const": "AES-256-GCM"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "nonce_size_bytes": {
+                "const": 12
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "const": "XCHACHA20-POLY1305"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "nonce_size_bytes": {
+                "const": 24
+              }
+            }
+          }
+        }
+      ]
+    },
+    "keySource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "provider_name",
+        "key_reference_pattern",
+        "network_authorization_required"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "kms",
+            "hsm",
+            "secret_manager",
+            "offline_custodian"
+          ]
+        },
+        "provider_name": {
+          "$ref": "#/$defs/token"
+        },
+        "key_reference_pattern": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "network_authorization_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "noncePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "uniqueness_scope",
+        "nonce_reuse_forbidden"
+      ],
+      "properties": {
+        "source": {
+          "enum": [
+            "csp_random",
+            "kms_generated"
+          ]
+        },
+        "uniqueness_scope": {
+          "const": "per_key_per_artifact"
+        },
+        "nonce_reuse_forbidden": {
+          "const": true
+        }
+      }
+    },
+    "plaintextStagingPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "storage_class",
+        "maximum_lifetime_seconds",
+        "verified_deletion_required"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "storage_class": {
+          "anyOf": [
+            {
+              "enum": [
+                "memory_only",
+                "encrypted_ephemeral_disk"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "maximum_lifetime_seconds": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verified_deletion_required": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "allowed"
+            ],
+            "properties": {
+              "allowed": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "storage_class": {
+                "type": "null"
+              },
+              "maximum_lifetime_seconds": {
+                "type": "null"
+              },
+              "verified_deletion_required": {
+                "const": false
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "storage_class": {
+                "enum": [
+                  "memory_only",
+                  "encrypted_ephemeral_disk"
+                ]
+              },
+              "maximum_lifetime_seconds": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "verified_deletion_required": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "keyRotationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rotation_interval_days",
+        "reencrypt_existing_backups",
+        "new_writes_use_current_key"
+      ],
+      "properties": {
+        "rotation_interval_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reencrypt_existing_backups": {
+          "type": "boolean"
+        },
+        "new_writes_use_current_key": {
+          "const": true
+        }
+      }
+    },
+    "keyRetentionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_decryption_retention_days",
+        "delete_only_after_all_bound_artifacts_expire"
+      ],
+      "properties": {
+        "minimum_decryption_retention_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "delete_only_after_all_bound_artifacts_expire": {
+          "const": true
+        }
+      }
+    }
+  }
+}

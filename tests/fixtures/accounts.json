@@ -1,0 +1,74 @@
+{
+  "dataset_version": "1.6.0",
+  "synthetic": true,
+  "items": [
+    {
+      "id": "ACC-SYSTEM-ADMIN",
+      "username": "system.admin@example.test",
+      "role": "system_admin",
+      "state": "active",
+      "expected_boundary": "manage_system_only_no_business_fact_changes_policy_business_approval_or_high_risk_review"
+    },
+    {
+      "id": "ACC-FINANCE-REVIEWER",
+      "username": "finance.reviewer@example.test",
+      "role": "finance_reviewer",
+      "state": "active",
+      "expected_boundary": "may_execute_audit_but_not_finalize_high_risk"
+    },
+    {
+      "id": "ACC-AUDIT-REVIEWER-1",
+      "username": "audit.reviewer.one@example.test",
+      "role": "audit_reviewer",
+      "state": "active",
+      "separation_group": "AUDIT-PAIR-001",
+      "expected_boundary": "may_review_high_risk_approve_policy_and_evaluation_evidence_but_not_modify_business_fields"
+    },
+    {
+      "id": "ACC-AUDIT-REVIEWER-2",
+      "username": "audit.reviewer.two@example.test",
+      "role": "audit_reviewer",
+      "state": "active",
+      "separation_group": "AUDIT-PAIR-001",
+      "expected_boundary": "may_review_high_risk_approve_policy_and_evaluation_evidence_but_not_modify_business_fields"
+    },
+    {
+      "id": "ACC-CONTRACT-ADMIN",
+      "username": "contract.admin@example.test",
+      "role": "contract_admin",
+      "state": "active",
+      "expected_boundary": "may_edit_contract_and_propose_but_not_confirm_primary_contract"
+    },
+    {
+      "id": "ACC-READ-ONLY",
+      "username": "read.only@example.test",
+      "role": "read_only",
+      "state": "active",
+      "expected_boundary": "read_only_no_write_or_report_export"
+    },
+    {
+      "id": "ACC-DISABLED",
+      "username": "disabled.user@example.test",
+      "role": "read_only",
+      "state": "disabled",
+      "expected_result": "login_rejected_and_audited"
+    },
+    {
+      "id": "ACC-LOCKED",
+      "username": "locked.user@example.test",
+      "role": "finance_reviewer",
+      "state": "locked",
+      "expected_result": "login_rejected_and_audited"
+    },
+    {
+      "id": "ACC-BREAK-GLASS",
+      "username": "break.glass@example.test",
+      "role": "system_admin",
+      "state": "specification_only",
+      "access_mode": "temporary_break_glass",
+      "independent_approval_record_required": true,
+      "expires_at": "2026-01-15T01:00:00Z",
+      "expected_result": "time_bounded_independent_approval_record_and_full_audit_required"
+    }
+  ]
+}

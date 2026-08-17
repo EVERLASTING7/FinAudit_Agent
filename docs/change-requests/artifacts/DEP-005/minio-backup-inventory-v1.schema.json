@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:dep-005:minio-backup-inventory:v1",
+  "title": "DEP-005 MinIO backup inventory v1 candidate schema",
+  "description": "DEP-005-R1 候选 Schema；只描述已验证、no-replace 独立副本的 inventory。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "inventory_schema_version",
+    "database_backup_id",
+    "source_environment_id",
+    "snapshot_txid_snapshot_hash",
+    "entry_count",
+    "entries"
+  ],
+  "properties": {
+    "inventory_schema_version": {
+      "const": "minio-backup-inventory-v1"
+    },
+    "database_backup_id": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "source_environment_id": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "snapshot_txid_snapshot_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "entry_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/inventoryEntry"
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "opaqueId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "classification": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{0,127}$"
+    },
+    "bucket": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$",
+      "maxLength": 63
+    },
+    "objectKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "objectVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "inventoryEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fact_class",
+        "reference_type",
+        "reference_id",
+        "source_bucket",
+        "source_object_key",
+        "source_version_id",
+        "source_sha256",
+        "source_size_bytes",
+        "backup_bucket",
+        "backup_object_key",
+        "backup_version_id",
+        "backup_sha256",
+        "backup_size_bytes",
+        "copy_outcome"
+      ],
+      "properties": {
+        "fact_class": {
+          "$ref": "#/$defs/classification"
+        },
+        "reference_type": {
+          "$ref": "#/$defs/classification"
+        },
+        "reference_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "source_bucket": {
+          "$ref": "#/$defs/bucket"
+        },
+        "source_object_key": {
+          "$ref": "#/$defs/objectKey"
+        },
+        "source_version_id": {
+          "$ref": "#/$defs/objectVersion"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "backup_bucket": {
+          "$ref": "#/$defs/bucket"
+        },
+        "backup_object_key": {
+          "$ref": "#/$defs/objectKey"
+        },
+        "backup_version_id": {
+          "$ref": "#/$defs/objectVersion"
+        },
+        "backup_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "backup_size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "copy_outcome": {
+          "const": "verified"
+        }
+      }
+    }
+  }
+}

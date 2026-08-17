@@ -1,0 +1,24 @@
+{
+  "registry_version": "invoice-handler-registry-v2",
+  "handlers": [
+    {
+      "job_type": "invoice_extract",
+      "input_schema_version": 1,
+      "input_schema_id": "invoice_extract.input.v1",
+      "input_schema_sha256": "f96995b1375425cf37b128b2ae4aae5522ea8fbdf58fe170499b5b007f4a03af",
+      "handler_code_version": "invoice-extract-handler-v2",
+      "logical_queue": "extraction",
+      "max_attempts": 3,
+      "retry_scopes": [
+        {"scope_code": "all", "start_step_code": "extract"}
+      ],
+      "steps": [
+        {
+          "step_code": "extract",
+          "summary_schema_id": "invoice_extract.summary.v2",
+          "summary_schema_sha256": "953837dfd1f1144ed78d9d8c0e2a801657acab54ba30e37ea6ebb8dae80832a0"
+        }
+      ]
+    }
+  ]
+}

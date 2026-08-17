@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:worker:input:file:v1",
+  "type": "object",
+  "required": [
+    "auto_process_requested",
+    "file_id",
+    "intended_business_type",
+    "processing_scope",
+    "target_knowledge_base_id"
+  ],
+  "properties": {
+    "auto_process_requested": {"type": "boolean"},
+    "file_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "intended_business_type": {
+      "enum": ["contract", "supplementary_agreement", "invoice", "policy"]
+    },
+    "processing_scope": {"enum": ["full", "scan_only"]},
+    "target_knowledge_base_id": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"intended_business_type": {"const": "policy"}}},
+      "then": {"properties": {"target_knowledge_base_id": {"type": "string"}}},
+      "else": {"properties": {"target_knowledge_base_id": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"auto_process_requested": {"const": true}}},
+      "then": {"properties": {"processing_scope": {"const": "full"}}},
+      "else": {"properties": {"processing_scope": {"const": "scan_only"}}}
+    }
+  ],
+  "additionalProperties": false
+}

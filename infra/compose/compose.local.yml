@@ -1,0 +1,471 @@
+name: finaudit-local
+
+x-app-environment: &app-environment
+  APP_ENV: local
+  APP_NAME: FinAudit Agent
+  APP_VERSION: 0.1.0
+  LOG_LEVEL: INFO
+  TIMEZONE: UTC
+  FINAUDIT_SECRETS_DIR: /run/secrets
+  AUTH_JWT_ACTIVE_KID: finaudit-local-key-v1
+  AUTH_JWT_PRIVATE_KEY_FILE: /run/secrets/auth_jwt_private_key
+  AUTH_JWT_PUBLIC_KEYRING_FILE: /run/secrets/auth_jwt_public_keyring
+  AUTH_PUBLIC_ORIGIN: https://localhost:${FINAUDIT_HTTPS_PORT:-8443}
+  CORS_ALLOWED_ORIGINS: https://localhost:${FINAUDIT_HTTPS_PORT:-8443}
+  MAX_UPLOAD_SIZE_MB: "50"
+  MAX_BATCH_FILE_COUNT: "20"
+  DB_POOL_SIZE: "10"
+  DB_MAX_OVERFLOW: "20"
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_SECURE: "false"
+  MINIO_BUCKET_QUARANTINE: quarantine
+  MINIO_BUCKET_ORIGINALS: originals
+  MINIO_BUCKET_ASSETS: assets
+  MINIO_BUCKET_PREVIEWS: previews
+  MINIO_BUCKET_REPORTS: reports
+  MINIO_BUCKET_EXPORTS: exports
+  MINIO_BUCKET_TEMP: temp
+  QDRANT_URL: http://qdrant:6333
+  QDRANT_COLLECTION: finaudit_policy_chunks_local_e1024_v1
+  QDRANT_VECTOR_SIZE: "1024"
+  QDRANT_DISTANCE: Cosine
+  AI_POLICY_VERSION: "1"
+  AI_PROVIDER_CALLS_ENABLED: "false"
+  AI_PROVIDER_POLICY_SCHEMA_VERSION: "1"
+  AI_POLICY_FILE: /app/config/ai-policy-v1.json
+  LLM_BASE_URL: http://synthetic-extraction:8000/v1
+  LLM_EXTRACTION_MODEL: synthetic-extraction-model
+  LLM_GENERATION_MODEL: synthetic-generation-model
+  LLM_FALLBACK_MODEL: synthetic-fallback-model
+  EMBEDDING_BASE_URL: http://synthetic-embedding:8003/v1
+  EMBEDDING_MODEL: synthetic-embedding-model
+  EMBEDDING_VECTOR_SIZE: "1024"
+  EMBEDDING_BATCH_SIZE: "32"
+  OCR_PROVIDER: not_configured
+  SCANNER_PROVIDER: clamav_instream
+  SCANNER_HOST: clamav
+  SCANNER_PORT: "3310"
+  SCANNER_CONNECT_TIMEOUT_SECONDS: "5"
+  SCANNER_READ_TIMEOUT_SECONDS: "120"
+  SCANNER_MAX_STREAM_BYTES: "52428800"
+  METRICS_ENABLED: "true"
+
+x-app-secrets: &app-secrets
+  - source: secret_key
+    target: secret_key
+  - source: database_url
+    target: database_url
+  - source: redis_url
+    target: redis_url
+  - source: celery_broker_url
+    target: celery_broker_url
+  - source: celery_result_backend
+    target: celery_result_backend
+  - source: minio_access_key
+    target: minio_access_key
+  - source: minio_secret_key
+    target: minio_secret_key
+  - source: minio_worker_access_key
+    target: minio_worker_access_key
+  - source: minio_worker_secret_key
+    target: minio_worker_secret_key
+  - source: llm_api_key
+    target: llm_api_key
+  - source: embedding_api_key
+    target: embedding_api_key
+  - source: metrics_internal_token
+    target: metrics_internal_token
+  - source: auth_jwt_private_key
+    target: auth_jwt_private_key
+  - source: auth_jwt_public_keyring
+    target: auth_jwt_public_keyring
+
+x-backend-service: &backend-service
+  image: finaudit-backend-local:${FINAUDIT_IMAGE_REVISION:-dev}
+  environment: *app-environment
+  secrets: *app-secrets
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  restart: unless-stopped
+
+services:
+  postgresql:
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    environment:
+      POSTGRES_DB: finaudit
+      POSTGRES_USER: finaudit
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finaudit -d finaudit"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    command: ["redis-server", "/run/secrets/redis_config"]
+    secrets:
+      - redis_config
+      - redis_password
+    volumes:
+      - redis_data:/data
+    networks:
+      - data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - REDISCLI_AUTH="$$(cat /run/secrets/redis_password)" redis-cli ping | grep -qx PONG
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command: ["server", "/data"]
+    environment:
+      MINIO_BROWSER: "off"
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+    secrets:
+      - minio_root_user
+      - minio_root_password
+    volumes:
+      - minio_data:/data
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.10.0@sha256:2e8646f963a64a21b3e3f851719e17668644d1ed386285064c2548a52d16ede8
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  clamav:
+    image: clamav/clamav:1.5.3@sha256:d06c1d6a451d616e1dd79b42f44c8c8c291bba9cf4e75ebc4d0e43c1c6dd87bb
+    volumes:
+      - clamav_database:/var/lib/clamav
+    networks:
+      - data
+      - scanner_updates
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend-service
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - data
+    restart: "no"
+
+  minio-bootstrap:
+    <<: *backend-service
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        export APP_ENV=local
+        export MINIO_SECURE=false
+        export MINIO_ROOT_USER="$$(cat /run/secrets/minio_root_user)"
+        export MINIO_ROOT_PASSWORD="$$(cat /run/secrets/minio_root_password)"
+        export MINIO_ACCESS_KEY="$$(cat /run/secrets/minio_access_key)"
+        export MINIO_SECRET_KEY="$$(cat /run/secrets/minio_secret_key)"
+        export MINIO_WORKER_ACCESS_KEY="$$(cat /run/secrets/minio_worker_access_key)"
+        export MINIO_WORKER_SECRET_KEY="$$(cat /run/secrets/minio_worker_secret_key)"
+        python /app/scripts/bootstrap_local_minio.py
+        python /app/scripts/bootstrap_local_minio_worker.py
+    secrets:
+      - minio_root_user
+      - minio_root_password
+      - minio_access_key
+      - minio_secret_key
+      - minio_worker_access_key
+      - minio_worker_secret_key
+    depends_on:
+      minio:
+        condition: service_healthy
+    network_mode: service:minio
+    read_only: true
+    restart: "no"
+
+  qdrant-bootstrap:
+    <<: *backend-service
+    command: ["python", "/app/scripts/bootstrap_local_qdrant.py"]
+    environment:
+      APP_ENV: local
+      QDRANT_COLLECTION: finaudit_policy_chunks_local_e1024_v1
+      QDRANT_VECTOR_SIZE: "1024"
+      QDRANT_DISTANCE: Cosine
+    secrets: []
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    networks:
+      - data
+    restart: "no"
+
+  admin-bootstrap:
+    <<: *backend-service
+    command: ["finaudit-bootstrap-admin"]
+    environment:
+      <<: *app-environment
+      BOOTSTRAP_ORGANIZATION_NAME: ${BOOTSTRAP_ORGANIZATION_NAME:?required}
+      BOOTSTRAP_ORGANIZATION_USCC: ${BOOTSTRAP_ORGANIZATION_USCC:?required}
+      BOOTSTRAP_ORGANIZATION_TAX_NUMBER: ${BOOTSTRAP_ORGANIZATION_TAX_NUMBER:?required}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:?required}
+      BOOTSTRAP_ADMIN_DISPLAY_NAME: ${BOOTSTRAP_ADMIN_DISPLAY_NAME:?required}
+      BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/bootstrap_admin_password
+    secrets:
+      - source: secret_key
+        target: secret_key
+      - source: database_url
+        target: database_url
+      - source: redis_url
+        target: redis_url
+      - source: celery_broker_url
+        target: celery_broker_url
+      - source: celery_result_backend
+        target: celery_result_backend
+      - source: minio_access_key
+        target: minio_access_key
+      - source: minio_secret_key
+        target: minio_secret_key
+      - source: minio_worker_access_key
+        target: minio_worker_access_key
+      - source: minio_worker_secret_key
+        target: minio_worker_secret_key
+      - source: llm_api_key
+        target: llm_api_key
+      - source: embedding_api_key
+        target: embedding_api_key
+      - source: metrics_internal_token
+        target: metrics_internal_token
+      - source: bootstrap_admin_password
+        target: bootstrap_admin_password
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - data
+    restart: "no"
+
+  backend:
+    <<: *backend-service
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    depends_on:
+      admin-bootstrap:
+        condition: service_completed_successfully
+      minio-bootstrap:
+        condition: service_completed_successfully
+      qdrant-bootstrap:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+    networks:
+      - app
+      - data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  worker:
+    <<: *backend-service
+    command:
+      - celery
+      - -A
+      - app.workers.celery_app:app
+      - worker
+      - --loglevel=INFO
+      - --concurrency=2
+      - --queues=document,extraction,knowledge,evaluation,audit,report,maintenance
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-bootstrap:
+        condition: service_completed_successfully
+      qdrant-bootstrap:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+    networks:
+      - data
+
+  dispatcher:
+    <<: *backend-service
+    command: ["finaudit-dispatcher"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks:
+      - data
+
+  maintenance:
+    <<: *backend-service
+    command: ["finaudit-maintenance"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-bootstrap:
+        condition: service_completed_successfully
+      qdrant-bootstrap:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks:
+      - data
+
+  frontend:
+    image: finaudit-frontend-local:${FINAUDIT_IMAGE_REVISION:-dev}
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+    ports:
+      - 127.0.0.1:${FINAUDIT_HTTPS_PORT:-8443}:8443
+    secrets:
+      - source: tls_certificate
+        target: tls_certificate
+      - source: tls_private_key
+        target: tls_private_key
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - edge
+      - app
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --no-check-certificate -qO- https://127.0.0.1:8443/health >/dev/null
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    restart: unless-stopped
+
+networks:
+  edge: {}
+  scanner_updates: {}
+  app:
+    internal: true
+  data:
+    internal: true
+
+volumes:
+  postgresql_data:
+  redis_data:
+  minio_data:
+  qdrant_data:
+  clamav_database:
+
+secrets:
+  secret_key:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/secret_key
+  database_url:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/database_url
+  redis_url:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/redis_url
+  celery_broker_url:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/celery_broker_url
+  celery_result_backend:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/celery_result_backend
+  postgres_password:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/postgres_password
+  redis_password:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/redis_password
+  redis_config:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/redis_config
+  minio_root_user:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/minio_root_user
+  minio_root_password:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/minio_root_password
+  minio_access_key:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/minio_access_key
+  minio_secret_key:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/minio_secret_key
+  minio_worker_access_key:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/minio_worker_access_key
+  minio_worker_secret_key:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/minio_worker_secret_key
+  llm_api_key:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/llm_api_key
+  embedding_api_key:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/embedding_api_key
+  metrics_internal_token:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/metrics_internal_token
+  auth_jwt_private_key:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/auth_jwt_private_key
+  auth_jwt_public_keyring:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/auth_jwt_public_keyring
+  bootstrap_admin_password:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/bootstrap_admin_password
+  tls_certificate:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/tls_certificate
+  tls_private_key:
+    file: ${FINAUDIT_RUNTIME_DIR:?required}/tls_private_key

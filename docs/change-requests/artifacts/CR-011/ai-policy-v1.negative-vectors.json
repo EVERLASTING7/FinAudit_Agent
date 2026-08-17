@@ -1,0 +1,344 @@
+{
+  "artifact_version": 1,
+  "base_vector": "ai-policy-v1.positive.json",
+  "base_policy_hash": "db946ad109baf5ec84455a2d0a09ce5e29602c0d9f9ce8404901f5c63683443d",
+  "description": "Deterministic mutations applied independently to the positive Policy. Every case must fail closed at the declared stage.",
+  "harness_semantics": {
+    "mutation_base": "fresh deep copy of base_vector for every case",
+    "path_syntax": "RFC 6901 JSON Pointer",
+    "hash_refresh_by_expected_stage": {
+      "cross_field": true,
+      "network_registry": true,
+      "default": false
+    },
+    "result_contract": "exactly one rejected result whose stage equals expected_stage and whose safe error identifies the first failing rule"
+  },
+  "cases": [
+    {
+      "id": "NEG-POL-001-missing-hash",
+      "mutation": {
+        "op": "remove",
+        "path": "/policy_hash"
+      },
+      "validation_target": "final_envelope",
+      "expected_stage": "envelope_context",
+      "expected_rule_id": "POL-VAL-003",
+      "expected_safe_error_code": "AI_POLICY_ENVELOPE_INVALID",
+      "expected_reason": "The union accepts this shape only as a pre-hash payload; a final-envelope loader requires policy_hash."
+    },
+    {
+      "id": "NEG-POL-001a-empty-hash",
+      "mutation": {
+        "op": "replace",
+        "path": "/policy_hash",
+        "value": ""
+      },
+      "expected_stage": "schema",
+      "expected_rule_id": "POL-VAL-004",
+      "expected_safe_error_code": "AI_POLICY_SCHEMA_INVALID",
+      "expected_reason": "An empty string is not a lowercase SHA-256 digest."
+    },
+    {
+      "id": "NEG-POL-001b-self-referential-preimage",
+      "mutation": {
+        "op": "replace",
+        "path": "/policy_hash",
+        "value": "ffdf11ddaeebc86954cf8677443c3ef0814fc2c19dfaadfbf98f1871a9a2e026"
+      },
+      "hash_projection": {
+        "incorrectly_retained_path": "/policy_hash",
+        "incorrect_digest_sha256": "ffdf11ddaeebc86954cf8677443c3ef0814fc2c19dfaadfbf98f1871a9a2e026"
+      },
+      "expected_stage": "hash",
+      "expected_rule_id": "POL-VAL-006",
+      "expected_safe_error_code": "AI_POLICY_HASH_MISMATCH",
+      "expected_reason": "The pre-hash projection removes exactly the top-level policy_hash; hashing the final envelope is self-referential and cannot verify."
+    },
+    {
+      "id": "NEG-POL-002-uppercase-hash",
+      "mutation": {
+        "op": "replace",
+        "path": "/policy_hash",
+        "value": "DB946AD109BAF5EC84455A2D0A09CE5E29602C0D9F9CE8404901F5C63683443D"
+      },
+      "expected_stage": "schema",
+      "expected_rule_id": "POL-VAL-004",
+      "expected_safe_error_code": "AI_POLICY_SCHEMA_INVALID",
+      "expected_reason": "Hash text must be exactly 64 lowercase hexadecimal characters."
+    },
+    {
+      "id": "NEG-POL-003-tampered-content",
+      "mutation": {
+        "op": "replace",
+        "path": "/profiles/llm_extraction_primary/model_version",
+        "value": "synthetic-extraction-v2"
+      },
+      "expected_stage": "hash",
+      "expected_rule_id": "POL-VAL-006",
+      "expected_safe_error_code": "AI_POLICY_HASH_MISMATCH",
+      "expected_reason": "This one-byte schema-valid content change leaves a stale policy_hash and must fail only at hash verification."
+    },
+    {
+      "id": "NEG-POL-004-boolean-integer",
+      "mutation": {
+        "op": "replace",
+        "path": "/policy_version",
+        "value": true
+      },
+      "expected_stage": "source_number",
+      "expected_rule_id": "POL-VAL-002",
+      "expected_safe_error_code": "AI_POLICY_INTEGER_TOKEN_INVALID",
+      "expected_reason": "JSON boolean is not an integer in this contract."
+    },
+    {
+      "id": "NEG-POL-005-unknown-field",
+      "mutation": {
+        "op": "add",
+        "path": "/debug_mode",
+        "value": true
+      },
+      "expected_stage": "schema",
+      "expected_rule_id": "POL-VAL-004",
+      "expected_safe_error_code": "AI_POLICY_SCHEMA_INVALID",
+      "expected_reason": "The Policy object is closed."
+    },
+    {
+      "id": "NEG-POL-005a-lexical-one-point-zero",
+      "source_mutation": {
+        "path": "/policy_version",
+        "replacement_json_token": "1.0"
+      },
+      "expected_stage": "source_number",
+      "expected_rule_id": "POL-VAL-002",
+      "expected_safe_error_code": "AI_POLICY_INTEGER_TOKEN_INVALID",
+      "expected_reason": "Policy integer tokens cannot contain a decimal point even when a generic JSON Schema implementation considers the value mathematical integer."
+    },
+    {
+      "id": "NEG-POL-005b-lexical-one-exponent-zero",
+      "source_mutation": {
+        "path": "/policy_version",
+        "replacement_json_token": "1e0"
+      },
+      "expected_stage": "source_number",
+      "expected_rule_id": "POL-VAL-002",
+      "expected_safe_error_code": "AI_POLICY_INTEGER_TOKEN_INVALID",
+      "expected_reason": "Policy integer tokens cannot use exponent notation."
+    },
+    {
+      "id": "NEG-POL-005c-lexical-negative-zero",
+      "source_mutation": {
+        "path": "/profiles/embedding_primary/input_price_micro_usd_per_million",
+        "replacement_json_token": "-0"
+      },
+      "expected_stage": "source_number",
+      "expected_rule_id": "POL-VAL-002",
+      "expected_safe_error_code": "AI_POLICY_INTEGER_TOKEN_INVALID",
+      "expected_reason": "A non-negative Policy integer token cannot use a sign, including negative zero."
+    },
+    {
+      "id": "NEG-POL-005d-over-safe-integer",
+      "mutation": {
+        "op": "replace",
+        "path": "/profiles/embedding_primary/context_window_tokens",
+        "value": 9007199254740992
+      },
+      "expected_stage": "source_number",
+      "expected_rule_id": "POL-VAL-002",
+      "expected_safe_error_code": "AI_POLICY_INTEGER_TOKEN_INVALID",
+      "expected_reason": "Every Policy integer is bounded by the I-JSON safe integer maximum 9007199254740991."
+    },
+    {
+      "id": "NEG-POL-006-forbidden-secret-value-field",
+      "mutation": {
+        "op": "add",
+        "path": "/profiles/llm_extraction_primary/api_key",
+        "value": "<forbidden-secret-value-field>"
+      },
+      "expected_stage": "schema",
+      "expected_rule_id": "POL-VAL-004",
+      "expected_safe_error_code": "AI_POLICY_SCHEMA_INVALID",
+      "expected_reason": "Profiles reference a secret_slot identifier and never contain credential values."
+    },
+    {
+      "id": "NEG-POL-007-dangling-primary-profile",
+      "mutation": {
+        "op": "replace",
+        "path": "/operations/contract_field_extraction/primary_profile_id",
+        "value": "missing_profile"
+      },
+      "expected_stage": "cross_field",
+      "expected_rule_id": "POL-VAL-008",
+      "expected_safe_error_code": "AI_POLICY_ROUTE_GRAPH_INVALID",
+      "expected_reason": "Every route reference must resolve to an existing Profile."
+    },
+    {
+      "id": "NEG-POL-008-capability-mismatch",
+      "mutation": {
+        "op": "replace",
+        "path": "/operations/contract_field_extraction/primary_profile_id",
+        "value": "embedding_primary"
+      },
+      "expected_stage": "cross_field",
+      "expected_rule_id": "POL-VAL-008",
+      "expected_safe_error_code": "AI_POLICY_ROUTE_GRAPH_INVALID",
+      "expected_reason": "Extraction routes require the llm_extraction capability."
+    },
+    {
+      "id": "NEG-POL-009-unreferenced-profile",
+      "mutations": [
+        {
+          "op": "add",
+          "path": "/profiles/unused_profile",
+          "value_from": "/profiles/llm_extraction_primary"
+        },
+        {
+          "op": "replace",
+          "path": "/profiles/unused_profile/endpoint_id",
+          "value": "synthetic-internal-unused-001"
+        },
+        {
+          "op": "replace",
+          "path": "/profiles/unused_profile/model_id",
+          "value": "synthetic-unused-model"
+        }
+      ],
+      "expected_stage": "cross_field",
+      "expected_rule_id": "POL-VAL-008",
+      "expected_safe_error_code": "AI_POLICY_ROUTE_GRAPH_INVALID",
+      "expected_reason": "Every declared Profile must be referenced by at least one operation."
+    },
+    {
+      "id": "NEG-POL-010-duplicate-target-identity",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/profiles/llm_fallback/endpoint_id",
+          "value": "synthetic-internal-extraction-001"
+        },
+        {
+          "op": "replace",
+          "path": "/profiles/llm_fallback/model_id",
+          "value": "synthetic-extraction-model"
+        }
+      ],
+      "expected_stage": "cross_field",
+      "expected_rule_id": "POL-VAL-008",
+      "expected_safe_error_code": "AI_POLICY_ROUTE_GRAPH_INVALID",
+      "expected_reason": "adapter_id, endpoint_id, and model_id must be unique as a tuple."
+    },
+    {
+      "id": "NEG-POL-011-external-http",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/profiles/llm_extraction_primary/network_scope",
+          "value": "external_public"
+        },
+        {
+          "op": "replace",
+          "path": "/profiles/llm_extraction_primary/billing_mode",
+          "value": "external_usd"
+        }
+      ],
+      "expected_stage": "schema",
+      "expected_rule_id": "POL-VAL-004",
+      "expected_safe_error_code": "AI_POLICY_SCHEMA_INVALID",
+      "expected_reason": "An external Profile requires an https base_url and metered fail-closed budget semantics."
+    },
+    {
+      "id": "NEG-POL-012-hostname-mismatch",
+      "mutation": {
+        "op": "replace",
+        "path": "/profiles/llm_extraction_primary/approved_hostnames/0",
+        "value": "different-synthetic-host"
+      },
+      "expected_stage": "cross_field",
+      "expected_rule_id": "POL-VAL-009",
+      "expected_safe_error_code": "AI_POLICY_HOST_INVALID",
+      "expected_reason": "base_url hostname must equal an approved normalized hostname."
+    },
+    {
+      "id": "NEG-POL-013-noncanonical-cidr",
+      "mutation": {
+        "op": "replace",
+        "path": "/profiles/llm_extraction_primary/allowed_cidrs/0",
+        "value": "10.250.1.7/24"
+      },
+      "expected_stage": "network_registry",
+      "expected_rule_id": "POL-VAL-010",
+      "expected_safe_error_code": "AI_POLICY_CIDR_NOT_CANONICAL",
+      "expected_reason": "CIDRs must use masked canonical network form."
+    },
+    {
+      "id": "NEG-POL-014-denied-cidr-overlap",
+      "mutation": {
+        "op": "replace",
+        "path": "/profiles/llm_extraction_primary/allowed_cidrs/0",
+        "value": "127.0.0.0/8"
+      },
+      "expected_stage": "network_registry",
+      "expected_rule_id": "POL-VAL-011",
+      "expected_safe_error_code": "AI_POLICY_NETWORK_SCOPE_INVALID",
+      "expected_reason": "An allowed range must not overlap any versioned deny range."
+    },
+    {
+      "id": "NEG-POL-015-unsorted-array",
+      "mutation": {
+        "op": "replace",
+        "path": "/profiles/llm_fallback/approved_hostnames",
+        "value": [
+          "synthetic-fallback",
+          "aaa-synthetic-host"
+        ]
+      },
+      "expected_stage": "cross_field",
+      "expected_rule_id": "POL-VAL-007",
+      "expected_safe_error_code": "AI_POLICY_ARRAY_NOT_CANONICAL",
+      "expected_reason": "Canonical arrays must arrive in UTF-16 code-unit order and are never silently reordered."
+    },
+    {
+      "id": "NEG-POL-016-provider-calls-enabled",
+      "mutation": {
+        "op": "replace",
+        "path": "/provider_calls_enabled",
+        "value": true
+      },
+      "expected_stage": "schema",
+      "expected_rule_id": "POL-VAL-004",
+      "expected_safe_error_code": "AI_POLICY_SCHEMA_INVALID",
+      "expected_reason": "This approved offline artifact fixes provider calls to false."
+    },
+    {
+      "id": "NEG-POL-016a-duplicate-array-member",
+      "mutation": {
+        "op": "add",
+        "path": "/profiles/llm_extraction_primary/allowed_response_model_ids/2",
+        "value": "synthetic-extraction-model-v1"
+      },
+      "expected_stage": "schema",
+      "expected_rule_id": "POL-VAL-004",
+      "expected_safe_error_code": "AI_POLICY_SCHEMA_INVALID",
+      "expected_reason": "Canonical Policy arrays cannot contain duplicate members."
+    },
+    {
+      "id": "NEG-POL-017-registry-hash-mismatch",
+      "mutation": {
+        "op": "replace",
+        "path": "/outbound_limits/ip_deny_registry_sha256",
+        "value": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected_stage": "schema",
+      "expected_rule_id": "POL-VAL-004",
+      "expected_safe_error_code": "AI_POLICY_SCHEMA_INVALID",
+      "expected_reason": "The Policy must pin the exact deny-registry content hash."
+    },
+    {
+      "id": "NEG-POL-018-duplicate-source-key",
+      "source_text": "{\"policy_version\":1,\"policy_version\":1}",
+      "expected_stage": "raw_parse",
+      "expected_rule_id": "POL-VAL-001",
+      "expected_safe_error_code": "AI_POLICY_SOURCE_INVALID",
+      "expected_reason": "Duplicate object keys are rejected before schema validation and JCS."
+    }
+  ]
+}

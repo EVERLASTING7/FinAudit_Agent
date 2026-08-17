@@ -1,0 +1,278 @@
+{
+  "validator_contract_version": 1,
+  "validator_id": "finaudit-ai-policy-v1-companion",
+  "description": "Normative deterministic checks that Draft 2020-12 JSON Schema cannot express. Implementations must execute these rules without DNS, sockets, environment defaults, or secret resolution.",
+  "inputs": {
+    "raw_policy_bytes": "required UTF-8 byte string",
+    "validation_target": [
+      "final_envelope",
+      "pre_hash_payload"
+    ],
+    "policy_schema_file": "ai-policy-v1.schema.json",
+    "registry_file": "ip-deny-cidrs-v1.json"
+  },
+  "result": {
+    "accepted": "boolean",
+    "stage": [
+      "raw_parse",
+      "source_number",
+      "envelope_context",
+      "schema",
+      "registry_integrity",
+      "hash",
+      "cross_field",
+      "network_registry",
+      "complete"
+    ],
+    "rule_id": "rule identifier or null on success",
+    "safe_error_code": "fixed code or null on success",
+    "detail": "must not contain raw input, credentials, endpoint responses, or business content"
+  },
+  "execution_order": [
+    "POL-VAL-001",
+    "POL-VAL-002",
+    "POL-VAL-003",
+    "POL-VAL-004",
+    "POL-VAL-005",
+    "POL-VAL-006",
+    "POL-VAL-007",
+    "POL-VAL-008",
+    "POL-VAL-009",
+    "POL-VAL-010",
+    "POL-VAL-011",
+    "POL-VAL-012"
+  ],
+  "rules": [
+    {
+      "rule_id": "POL-VAL-001",
+      "stage": "raw_parse",
+      "algorithm": "strict_json_source_v1",
+      "parameters": {
+        "encoding": "UTF-8",
+        "bom_allowed": false,
+        "duplicate_object_keys": "reject",
+        "lone_surrogates": "reject",
+        "non_finite_numbers": "reject"
+      },
+      "failure_code": "AI_POLICY_SOURCE_INVALID"
+    },
+    {
+      "rule_id": "POL-VAL-002",
+      "stage": "source_number",
+      "algorithm": "schema_guided_integer_token_v1",
+      "parameters": {
+        "discover_integer_paths_from": "resolved ai-policy-v1.schema.json branch selected by validation_target",
+        "accepted_token_regex": "^(?:0|[1-9][0-9]*)$",
+        "boolean_is_integer": false,
+        "string_coercion": false,
+        "maximum": 9007199254740991
+      },
+      "failure_code": "AI_POLICY_INTEGER_TOKEN_INVALID"
+    },
+    {
+      "rule_id": "POL-VAL-003",
+      "stage": "envelope_context",
+      "algorithm": "exact_top_level_projection_v1",
+      "parameters": {
+        "final_envelope_requires": [
+          "policy_hash"
+        ],
+        "pre_hash_payload_forbids": [
+          "policy_hash"
+        ],
+        "pre_hash_projection": "remove exactly the top-level policy_hash member from a final envelope"
+      },
+      "failure_code": "AI_POLICY_ENVELOPE_INVALID"
+    },
+    {
+      "rule_id": "POL-VAL-004",
+      "stage": "schema",
+      "algorithm": "json_schema_draft_2020_12_v1",
+      "parameters": {
+        "schema_file": "ai-policy-v1.schema.json",
+        "format_assertions": false,
+        "unknown_keywords": "annotations_only"
+      },
+      "failure_code": "AI_POLICY_SCHEMA_INVALID"
+    },
+    {
+      "rule_id": "POL-VAL-005",
+      "stage": "registry_integrity",
+      "algorithm": "pinned_registry_bytes_v1",
+      "parameters": {
+        "registry_file": "ip-deny-cidrs-v1.json",
+        "version_pointer": "/outbound_limits/ip_deny_registry_version",
+        "sha256_pointer": "/outbound_limits/ip_deny_registry_sha256",
+        "profile_version_pointer_pattern": "/profiles/*/address_policy_version",
+        "sha256_encoding": "lowercase_hex"
+      },
+      "failure_code": "AI_POLICY_REGISTRY_MISMATCH"
+    },
+    {
+      "rule_id": "POL-VAL-006",
+      "stage": "hash",
+      "algorithm": "rfc8785_sha256_final_envelope_v1",
+      "parameters": {
+        "applies_when": "validation_target=final_envelope",
+        "projection": "remove exactly /policy_hash",
+        "canonicalization": "RFC 8785 JCS",
+        "digest": "SHA-256",
+        "comparison": "64 lowercase hexadecimal characters, byte-for-byte"
+      },
+      "failure_code": "AI_POLICY_HASH_MISMATCH"
+    },
+    {
+      "rule_id": "POL-VAL-007",
+      "stage": "cross_field",
+      "algorithm": "utf16_sorted_unique_arrays_v1",
+      "parameters": {
+        "pointer_patterns": [
+          "/profiles/*/allowed_response_model_ids",
+          "/profiles/*/approved_hostnames",
+          "/profiles/*/capabilities"
+        ],
+        "sort_key": "unsigned UTF-16 code units",
+        "minimum_items": 1,
+        "duplicates": "reject",
+        "silent_reorder": false
+      },
+      "failure_code": "AI_POLICY_ARRAY_NOT_CANONICAL"
+    },
+    {
+      "rule_id": "POL-VAL-008",
+      "stage": "cross_field",
+      "algorithm": "profile_identity_and_route_graph_v1",
+      "parameters": {
+        "adapter_mapping": {
+          "openai-chat-completions-v1": "openai_chat_completions_v1",
+          "openai-embeddings-v1": "openai_embeddings_v1"
+        },
+        "operation_capabilities": {
+          "contract_field_extraction": "llm_extraction",
+          "embedding": "embedding",
+          "invoice_field_extraction": "llm_extraction",
+          "rag_answer": "llm_generation",
+          "report_draft": "llm_generation",
+          "risk_explanation": "llm_generation"
+        },
+        "all_route_references_must_resolve": true,
+        "primary_and_fallback_must_differ": true,
+        "all_profiles_must_be_referenced": true,
+        "unique_target_tuple": [
+          "adapter_id",
+          "endpoint_id",
+          "model_id"
+        ],
+        "report_fallback_consistency": "false implies max_attempts=2 and null fallback; true implies max_attempts=3 and non-null fallback"
+      },
+      "failure_code": "AI_POLICY_ROUTE_GRAPH_INVALID"
+    },
+    {
+      "rule_id": "POL-VAL-009",
+      "stage": "cross_field",
+      "algorithm": "canonical_hostname_and_url_binding_v1",
+      "parameters": {
+        "hostname_ascii_only": true,
+        "hostname_lowercase_only": true,
+        "trailing_dot": "reject",
+        "empty_label": "reject",
+        "idna_xn_label": "reject",
+        "ip_literal": "reject",
+        "label_regex": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+        "maximum_hostname_length": 253,
+        "port_range": [
+          1,
+          65535
+        ],
+        "base_url_hostname_must_be_member_of": "approved_hostnames",
+        "external_public_scheme": "https",
+        "internal_service_schemes": [
+          "http",
+          "https"
+        ]
+      },
+      "failure_code": "AI_POLICY_HOST_INVALID"
+    },
+    {
+      "rule_id": "POL-VAL-010",
+      "stage": "network_registry",
+      "algorithm": "canonical_cidr_set_v1",
+      "parameters": {
+        "parser": "IPv4Network or IPv6Network with strict=true",
+        "serialization": "standard IPv4 or lowercase RFC 5952 IPv6 network/prefix",
+        "input_must_equal_serialization": true,
+        "sort_key": [
+          "ip_version",
+          "unsigned_network_integer",
+          "prefix_length"
+        ],
+        "duplicates": "reject",
+        "semantic_overlap": "reject",
+        "wildcards": [
+          "0.0.0.0/0",
+          "::/0"
+        ],
+        "silent_normalization": false
+      },
+      "failure_code": "AI_POLICY_CIDR_NOT_CANONICAL"
+    },
+    {
+      "rule_id": "POL-VAL-011",
+      "stage": "network_registry",
+      "algorithm": "network_scope_registry_membership_v1",
+      "parameters": {
+        "external_public": "reject any allowed_cidrs overlap with any registry entry",
+        "internal_service": "every allowed CIDR must be contained by an app_network_eligible entry and must not overlap loopback, link_local, metadata, or wildcard ranges",
+        "ipv4_mapped_ipv6": "normalize to IPv4 before evaluation"
+      },
+      "failure_code": "AI_POLICY_NETWORK_SCOPE_INVALID"
+    },
+    {
+      "rule_id": "POL-VAL-012",
+      "stage": "complete",
+      "algorithm": "accept_if_all_prior_rules_pass_v1",
+      "parameters": {
+        "default": "fail_closed",
+        "network_calls": false,
+        "secret_resolution": false
+      },
+      "failure_code": null
+    }
+  ],
+  "fixed_validation_entrypoints": [
+    {
+      "entry_id": "POL-ENTRY-001-final-positive",
+      "input_file": "ai-policy-v1.positive.json",
+      "validation_target": "final_envelope",
+      "expected": {
+        "accepted": true,
+        "stage": "complete",
+        "rule_id": null,
+        "safe_error_code": null
+      }
+    },
+    {
+      "entry_id": "POL-ENTRY-002-prehash-positive",
+      "input_file": "ai-policy-v1.prehash.jcs.json",
+      "validation_target": "pre_hash_payload",
+      "expected": {
+        "accepted": true,
+        "stage": "complete",
+        "rule_id": null,
+        "safe_error_code": null
+      }
+    },
+    {
+      "entry_id": "POL-ENTRY-003-negative-manifest",
+      "input_file": "ai-policy-v1.negative-vectors.json",
+      "validation_target_source": "case.validation_target when present, otherwise final_envelope",
+      "expected": {
+        "accepted_cases": 0,
+        "rejected_cases": "all",
+        "stage": "must equal each case.expected_stage",
+        "rule_id": "must equal each case.expected_rule_id",
+        "safe_error_code": "must equal each case.expected_safe_error_code"
+      }
+    }
+  ]
+}

@@ -1,0 +1,279 @@
+{
+  "policy_version": 1,
+  "policy_hash": "db946ad109baf5ec84455a2d0a09ce5e29602c0d9f9ce8404901f5c63683443d",
+  "provider_calls_enabled": false,
+  "profiles": {
+    "embedding_primary": {
+      "profile_type": "openai-embeddings-v1",
+      "adapter_id": "openai_embeddings_v1",
+      "endpoint_id": "synthetic-internal-embedding-001",
+      "network_scope": "internal_service",
+      "base_url": "http://synthetic-embedding:8003/v1",
+      "approved_hostnames": [
+        "synthetic-embedding"
+      ],
+      "allowed_cidrs": [
+        "10.250.4.0/24"
+      ],
+      "address_policy_version": "ip-deny-cidrs-v1",
+      "capabilities": [
+        "embedding"
+      ],
+      "model_id": "synthetic-embedding-model",
+      "model_version": "synthetic-embedding-v1",
+      "allowed_response_model_ids": [
+        "synthetic-embedding-model",
+        "synthetic-embedding-model-v1"
+      ],
+      "auth_scheme": "bearer",
+      "secret_slot": "SYNTHETIC_EMBEDDING_API_KEY",
+      "context_window_tokens": 32768,
+      "tokenizer_id": "synthetic-embedding-tokenizer-v1",
+      "tokenizer_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+      "embedding_dimension": 1024,
+      "pricing_version": "synthetic-internal-pricing-v1",
+      "billing_mode": "internal_unmetered",
+      "input_price_micro_usd_per_million": 0,
+      "output_price_micro_usd_per_million": 0,
+      "redis_unavailable_mode": "process_local_restricted"
+    },
+    "llm_extraction_primary": {
+      "profile_type": "openai-chat-completions-v1",
+      "adapter_id": "openai_chat_completions_v1",
+      "endpoint_id": "synthetic-internal-extraction-001",
+      "network_scope": "internal_service",
+      "base_url": "http://synthetic-extraction:8000/v1",
+      "approved_hostnames": [
+        "synthetic-extraction"
+      ],
+      "allowed_cidrs": [
+        "10.250.1.0/24"
+      ],
+      "address_policy_version": "ip-deny-cidrs-v1",
+      "capabilities": [
+        "llm_extraction"
+      ],
+      "model_id": "synthetic-extraction-model",
+      "model_version": "synthetic-extraction-v1",
+      "allowed_response_model_ids": [
+        "synthetic-extraction-model",
+        "synthetic-extraction-model-v1"
+      ],
+      "auth_scheme": "bearer",
+      "secret_slot": "SYNTHETIC_EXTRACTION_API_KEY",
+      "context_window_tokens": 65536,
+      "tokenizer_id": "synthetic-llm-tokenizer-v1",
+      "tokenizer_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "embedding_dimension": null,
+      "pricing_version": "synthetic-internal-pricing-v1",
+      "billing_mode": "internal_unmetered",
+      "input_price_micro_usd_per_million": 0,
+      "output_price_micro_usd_per_million": 0,
+      "redis_unavailable_mode": "process_local_restricted"
+    },
+    "llm_fallback": {
+      "profile_type": "openai-chat-completions-v1",
+      "adapter_id": "openai_chat_completions_v1",
+      "endpoint_id": "synthetic-internal-fallback-001",
+      "network_scope": "internal_service",
+      "base_url": "http://synthetic-fallback:8002/v1",
+      "approved_hostnames": [
+        "synthetic-fallback"
+      ],
+      "allowed_cidrs": [
+        "10.250.3.0/24"
+      ],
+      "address_policy_version": "ip-deny-cidrs-v1",
+      "capabilities": [
+        "llm_extraction",
+        "llm_generation"
+      ],
+      "model_id": "synthetic-fallback-model",
+      "model_version": "synthetic-fallback-v1",
+      "allowed_response_model_ids": [
+        "synthetic-fallback-model",
+        "synthetic-fallback-model-v1"
+      ],
+      "auth_scheme": "bearer",
+      "secret_slot": "SYNTHETIC_FALLBACK_API_KEY",
+      "context_window_tokens": 65536,
+      "tokenizer_id": "synthetic-llm-tokenizer-v1",
+      "tokenizer_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+      "embedding_dimension": null,
+      "pricing_version": "synthetic-internal-pricing-v1",
+      "billing_mode": "internal_unmetered",
+      "input_price_micro_usd_per_million": 0,
+      "output_price_micro_usd_per_million": 0,
+      "redis_unavailable_mode": "process_local_restricted"
+    },
+    "llm_generation_primary": {
+      "profile_type": "openai-chat-completions-v1",
+      "adapter_id": "openai_chat_completions_v1",
+      "endpoint_id": "synthetic-internal-generation-001",
+      "network_scope": "internal_service",
+      "base_url": "http://synthetic-generation:8001/v1",
+      "approved_hostnames": [
+        "synthetic-generation"
+      ],
+      "allowed_cidrs": [
+        "10.250.2.0/24"
+      ],
+      "address_policy_version": "ip-deny-cidrs-v1",
+      "capabilities": [
+        "llm_generation"
+      ],
+      "model_id": "synthetic-generation-model",
+      "model_version": "synthetic-generation-v1",
+      "allowed_response_model_ids": [
+        "synthetic-generation-model",
+        "synthetic-generation-model-v1"
+      ],
+      "auth_scheme": "bearer",
+      "secret_slot": "SYNTHETIC_GENERATION_API_KEY",
+      "context_window_tokens": 65536,
+      "tokenizer_id": "synthetic-llm-tokenizer-v1",
+      "tokenizer_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "embedding_dimension": null,
+      "pricing_version": "synthetic-internal-pricing-v1",
+      "billing_mode": "internal_unmetered",
+      "input_price_micro_usd_per_million": 0,
+      "output_price_micro_usd_per_million": 0,
+      "redis_unavailable_mode": "process_local_restricted"
+    }
+  },
+  "operations": {
+    "contract_field_extraction": {
+      "connect_timeout_seconds": 5,
+      "deadline_seconds": 120,
+      "max_attempts": 3,
+      "max_same_target_attempts": 2,
+      "max_provider_attempts_per_business_operation": 6,
+      "max_model_repairs": 2,
+      "max_input_tokens_per_request": 32768,
+      "max_output_tokens_per_request": 2500,
+      "max_total_tokens": 212000,
+      "max_cost_micro_usd": 500000,
+      "report_use_fallback": false,
+      "primary_profile_id": "llm_extraction_primary",
+      "fallback_profile_id": "llm_fallback"
+    },
+    "embedding": {
+      "connect_timeout_seconds": 5,
+      "deadline_seconds": 30,
+      "max_attempts": 3,
+      "max_same_target_attempts": 3,
+      "max_provider_attempts_per_business_operation": 3,
+      "max_model_repairs": 0,
+      "max_input_tokens_per_request": 16384,
+      "max_output_tokens_per_request": 0,
+      "max_total_tokens": 50000,
+      "max_cost_micro_usd": 50000,
+      "report_use_fallback": false,
+      "primary_profile_id": "embedding_primary",
+      "fallback_profile_id": null
+    },
+    "invoice_field_extraction": {
+      "connect_timeout_seconds": 5,
+      "deadline_seconds": 60,
+      "max_attempts": 3,
+      "max_same_target_attempts": 2,
+      "max_provider_attempts_per_business_operation": 6,
+      "max_model_repairs": 2,
+      "max_input_tokens_per_request": 16384,
+      "max_output_tokens_per_request": 2500,
+      "max_total_tokens": 114000,
+      "max_cost_micro_usd": 250000,
+      "report_use_fallback": false,
+      "primary_profile_id": "llm_extraction_primary",
+      "fallback_profile_id": "llm_fallback"
+    },
+    "rag_answer": {
+      "connect_timeout_seconds": 5,
+      "deadline_seconds": 90,
+      "max_attempts": 3,
+      "max_same_target_attempts": 2,
+      "max_provider_attempts_per_business_operation": 6,
+      "max_model_repairs": 2,
+      "max_input_tokens_per_request": 16384,
+      "max_output_tokens_per_request": 1800,
+      "max_total_tokens": 110000,
+      "max_cost_micro_usd": 250000,
+      "report_use_fallback": false,
+      "primary_profile_id": "llm_generation_primary",
+      "fallback_profile_id": "llm_fallback"
+    },
+    "report_draft": {
+      "connect_timeout_seconds": 5,
+      "deadline_seconds": 90,
+      "max_attempts": 2,
+      "max_same_target_attempts": 2,
+      "max_provider_attempts_per_business_operation": 6,
+      "max_model_repairs": 2,
+      "max_input_tokens_per_request": 16384,
+      "max_output_tokens_per_request": 3000,
+      "max_total_tokens": 117000,
+      "max_cost_micro_usd": 250000,
+      "report_use_fallback": false,
+      "primary_profile_id": "llm_generation_primary",
+      "fallback_profile_id": null
+    },
+    "risk_explanation": {
+      "connect_timeout_seconds": 5,
+      "deadline_seconds": 60,
+      "max_attempts": 3,
+      "max_same_target_attempts": 2,
+      "max_provider_attempts_per_business_operation": 6,
+      "max_model_repairs": 2,
+      "max_input_tokens_per_request": 16384,
+      "max_output_tokens_per_request": 1600,
+      "max_total_tokens": 108000,
+      "max_cost_micro_usd": 250000,
+      "report_use_fallback": false,
+      "primary_profile_id": "llm_generation_primary",
+      "fallback_profile_id": "llm_fallback"
+    }
+  },
+  "retry": {
+    "backoff_base_seconds": 1,
+    "backoff_multiplier": 2,
+    "backoff_max_seconds": 30,
+    "jitter_ratio": 0.2,
+    "jitter_algorithm": "symmetric-uniform-cap-v1",
+    "read_idle_timeout_seconds": 30,
+    "min_processing_margin_seconds": 1
+  },
+  "breaker": {
+    "failures": 5,
+    "window_seconds": 60,
+    "open_seconds": 30,
+    "half_open_probes": 1
+  },
+  "rate_limits": {
+    "rag": {
+      "concurrency": 2,
+      "rpm": 12,
+      "tpm": 100000,
+      "burst": 2
+    },
+    "async_generation": {
+      "concurrency": 4,
+      "rpm": 30,
+      "tpm": 250000,
+      "burst": 4
+    },
+    "embedding": {
+      "concurrency": 2,
+      "rpm": 30,
+      "tpm": 500000,
+      "burst": 2
+    }
+  },
+  "outbound_limits": {
+    "max_request_bytes": 4194304,
+    "max_response_header_bytes": 65536,
+    "max_chat_decompressed_bytes": 2097152,
+    "max_embedding_decompressed_bytes": 4194304,
+    "ip_deny_registry_version": "ip-deny-cidrs-v1",
+    "ip_deny_registry_sha256": "628dbf127cf3e88095c479cd8a6a03e87ece7e7f0977856357269579188eca34"
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "registry_version": "file-handler-registry-v2",
+  "handlers": [
+    {
+      "job_type": "file_process",
+      "input_schema_version": 1,
+      "input_schema_id": "file.input.v1",
+      "input_schema_sha256": "b36720ab2c3cd6d312ebf961164179cd3c59ea117a036cf0ed58647b6914e81b",
+      "handler_code_version": "file-process-handler-v2",
+      "logical_queue": "document",
+      "max_attempts": 3,
+      "retry_scopes": [
+        {"scope_code": "all", "start_step_code": "scan"},
+        {"scope_code": "parse_only", "start_step_code": "parse"}
+      ],
+      "steps": [
+        {
+          "step_code": "scan",
+          "summary_schema_id": "file.summary.scan.v1",
+          "summary_schema_sha256": "c8fd865d11473d444d1d63120dea71a2b7f7b9cffa13c4883cf0c9be058de52c"
+        },
+        {
+          "step_code": "parse",
+          "summary_schema_id": "file.summary.parse.v1",
+          "summary_schema_sha256": "cba90db7aacf03a05fd19ada6c6f62509f586e691f7d88fb293de73484b22bf5"
+        },
+        {
+          "step_code": "markdown",
+          "summary_schema_id": "file.summary.markdown.v1",
+          "summary_schema_sha256": "73b5c54c05de69be77fde010e653603479e2526f32ea4b872bd887da09aa2cc7"
+        }
+      ]
+    },
+    {
+      "job_type": "file_scan",
+      "input_schema_version": 1,
+      "input_schema_id": "file.input.v1",
+      "input_schema_sha256": "b36720ab2c3cd6d312ebf961164179cd3c59ea117a036cf0ed58647b6914e81b",
+      "handler_code_version": "file-scan-handler-v1",
+      "logical_queue": "document",
+      "max_attempts": 3,
+      "retry_scopes": [
+        {"scope_code": "all", "start_step_code": "scan"}
+      ],
+      "steps": [
+        {
+          "step_code": "scan",
+          "summary_schema_id": "file.summary.scan.v1",
+          "summary_schema_sha256": "c8fd865d11473d444d1d63120dea71a2b7f7b9cffa13c4883cf0c9be058de52c"
+        }
+      ]
+    }
+  ]
+}

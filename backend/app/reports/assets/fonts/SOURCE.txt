@@ -1,0 +1,25 @@
+Source: Android Open Source Project platform/frameworks/base
+Ref: refs/tags/android-15.0.0_r25
+Directory: data/fonts
+Repository: https://android.googlesource.com/platform/frameworks/base
+Retrieved: 2026-08-13
+
+DroidSansMono.ttf
+  URL: https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r25/data/fonts/DroidSansMono.ttf?format=TEXT
+  Bytes: 108128
+  SHA-256: db19a1fdaba41cc4a2fec0330e5c15e71c6dd68a3ef074f4f28268828b45c862
+DroidSansFallback.ttf
+  URL: https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r25/data/fonts/DroidSansFallback.ttf?format=TEXT
+  Bytes: 3451900
+  SHA-256: 21b96a0377f067833a93af3082eb28d4ffab7a8cd46bfd513286f1d64b7b0949
+NOTICE
+  URL: https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r25/data/fonts/NOTICE?format=TEXT
+  Bytes: 10695
+  SHA-256: 38751245389e1e23f73e6f5384b5cbe7fa972cc4410c5adc9c04b082a0b9561a
+README.txt
+  URL: https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r25/data/fonts/README.txt?format=TEXT
+  Bytes: 692
+  SHA-256: c8b88077052fed912b3f724c0ed230c501cf4e18833af7ca44338d3cd0b093e2
+
+The files are unmodified bytes from the exact tag above. The original NOTICE and
+README.txt are preserved byte-for-byte; this provenance record is an added file.

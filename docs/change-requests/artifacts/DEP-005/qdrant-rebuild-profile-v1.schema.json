@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:dep-005:qdrant-rebuild-profile:v1",
+  "title": "DEP-005 Qdrant rebuild profile v1 candidate schema",
+  "description": "DEP-005-R1 候选 Schema；Qdrant 始终是从 PostgreSQL 事实验证或重建的派生状态。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_version",
+    "recovery_mode",
+    "index_definition_version",
+    "index_definition_sha256",
+    "membership_query_version",
+    "membership_query_sha256",
+    "embedding_model_id",
+    "embedding_model_version",
+    "vector_dimension",
+    "distance_metric",
+    "point_id_derivation_version",
+    "payload_schema_version",
+    "payload_schema_sha256",
+    "expected_point_count",
+    "consistency_hash_algorithm",
+    "fixed_eval_dataset_version",
+    "fixed_eval_dataset_sha256",
+    "network_authorization_required"
+  ],
+  "properties": {
+    "profile_version": {
+      "$ref": "#/$defs/version"
+    },
+    "recovery_mode": {
+      "enum": [
+        "snapshot_restore",
+        "embedding_recompute"
+      ]
+    },
+    "index_definition_version": {
+      "$ref": "#/$defs/version"
+    },
+    "index_definition_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "membership_query_version": {
+      "$ref": "#/$defs/version"
+    },
+    "membership_query_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "embedding_model_id": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "embedding_model_version": {
+      "$ref": "#/$defs/version"
+    },
+    "vector_dimension": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65536
+    },
+    "distance_metric": {
+      "enum": [
+        "Cosine",
+        "Euclid",
+        "Dot",
+        "Manhattan"
+      ]
+    },
+    "point_id_derivation_version": {
+      "$ref": "#/$defs/version"
+    },
+    "payload_schema_version": {
+      "$ref": "#/$defs/version"
+    },
+    "payload_schema_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "expected_point_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "consistency_hash_algorithm": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._+-]{0,127}$"
+    },
+    "fixed_eval_dataset_version": {
+      "$ref": "#/$defs/version"
+    },
+    "fixed_eval_dataset_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "network_authorization_required": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "opaqueId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,255}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+    }
+  }
+}

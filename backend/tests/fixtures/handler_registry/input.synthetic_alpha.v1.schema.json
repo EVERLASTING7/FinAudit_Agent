@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:test:handler-registry:input:synthetic-alpha-v1",
+  "type": "object",
+  "required": ["synthetic_value"],
+  "properties": {
+    "synthetic_value": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,24 @@
+{
+  "registry_version": "report-handler-registry-v1",
+  "handlers": [
+    {
+      "job_type": "report_generate",
+      "input_schema_version": 1,
+      "input_schema_id": "report_generate.input.v1",
+      "input_schema_sha256": "10aeaa07d48edb8eb7f2ceca4b9e4b38670b150444ef7addcf56239353f47afe",
+      "handler_code_version": "report-generate-handler-v1",
+      "logical_queue": "report",
+      "max_attempts": 3,
+      "retry_scopes": [
+        {"scope_code": "all", "start_step_code": "generate"}
+      ],
+      "steps": [
+        {
+          "step_code": "generate",
+          "summary_schema_id": "report_generate.summary.v1",
+          "summary_schema_sha256": "51e18c0b20e61e8768902a4896b537f5068ade7608b4873af166d4a93cd0a5e6"
+        }
+      ]
+    }
+  ]
+}

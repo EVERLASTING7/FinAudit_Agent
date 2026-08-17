@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:worker:summary:file-scan:v1",
+  "type": "object",
+  "required": [
+    "outcome",
+    "scanner_invoked",
+    "adapter_code",
+    "scanner_version",
+    "definition_version"
+  ],
+  "properties": {
+    "outcome": {
+      "enum": ["clean", "infected", "scan_failed", "unsupported", "not_configured"]
+    },
+    "scanner_invoked": {"type": "boolean"},
+    "adapter_code": {"type": ["string", "null"], "maxLength": 64},
+    "scanner_version": {"type": ["string", "null"], "maxLength": 100},
+    "definition_version": {"type": ["string", "null"], "maxLength": 500}
+  },
+  "additionalProperties": false
+}

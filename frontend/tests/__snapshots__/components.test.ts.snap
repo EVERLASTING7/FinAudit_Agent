@@ -1,0 +1,24 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`通用状态组件 > 按文字和标识渲染状态标签快照 1`] = `"<span class="status-tag status-tag-warning" aria-label="状态：需要人工纠错"><span class="status-dot" aria-hidden="true">●</span> 需要人工纠错</span>"`;
+
+exports[`通用状态组件 > 渲染脱敏错误结构和 Trace ID 快照 1`] = `
+"<section class="state-card state-card-error" role="alert"><span class="state-icon" aria-hidden="true">!</span>
+  <div>
+    <h2>保存失败</h2>
+    <p>该对象已被其他用户修改。</p>
+    <dl class="state-details">
+      <div>
+        <dt>错误码</dt>
+        <dd><code>RESOURCE_VERSION_CONFLICT</code></dd>
+      </div>
+      <div>
+        <dt>建议操作</dt>
+        <dd>请查看最新数据后重新提交。</dd>
+      </div>
+    </dl>
+    <div class="trace-id"><span>Trace ID：</span><code>90000000-0000-0000-0000-000000000001</code><button class="button button-secondary button-small" type="button">复制</button><span class="sr-only" role="status" aria-live="polite"></span></div>
+    <!--v-if-->
+  </div>
+</section>"
+`;

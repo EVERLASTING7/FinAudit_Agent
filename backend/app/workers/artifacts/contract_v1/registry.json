@@ -1,0 +1,24 @@
+{
+  "registry_version": "contract-handler-registry-v1",
+  "handlers": [
+    {
+      "job_type": "contract_extract",
+      "input_schema_version": 1,
+      "input_schema_id": "contract_extract.input.v1",
+      "input_schema_sha256": "86d73e4c0086f6e0e7ca8e0b0f62575e13b0b255e6c6501518d99f833af07079",
+      "handler_code_version": "contract-extract-handler-v1",
+      "logical_queue": "extraction",
+      "max_attempts": 3,
+      "retry_scopes": [
+        {"scope_code": "all", "start_step_code": "extract"}
+      ],
+      "steps": [
+        {
+          "step_code": "extract",
+          "summary_schema_id": "contract_extract.summary.v1",
+          "summary_schema_sha256": "cb548b5c6c1578515c2a3c07c2a31b5a7fbbc84e98f1869b6383f02c76615089"
+        }
+      ]
+    }
+  ]
+}

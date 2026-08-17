@@ -1,0 +1,24 @@
+{
+  "registry_version": "audit-handler-registry-v1",
+  "handlers": [
+    {
+      "job_type": "audit_execute",
+      "input_schema_version": 1,
+      "input_schema_id": "audit_execute.input.v1",
+      "input_schema_sha256": "ceb062889d07b5c066897b06da14f8fdbff9dec0f9e4b395af2fb1c11d1454d3",
+      "handler_code_version": "audit-execute-handler-v1",
+      "logical_queue": "audit",
+      "max_attempts": 3,
+      "retry_scopes": [
+        {"scope_code": "all", "start_step_code": "evaluate"}
+      ],
+      "steps": [
+        {
+          "step_code": "evaluate",
+          "summary_schema_id": "audit_execute.summary.v1",
+          "summary_schema_sha256": "3f52ec9ff332a5208fd98920e885715cd8abdf30cce231355293dc688883e871"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:test:handler-registry:input:synthetic-beta-v2",
+  "type": "object",
+  "required": ["synthetic_count"],
+  "properties": {
+    "synthetic_count": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

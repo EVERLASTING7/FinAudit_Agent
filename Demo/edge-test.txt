@@ -1,0 +1,4 @@
+[34688:36880:0805/154522.092:WARNING:chrome\browser\extensions\activity_log\activity_log_policy.cc:71] Scheduling init
+[34688:36880:0805/154522.095:WARNING:chrome\browser\extensions\activity_log\activity_log_policy.cc:71] Scheduling init
+[34688:22876:0805/154522.360:ERROR:chrome\browser\importer\edge_china_browsers\edge_qqbrowser_importer_utils_win.cc:165] QQBrowser user data path not found.
+[34688:36880:0805/154522.639:INFO:CONSOLE:4649] "[ProtocolLaunch] handler constructed; wiring port events.", source: chrome-extension://ndcpkimcihhghdcddljkfmmjccdmcmof/background.rollup.js (4649)

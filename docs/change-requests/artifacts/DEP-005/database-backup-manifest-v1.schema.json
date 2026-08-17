@@ -1,0 +1,501 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:dep-005:database-backup-manifest:v1",
+  "title": "DEP-005 database backup manifest v1 candidate schema",
+  "description": "DEP-005-R1 候选 Schema；不表示 artifact 已生成、已哈希或已批准。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_schema_version",
+    "database_backup_id",
+    "source_environment_id",
+    "backup_profile_version",
+    "encryption_profile_version",
+    "alembic_revision",
+    "application_version",
+    "postgresql_major_version",
+    "snapshot_export_id_hash",
+    "snapshot_txid_snapshot",
+    "snapshot_txid_snapshot_hash",
+    "observed_wal_lsn",
+    "database_system_identifier",
+    "database_timeline_id",
+    "backup_started_at",
+    "backup_completed_at",
+    "tool_name",
+    "tool_version",
+    "format",
+    "plaintext_artifact_sha256",
+    "plaintext_size_bytes",
+    "encrypted_artifact_sha256",
+    "encrypted_size_bytes",
+    "artifact_sha256",
+    "artifact_bucket",
+    "artifact_object_key",
+    "artifact_version_id",
+    "chain_mode",
+    "chain_id",
+    "chain_epoch_utc",
+    "covered_through_utc_date",
+    "last_verified_anchor",
+    "unsealed_tail_range",
+    "inventory_schema_version",
+    "inventory_sha256",
+    "inventory_entry_count",
+    "inventory_artifact_ref"
+  ],
+  "properties": {
+    "manifest_schema_version": {
+      "const": "database-backup-manifest-v1"
+    },
+    "database_backup_id": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "source_environment_id": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "backup_profile_version": {
+      "$ref": "#/$defs/version"
+    },
+    "encryption_profile_version": {
+      "$ref": "#/$defs/version"
+    },
+    "alembic_revision": {
+      "$ref": "#/$defs/version"
+    },
+    "application_version": {
+      "$ref": "#/$defs/version"
+    },
+    "postgresql_major_version": {
+      "type": "integer",
+      "minimum": 10
+    },
+    "snapshot_export_id_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "snapshot_txid_snapshot": {
+      "type": "string",
+      "pattern": "^[0-9]+:[0-9]+:(?:[0-9]+(?:,[0-9]+)*)?$",
+      "maxLength": 8192
+    },
+    "snapshot_txid_snapshot_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "observed_wal_lsn": {
+      "type": "string",
+      "pattern": "^[0-9A-F]+/[0-9A-F]+$",
+      "maxLength": 64
+    },
+    "database_system_identifier": {
+      "type": "string",
+      "pattern": "^[0-9]{1,20}$"
+    },
+    "database_timeline_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "backup_started_at": {
+      "$ref": "#/$defs/utcDateTime"
+    },
+    "backup_completed_at": {
+      "$ref": "#/$defs/utcDateTime"
+    },
+    "tool_name": {
+      "$ref": "#/$defs/token"
+    },
+    "tool_version": {
+      "$ref": "#/$defs/version"
+    },
+    "format": {
+      "enum": [
+        "custom",
+        "directory",
+        "tar",
+        "plain"
+      ]
+    },
+    "plaintext_artifact_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "plaintext_size_bytes": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "encrypted_artifact_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "encrypted_size_bytes": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "artifact_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "artifact_bucket": {
+      "$ref": "#/$defs/bucket"
+    },
+    "artifact_object_key": {
+      "$ref": "#/$defs/objectKey"
+    },
+    "artifact_version_id": {
+      "$ref": "#/$defs/objectVersion"
+    },
+    "chain_mode": {
+      "enum": [
+        "chain_absent",
+        "initialized_unsealed",
+        "sealed"
+      ]
+    },
+    "chain_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/opaqueId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "chain_epoch_utc": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/utcDateTime"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "covered_through_utc_date": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/utcDate"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "last_verified_anchor": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/lastVerifiedAnchor"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "unsealed_tail_range": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/unsealedTailRange"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "inventory_schema_version": {
+      "const": "minio-backup-inventory-v1"
+    },
+    "inventory_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "inventory_entry_count": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "inventory_artifact_ref": {
+      "$ref": "#/$defs/artifactRef"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "chain_mode"
+        ],
+        "properties": {
+          "chain_mode": {
+            "const": "chain_absent"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "chain_id": {
+            "type": "null"
+          },
+          "chain_epoch_utc": {
+            "type": "null"
+          },
+          "covered_through_utc_date": {
+            "type": "null"
+          },
+          "last_verified_anchor": {
+            "type": "null"
+          },
+          "unsealed_tail_range": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "chain_mode"
+        ],
+        "properties": {
+          "chain_mode": {
+            "const": "initialized_unsealed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "chain_id": {
+            "$ref": "#/$defs/opaqueId"
+          },
+          "chain_epoch_utc": {
+            "$ref": "#/$defs/utcDateTime"
+          },
+          "covered_through_utc_date": {
+            "type": "null"
+          },
+          "last_verified_anchor": {
+            "type": "null"
+          },
+          "unsealed_tail_range": {
+            "$ref": "#/$defs/unsealedTailRange"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "chain_mode"
+        ],
+        "properties": {
+          "chain_mode": {
+            "const": "sealed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "chain_id": {
+            "$ref": "#/$defs/opaqueId"
+          },
+          "chain_epoch_utc": {
+            "$ref": "#/$defs/utcDateTime"
+          },
+          "covered_through_utc_date": {
+            "$ref": "#/$defs/utcDate"
+          },
+          "last_verified_anchor": {
+            "$ref": "#/$defs/lastVerifiedAnchor"
+          },
+          "unsealed_tail_range": {
+            "$ref": "#/$defs/unsealedTailRange"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "opaqueId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+    },
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$"
+    },
+    "utcDate": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "bucket": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$",
+      "maxLength": 63
+    },
+    "objectKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "objectVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bucket",
+        "object_key",
+        "version_id"
+      ],
+      "properties": {
+        "bucket": {
+          "$ref": "#/$defs/bucket"
+        },
+        "object_key": {
+          "$ref": "#/$defs/objectKey"
+        },
+        "version_id": {
+          "$ref": "#/$defs/objectVersion"
+        }
+      }
+    },
+    "logCursor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "created_at",
+        "id"
+      ],
+      "properties": {
+        "created_at": {
+          "$ref": "#/$defs/utcDateTime"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      }
+    },
+    "lastVerifiedAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chain_id",
+        "utc_date",
+        "day_anchor_sha256",
+        "chain_manifest_sha256",
+        "object_version_id"
+      ],
+      "properties": {
+        "chain_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "utc_date": {
+          "$ref": "#/$defs/utcDate"
+        },
+        "day_anchor_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "chain_manifest_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "object_version_id": {
+          "$ref": "#/$defs/objectVersion"
+        }
+      }
+    },
+    "unsealedTailRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_utc_date",
+        "snapshot_txid_snapshot_hash",
+        "row_count",
+        "first_log",
+        "last_log"
+      ],
+      "properties": {
+        "start_utc_date": {
+          "$ref": "#/$defs/utcDate"
+        },
+        "snapshot_txid_snapshot_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "row_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "first_log": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/logCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_log": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/logCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "row_count"
+            ],
+            "properties": {
+              "row_count": {
+                "const": 0
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "first_log": {
+                "type": "null"
+              },
+              "last_log": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "row_count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "first_log": {
+                "$ref": "#/$defs/logCursor"
+              },
+              "last_log": {
+                "$ref": "#/$defs/logCursor"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:worker:summary:file-parse:v1",
+  "type": "object",
+  "required": [
+    "parse_version_id",
+    "page_count",
+    "parser_name",
+    "parser_version",
+    "ocr_name",
+    "ocr_version"
+  ],
+  "properties": {
+    "parse_version_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "page_count": {"type": "integer", "minimum": 1},
+    "parser_name": {"type": "string", "minLength": 1, "maxLength": 100},
+    "parser_version": {"type": "string", "minLength": 1, "maxLength": 100},
+    "ocr_name": {"type": ["string", "null"], "maxLength": 100},
+    "ocr_version": {"type": ["string", "null"], "maxLength": 100}
+  },
+  "additionalProperties": false
+}

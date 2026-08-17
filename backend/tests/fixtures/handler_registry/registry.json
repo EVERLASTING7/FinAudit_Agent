@@ -1,0 +1,53 @@
+{
+  "registry_version": "synthetic-registry-v1",
+  "handlers": [
+    {
+      "job_type": "synthetic_alpha",
+      "input_schema_version": 1,
+      "input_schema_id": "synthetic.input.alpha.v1",
+      "input_schema_sha256": "879b4596adb5184d093167711d89e12634b20d2b7c60149944aad6eb79266ecc",
+      "handler_code_version": "synthetic-alpha-handler-v1",
+      "logical_queue": "maintenance",
+      "max_attempts": 3,
+      "retry_scopes": [
+        {
+          "scope_code": "synthetic_all",
+          "start_step_code": "synthetic_prepare"
+        },
+        {
+          "scope_code": "synthetic_tail",
+          "start_step_code": "synthetic_finish"
+        }
+      ],
+      "steps": [
+        {
+          "step_code": "synthetic_prepare",
+          "summary_schema_id": "synthetic.summary.common.v1",
+          "summary_schema_sha256": "d11ca2743837a69fd9c157428a5bb035edbb465733c50b53b50aec95fa5c4033"
+        },
+        {
+          "step_code": "synthetic_finish",
+          "summary_schema_id": "synthetic.summary.final.v1",
+          "summary_schema_sha256": "3068412a2645ca8e1a0399cd2e40b912ab4d89fbbe4630d291465abacbf43962"
+        }
+      ]
+    },
+    {
+      "job_type": "synthetic_beta",
+      "input_schema_version": 2,
+      "input_schema_id": "synthetic.input.beta.v2",
+      "input_schema_sha256": "f9be31619d3181923f1fe4a460d3d3511e3d86533d0a213ecb1fb3c283098d2c",
+      "handler_code_version": "synthetic-beta-handler-v1",
+      "logical_queue": "maintenance",
+      "max_attempts": 1,
+      "retry_scopes": [],
+      "steps": [
+        {
+          "step_code": "synthetic_only",
+          "summary_schema_id": "synthetic.summary.common.v1",
+          "summary_schema_sha256": "d11ca2743837a69fd9c157428a5bb035edbb465733c50b53b50aec95fa5c4033"
+        }
+      ]
+    }
+  ]
+}

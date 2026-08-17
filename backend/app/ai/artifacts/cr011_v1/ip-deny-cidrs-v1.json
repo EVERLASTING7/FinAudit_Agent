@@ -1,0 +1,196 @@
+{
+  "registry_version": "ip-deny-cidrs-v1",
+  "source_baseline": {
+    "version": "cr-011-r1-special-purpose-2026-08-07",
+    "mode": "frozen contract snapshot; no runtime or validation-time network lookup",
+    "normative_references": [
+      "IANA IPv4 Special-Purpose Address Space registry",
+      "IANA IPv6 Special-Purpose Address Space registry",
+      "RFC 6890 Special-Purpose IP Address Registries"
+    ],
+    "selection_rule": "Conservative P0 outbound deny set plus explicit RFC1918 and ULA app-network eligibility; changes require a new registry version and CR."
+  },
+  "canonicalization": {
+    "parser": "RFC 4632 IPv4 and RFC 4291 IPv6 CIDR with strict network address",
+    "serialization": "lowercase compressed canonical network/prefix",
+    "sort": "IPv4 before IPv6, then network-address integer ascending, then prefix-length ascending",
+    "matching": "normalize IPv4-mapped IPv6 to IPv4 before lookup; external_public rejects containment by any entry; internal_service requires containment by app_network_eligible and rejects loopback, link_local, metadata, or wildcard ranges"
+  },
+  "entries": [
+    {
+      "cidr": "0.0.0.0/8",
+      "categories": ["reserved"],
+      "reason": "IPv4 this-network range"
+    },
+    {
+      "cidr": "0.0.0.0/32",
+      "categories": ["unspecified"],
+      "reason": "IPv4 unspecified address"
+    },
+    {
+      "cidr": "10.0.0.0/8",
+      "categories": ["app_network_eligible", "private"],
+      "reason": "RFC 1918 private-use range"
+    },
+    {
+      "cidr": "100.64.0.0/10",
+      "categories": ["cgnat"],
+      "reason": "RFC 6598 shared address space"
+    },
+    {
+      "cidr": "100.100.100.200/32",
+      "categories": ["cgnat", "metadata"],
+      "reason": "Cloud metadata endpoint within shared address space"
+    },
+    {
+      "cidr": "127.0.0.0/8",
+      "categories": ["loopback"],
+      "reason": "IPv4 loopback range"
+    },
+    {
+      "cidr": "169.254.0.0/16",
+      "categories": ["link_local"],
+      "reason": "IPv4 link-local range"
+    },
+    {
+      "cidr": "169.254.169.254/32",
+      "categories": ["link_local", "metadata"],
+      "reason": "Common cloud instance metadata endpoint"
+    },
+    {
+      "cidr": "169.254.170.2/32",
+      "categories": ["link_local", "metadata"],
+      "reason": "Common cloud container metadata endpoint"
+    },
+    {
+      "cidr": "172.16.0.0/12",
+      "categories": ["app_network_eligible", "private"],
+      "reason": "RFC 1918 private-use range"
+    },
+    {
+      "cidr": "192.0.0.0/24",
+      "categories": ["reserved"],
+      "reason": "IETF protocol assignments range"
+    },
+    {
+      "cidr": "192.0.0.192/32",
+      "categories": ["metadata", "reserved"],
+      "reason": "Cloud metadata endpoint in IETF protocol space"
+    },
+    {
+      "cidr": "192.0.2.0/24",
+      "categories": ["documentation", "reserved"],
+      "reason": "TEST-NET-1 documentation range"
+    },
+    {
+      "cidr": "192.88.99.0/24",
+      "categories": ["reserved", "transition"],
+      "reason": "Deprecated IPv6-to-IPv4 relay range"
+    },
+    {
+      "cidr": "192.168.0.0/16",
+      "categories": ["app_network_eligible", "private"],
+      "reason": "RFC 1918 private-use range"
+    },
+    {
+      "cidr": "198.18.0.0/15",
+      "categories": ["reserved"],
+      "reason": "Benchmark testing range"
+    },
+    {
+      "cidr": "198.51.100.0/24",
+      "categories": ["documentation", "reserved"],
+      "reason": "TEST-NET-2 documentation range"
+    },
+    {
+      "cidr": "203.0.113.0/24",
+      "categories": ["documentation", "reserved"],
+      "reason": "TEST-NET-3 documentation range"
+    },
+    {
+      "cidr": "224.0.0.0/4",
+      "categories": ["multicast"],
+      "reason": "IPv4 multicast range"
+    },
+    {
+      "cidr": "240.0.0.0/4",
+      "categories": ["reserved"],
+      "reason": "IPv4 reserved and limited-broadcast range"
+    },
+    {
+      "cidr": "::/128",
+      "categories": ["unspecified"],
+      "reason": "IPv6 unspecified address"
+    },
+    {
+      "cidr": "::1/128",
+      "categories": ["loopback"],
+      "reason": "IPv6 loopback address"
+    },
+    {
+      "cidr": "::ffff:0:0/96",
+      "categories": ["reserved", "transition"],
+      "reason": "IPv4-mapped IPv6 range; normalize and re-evaluate as IPv4"
+    },
+    {
+      "cidr": "64:ff9b::/96",
+      "categories": ["reserved", "transition"],
+      "reason": "IPv4/IPv6 translation prefix"
+    },
+    {
+      "cidr": "64:ff9b:1::/48",
+      "categories": ["reserved", "transition"],
+      "reason": "Local-use IPv4/IPv6 translation prefix"
+    },
+    {
+      "cidr": "100::/64",
+      "categories": ["reserved"],
+      "reason": "IPv6 discard-only prefix"
+    },
+    {
+      "cidr": "2001::/32",
+      "categories": ["reserved", "transition"],
+      "reason": "Teredo transition range"
+    },
+    {
+      "cidr": "2001:2::/48",
+      "categories": ["reserved"],
+      "reason": "IPv6 benchmarking range"
+    },
+    {
+      "cidr": "2001:db8::/32",
+      "categories": ["documentation", "reserved"],
+      "reason": "IPv6 documentation range"
+    },
+    {
+      "cidr": "2002::/16",
+      "categories": ["reserved", "transition"],
+      "reason": "Deprecated 6to4 range"
+    },
+    {
+      "cidr": "fc00::/7",
+      "categories": ["app_network_eligible", "private"],
+      "reason": "IPv6 unique-local range"
+    },
+    {
+      "cidr": "fd00:ec2::254/128",
+      "categories": ["metadata", "private"],
+      "reason": "Cloud metadata endpoint within unique-local space"
+    },
+    {
+      "cidr": "fe80::/10",
+      "categories": ["link_local"],
+      "reason": "IPv6 link-local range"
+    },
+    {
+      "cidr": "fe80::a9fe:a9fe/128",
+      "categories": ["link_local", "metadata"],
+      "reason": "IPv6 representation of a common metadata endpoint"
+    },
+    {
+      "cidr": "ff00::/8",
+      "categories": ["multicast"],
+      "reason": "IPv6 multicast range"
+    }
+  ]
+}

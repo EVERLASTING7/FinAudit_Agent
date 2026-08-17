@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:worker:summary:file-markdown:v1",
+  "type": "object",
+  "required": [
+    "outcome",
+    "parse_version_id",
+    "markdown_version_id",
+    "version_no",
+    "content_sha256",
+    "char_count",
+    "source_mapping_count"
+  ],
+  "properties": {
+    "outcome": {"enum": ["active", "reused", "review_required"]},
+    "parse_version_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "markdown_version_id": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "version_no": {"type": ["integer", "null"], "minimum": 1},
+    "content_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "char_count": {"type": ["integer", "null"], "minimum": 1},
+    "source_mapping_count": {"type": "integer", "minimum": 0}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"outcome": {"const": "review_required"}}},
+      "then": {
+        "properties": {
+          "markdown_version_id": {"type": "null"},
+          "version_no": {"type": "null"},
+          "content_sha256": {"type": "null"},
+          "char_count": {"type": "null"},
+          "source_mapping_count": {"const": 0}
+        }
+      },
+      "else": {
+        "properties": {
+          "markdown_version_id": {"type": "string"},
+          "version_no": {"type": "integer", "minimum": 1},
+          "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "char_count": {"type": "integer", "minimum": 1},
+          "source_mapping_count": {"type": "integer", "minimum": 1}
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,429 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dep005-detached-approval-evidence-v1.schema.json",
+  "title": "FinAudit Detached Approval Evidence V1 Schema",
+  "description": "Schema for detached approval evidence. Schema validation alone does not authorize Request synchronization, backup or restore execution, network access, migration release, or production release.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidence_schema_version",
+    "canonicalization_version",
+    "hash_algorithm",
+    "evidence_scope",
+    "approval_id",
+    "approver_role",
+    "approval_payload_sha256",
+    "signature_algorithm",
+    "signature_encoding",
+    "signer_registry_version",
+    "signer_registry_sha256",
+    "key_id",
+    "signature_ref",
+    "signature_sha256",
+    "signed_at"
+  ],
+  "properties": {
+    "evidence_schema_version": {
+      "const": "dep005-detached-approval-evidence-v1"
+    },
+    "canonicalization_version": {
+      "const": "RFC8785-JCS"
+    },
+    "hash_algorithm": {
+      "const": "SHA-256"
+    },
+    "evidence_scope": {
+      "type": "string",
+      "enum": [
+        "source_contract_approver_decision",
+        "joint_approver_decision",
+        "joint_aggregate",
+        "cr004_artifact_approver_decision",
+        "cr010_contract_approver_decision",
+        "provider_environment_approver_decision",
+        "request_sync_authorization_decision"
+      ]
+    },
+    "approval_id": {
+      "$ref": "#/$defs/uuidV4"
+    },
+    "approver_role": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/approverRole"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "approval_payload_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "signature_algorithm": {
+      "type": "string",
+      "enum": [
+        "ed25519",
+        "ecdsa_p256_sha256"
+      ]
+    },
+    "signature_encoding": {
+      "type": "string",
+      "enum": [
+        "raw_64_bytes",
+        "p1363_64_bytes"
+      ]
+    },
+    "signer_registry_version": {
+      "$ref": "#/$defs/version"
+    },
+    "signer_registry_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "key_id": {
+      "$ref": "#/$defs/opaqueName"
+    },
+    "signature_ref": {
+      "$ref": "#/$defs/signatureArtifactRef"
+    },
+    "signature_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "signed_at": {
+      "$ref": "#/$defs/utcTimestamp"
+    }
+  },
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "signature_algorithm": {
+              "const": "ed25519"
+            },
+            "signature_encoding": {
+              "const": "raw_64_bytes"
+            }
+          },
+          "required": [
+            "signature_algorithm",
+            "signature_encoding"
+          ]
+        },
+        {
+          "properties": {
+            "signature_algorithm": {
+              "const": "ecdsa_p256_sha256"
+            },
+            "signature_encoding": {
+              "const": "p1363_64_bytes"
+            }
+          },
+          "required": [
+            "signature_algorithm",
+            "signature_encoding"
+          ]
+        }
+      ]
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_scope": {
+            "const": "source_contract_approver_decision"
+          }
+        },
+        "required": [
+          "evidence_scope"
+        ]
+      },
+      "then": {
+        "properties": {
+          "approver_role": {
+            "$ref": "#/$defs/approverRole"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_scope": {
+            "const": "joint_approver_decision"
+          }
+        },
+        "required": [
+          "evidence_scope"
+        ]
+      },
+      "then": {
+        "properties": {
+          "approver_role": {
+            "$ref": "#/$defs/sharedEightApproverRole"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_scope": {
+            "const": "joint_aggregate"
+          }
+        },
+        "required": [
+          "evidence_scope"
+        ]
+      },
+      "then": {
+        "properties": {
+          "approver_role": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_scope": {
+            "const": "cr004_artifact_approver_decision"
+          }
+        },
+        "required": [
+          "evidence_scope"
+        ]
+      },
+      "then": {
+        "properties": {
+          "approver_role": {
+            "$ref": "#/$defs/sharedEightApproverRole"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_scope": {
+            "const": "cr010_contract_approver_decision"
+          }
+        },
+        "required": [
+          "evidence_scope"
+        ]
+      },
+      "then": {
+        "properties": {
+          "approver_role": {
+            "$ref": "#/$defs/sharedEightApproverRole"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_scope": {
+            "const": "provider_environment_approver_decision"
+          }
+        },
+        "required": [
+          "evidence_scope"
+        ]
+      },
+      "then": {
+        "properties": {
+          "approver_role": {
+            "$ref": "#/$defs/providerApproverRole"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_scope": {
+            "const": "request_sync_authorization_decision"
+          }
+        },
+        "required": [
+          "evidence_scope"
+        ]
+      },
+      "then": {
+        "properties": {
+          "approver_role": {
+            "const": "requirements_product"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "uuidV4": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{6}Z$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "opaqueName": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$"
+    },
+    "bucketName": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+    },
+    "objectKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!\\s)(?!.*\\s$)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))[^\\\\\\u0000-\\u001F\\u007F-\\u009F]+$"
+    },
+    "safeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "approverRole": {
+      "type": "string",
+      "enum": [
+        "requirements_product",
+        "architecture",
+        "data_dba",
+        "backend_api",
+        "frontend_ui",
+        "ai_rag",
+        "ops",
+        "security",
+        "test"
+      ]
+    },
+    "sharedEightApproverRole": {
+      "type": "string",
+      "enum": [
+        "requirements_product",
+        "architecture",
+        "data_dba",
+        "backend_api",
+        "ai_rag",
+        "ops",
+        "security",
+        "test"
+      ]
+    },
+    "providerApproverRole": {
+      "type": "string",
+      "enum": [
+        "requirements_product",
+        "architecture",
+        "ai_rag",
+        "ops",
+        "security"
+      ]
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bucket",
+        "object_key",
+        "version_id",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "bucket": {
+          "$ref": "#/$defs/bucketName"
+        },
+        "object_key": {
+          "$ref": "#/$defs/objectKey"
+        },
+        "version_id": {
+          "$ref": "#/$defs/opaqueName"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/safeInteger"
+        }
+      }
+    },
+    "signatureArtifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bucket",
+        "object_key",
+        "version_id",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "bucket": {
+          "$ref": "#/$defs/bucketName"
+        },
+        "object_key": {
+          "$ref": "#/$defs/objectKey"
+        },
+        "version_id": {
+          "$ref": "#/$defs/opaqueName"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "const": 64
+        }
+      }
+    },
+    "approvalSignerRegistryRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "schema_sha256",
+        "registry_version",
+        "registry_ref",
+        "registry_sha256",
+        "trust_anchor_pin_ref",
+        "trust_anchor_pin_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "approval-signer-registry-v1"
+        },
+        "schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "registry_version": {
+          "$ref": "#/$defs/version"
+        },
+        "registry_ref": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "registry_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "trust_anchor_pin_ref": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "trust_anchor_pin_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

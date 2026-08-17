@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:worker:summary:contract-extract:v1",
+  "type": "object",
+  "required": ["contract_id", "field_count"],
+  "properties": {
+    "contract_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "field_count": {"type": "integer", "minimum": 0, "maximum": 13}
+  },
+  "additionalProperties": false
+}

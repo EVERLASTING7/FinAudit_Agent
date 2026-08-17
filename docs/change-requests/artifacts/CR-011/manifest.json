@@ -1,0 +1,112 @@
+{
+  "manifest_version": 1,
+  "artifact_set": "CR-011-R3-contract-offline-draft",
+  "scope": "contract_offline_only",
+  "integrity": {
+    "algorithm": "SHA-256",
+    "encoding": "lowercase hexadecimal over exact raw file bytes",
+    "manifest_self_hash": "excluded to avoid recursion; the CR approval snapshot records SHA-256 of manifest.json raw bytes"
+  },
+  "validation_composition": {
+    "policy_schema": "ai-policy-v1.schema.json",
+    "policy_companion_validator": "ai-policy-v1.companion-validator.json",
+    "schema_alone_is_complete_validation": false,
+    "complete_policy_validation": "Draft 2020-12 Schema plus every normative companion rule in declared execution order",
+    "network_calls_performed": false,
+    "contains_real_endpoints_or_secrets": false,
+    "fixed_test_provider_authorized": false,
+    "production_authorized": false
+  },
+  "artifacts": [
+    {
+      "path": "ai-call-event-v1.completed-degraded.json",
+      "purpose": "Synthetic sequence-2 degraded completion exercising its explicit conditional branch.",
+      "byte_length": 895,
+      "sha256": "e0dbc8741a5098d5bdb472033d4d6a4f2252d222ef538dcf9ec1967d59e06de2"
+    },
+    {
+      "path": "ai-call-event-v1.completed-failed.json",
+      "purpose": "Synthetic sequence-2 failed completion using the frozen transient error category.",
+      "byte_length": 888,
+      "sha256": "0f14e3b0051c4f60746bbc4067ff44e91645cea621d816236fd5834f089d4120"
+    },
+    {
+      "path": "ai-call-event-v1.completed-outcome-unknown.json",
+      "purpose": "Synthetic authoritative outcome_unknown sequence-2 event at deadline plus reconciliation grace.",
+      "byte_length": 957,
+      "sha256": "bb3a739caf4e1d77d8d98c35891302854c2f59e221920a3c9f142f334c68c6fe"
+    },
+    {
+      "path": "ai-call-event-v1.completed-rejected.json",
+      "purpose": "Synthetic sequence-2 rejected completion using the frozen content_rejected category.",
+      "byte_length": 955,
+      "sha256": "e0ae104994e1f9bd77cc53eb2ba19453f4bf89e4950f5a17ca4ba1e707a78bcd"
+    },
+    {
+      "path": "ai-call-event-v1.completed.json",
+      "purpose": "Synthetic sequence-2 succeeded completion with mandatory usage and terminal evidence.",
+      "byte_length": 1002,
+      "sha256": "bb0d5aeb08bffa5df505a2eb7145efe5f01b380743c537ff47c8dd5bc7b45403"
+    },
+    {
+      "path": "ai-call-event-v1.late.json",
+      "purpose": "Synthetic sequence-3 late-completion evidence after outcome_unknown.",
+      "byte_length": 980,
+      "sha256": "ef146af5d15a2d012ff3c9184a3b9bab123c4693fec4d529e7b2b9cae0f85882"
+    },
+    {
+      "path": "ai-call-event-v1.schema.json",
+      "purpose": "Draft 2020-12 closed discriminated union for started, five-state completed, and late events.",
+      "byte_length": 26594,
+      "sha256": "af81e5c831f7a646becc4082f0d36387bdb23a12d45287519c9f2368093e972f"
+    },
+    {
+      "path": "ai-call-event-v1.started-outcome-unknown.json",
+      "purpose": "Synthetic sequence-1 durable reservation for the outcome_unknown and late chain.",
+      "byte_length": 1585,
+      "sha256": "6508404854be9d70860fbbc346020e4f91369bb5edf53bca926b0b21412c5b6b"
+    },
+    {
+      "path": "ai-call-event-v1.started.json",
+      "purpose": "Synthetic sequence-1 durable reservation for the succeeded completion chain.",
+      "byte_length": 1585,
+      "sha256": "af2ef0f8b79d0bc66efe4724326b82f31fa74ca99f651d3879774e5bb3b9c77f"
+    },
+    {
+      "path": "ai-policy-v1.companion-validator.json",
+      "purpose": "Normative deterministic rules, fixed inputs/results, and entrypoints for Policy checks not expressible by standard JSON Schema.",
+      "byte_length": 9071,
+      "sha256": "10b9b67042060905ad1c7eb0dcd678724be3b01117eb3963332b51b9c626bed3"
+    },
+    {
+      "path": "ai-policy-v1.negative-vectors.json",
+      "purpose": "Twenty-five deterministic fail-closed Policy cases with exact stage, rule, code, and reason.",
+      "byte_length": 12897,
+      "sha256": "0f3bc691b7234281928c44bc61b3ec431536d7fd6daaa4ce3688359c6b44dec9"
+    },
+    {
+      "path": "ai-policy-v1.positive.json",
+      "purpose": "Synthetic final Policy envelope with provider calls disabled and no real environment values.",
+      "byte_length": 9708,
+      "sha256": "da229cdb14bc40df8f6a0731498b0f947ab1f4f28b97a69f28e0f88af27119bb"
+    },
+    {
+      "path": "ai-policy-v1.prehash.jcs.json",
+      "purpose": "Exact RFC 8785 JCS pre-hash bytes with no BOM or trailing newline.",
+      "byte_length": 7569,
+      "sha256": "db946ad109baf5ec84455a2d0a09ce5e29602c0d9f9ce8404901f5c63683443d"
+    },
+    {
+      "path": "ai-policy-v1.schema.json",
+      "purpose": "Draft 2020-12 Schema for final and pre-hash Policy shapes, Profile mapping, and six operations.",
+      "byte_length": 28811,
+      "sha256": "8d583164b46cb2cfa6315efa86491bd6cdc17c818be79dd9c7c274903c9399e3"
+    },
+    {
+      "path": "ip-deny-cidrs-v1.json",
+      "purpose": "Versioned canonical outbound registry for denied special-purpose ranges and internal app-network eligibility.",
+      "byte_length": 5874,
+      "sha256": "628dbf127cf3e88095c479cd8a6a03e87ece7e7f0977856357269579188eca34"
+    }
+  ]
+}

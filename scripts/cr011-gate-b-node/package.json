@@ -1,0 +1,13 @@
+{
+  "name": "finaudit-cr011-gate-b-node",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Test-only independent Draft 2020-12 validator for CR-011 Gate B",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "packageManager": "npm@10.8.2",
+  "devDependencies": {
+    "ajv": "8.20.0"
+  }
+}

@@ -1,0 +1,331 @@
+{
+  "dataset_version": "1.6.0",
+  "synthetic": true,
+  "binary_fixture_contract_version": "1.0.1",
+  "items": [
+    {
+      "id": "DATASET-ACCOUNTS",
+      "file": "tests/fixtures/accounts.json",
+      "sha256": "1E0291EFF2796B970E196D526731A81D6D591AD7D40B88CB223224F3F104BF26",
+      "required_ids": [
+        "ACC-SYSTEM-ADMIN",
+        "ACC-FINANCE-REVIEWER",
+        "ACC-AUDIT-REVIEWER-1",
+        "ACC-AUDIT-REVIEWER-2",
+        "ACC-CONTRACT-ADMIN",
+        "ACC-READ-ONLY",
+        "ACC-DISABLED",
+        "ACC-LOCKED",
+        "ACC-BREAK-GLASS"
+      ]
+    },
+    {
+      "id": "DATASET-CORE-BUSINESS",
+      "file": "tests/fixtures/core_business.json",
+      "sha256": "1BEF6CEDEF9FF7C29F9A1280FE2D971FE001C4954D9709FBE9DA916F6CD7551C",
+      "required_ids": [
+        "C-001",
+        "C-002",
+        "S-001",
+        "I-001",
+        "I-001-DUP",
+        "I-002",
+        "I-003",
+        "P-001-V1",
+        "P-001-V2",
+        "P-INJECT",
+        "DOC-MISSING-SOURCE-MAPPING",
+        "CHUNK-EMPTY-CONTENT",
+        "CHUNK-OVERSIZED-CONTENT"
+      ]
+    },
+    {
+      "id": "DATASET-RETRIEVAL-RET-001",
+      "file": "tests/fixtures/retrieval_ret_001.json",
+      "sha256": "153AEF9792B28604D3480CC882C182299204FC6656BFD296B7A4B6912ABC156F",
+      "required_ids": [
+        "RET-001-01",
+        "RET-001-02",
+        "RET-001-03",
+        "RET-001-04",
+        "RET-001-05"
+      ]
+    },
+    {
+      "id": "DATASET-SECURITY-NEGATIVE",
+      "file": "tests/fixtures/security_negative.json",
+      "sha256": "4161934194996B6D99E57DA1190F4986419A8CAF2BBA3673C23AAA15A1533FA1",
+      "required_ids": [
+        "NEG-NO-ANSWER",
+        "NEG-UNAUTHORIZED",
+        "NEG-DIRECT-PROMPT-INJECTION",
+        "NEG-PROMPT-INJECTION",
+        "NEG-HIDDEN-MARKUP-INSTRUCTION",
+        "NEG-TABLE-CELL-ROLE-OVERRIDE",
+        "NEG-USER-FORGED-CANDIDATE-ID",
+        "NEG-CREDENTIAL-EXFILTRATION",
+        "NEG-RULE-TAMPERING",
+        "NEG-MISSING-TARGET-FIELD",
+        "NEG-CONFLICTING-AMOUNTS",
+        "NEG-FORGED-CITATION"
+      ]
+    }
+  ],
+  "binary_assets": [
+    {
+      "id": "BIN-PDF-SCAN-C001",
+      "file": "tests/fixtures/contract-c001-scan.pdf",
+      "format": "pdf",
+      "declared_mime": "application/pdf",
+      "size_bytes": 149935,
+      "sha256": "F87594E15911604BC19CFB49C3760CDB18084EE6EEB2A87DDBA91E46C56E4097",
+      "synthetic": true,
+      "scenario": "scanned_pdf",
+      "expected_static_result": "accept",
+      "related_fixture_ids": [
+        "C-001"
+      ],
+      "task_ids": [
+        "DOC-002",
+        "TEST-001"
+      ]
+    },
+    {
+      "id": "BIN-PDF-TEXT-P001-V2",
+      "file": "tests/fixtures/policy-p001-v2-text.pdf",
+      "format": "pdf",
+      "declared_mime": "application/pdf",
+      "size_bytes": 25723,
+      "sha256": "C75FAE431EF8FF917D7CC6A1FA56AA83D6EFDE1E9C144BAA89A0706900DFCC94",
+      "synthetic": true,
+      "scenario": "text_pdf",
+      "expected_static_result": "accept",
+      "related_fixture_ids": [
+        "P-001-V2"
+      ],
+      "task_ids": [
+        "DOC-002",
+        "TEST-001"
+      ]
+    },
+    {
+      "id": "BIN-DOCX-COMPLEX-C002",
+      "file": "tests/fixtures/contract-c002-complex.docx",
+      "format": "docx",
+      "declared_mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "size_bytes": 43543,
+      "sha256": "A82110945473EF4AA6C39E0B0A50D7B7859FAC4D23E184A57A8DD3B6D6D309C0",
+      "synthetic": true,
+      "scenario": "docx_complex_structure",
+      "expected_static_result": "accept",
+      "related_fixture_ids": [
+        "C-002"
+      ],
+      "task_ids": [
+        "DOC-003",
+        "TEST-001"
+      ]
+    },
+    {
+      "id": "BIN-DOCX-SUPPLEMENT-S001",
+      "file": "tests/fixtures/supplement-s001.docx",
+      "format": "docx",
+      "declared_mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "size_bytes": 36742,
+      "sha256": "4FC47CAA04EEBE356986EAABFABC60BCE27BB37B5AD24BF0A5094952163CFCB4",
+      "synthetic": true,
+      "scenario": "supplementary_agreement_docx",
+      "expected_static_result": "accept",
+      "related_fixture_ids": [
+        "S-001"
+      ],
+      "task_ids": [
+        "DOC-003",
+        "TEST-001"
+      ]
+    },
+    {
+      "id": "BIN-DOCX-POLICY-P001-V1",
+      "file": "tests/fixtures/policy-p001-v1.docx",
+      "format": "docx",
+      "declared_mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "size_bytes": 36733,
+      "sha256": "A055E34A56825D4331F7E7455759B7292EF8D4396A2EB8D156892EADD5A323C0",
+      "synthetic": true,
+      "scenario": "historical_policy_docx",
+      "expected_static_result": "accept",
+      "related_fixture_ids": [
+        "P-001-V1"
+      ],
+      "task_ids": [
+        "DOC-003",
+        "TEST-001"
+      ]
+    },
+    {
+      "id": "BIN-DOCX-POLICY-PINJECT",
+      "file": "tests/fixtures/policy-pinject.docx",
+      "format": "docx",
+      "declared_mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "size_bytes": 36540,
+      "sha256": "2023D1C0E3BE67C56E37D53967570B4F65A2C3FC0D3F17FDC3DAB84139810D26",
+      "synthetic": true,
+      "scenario": "prompt_injection_policy_docx",
+      "expected_static_result": "accept",
+      "related_fixture_ids": [
+        "P-INJECT"
+      ],
+      "task_ids": [
+        "DOC-003",
+        "TEST-001",
+        "TEST-006"
+      ]
+    },
+    {
+      "id": "BIN-PDF-ENCRYPTED",
+      "file": "tests/fixtures/pdf-encrypted.pdf",
+      "format": "pdf",
+      "declared_mime": "application/pdf",
+      "size_bytes": 13541,
+      "sha256": "837A3EAEB68447935BD0FDEA989C41D794C87320AC9D2912083674D40B4321A4",
+      "synthetic": true,
+      "scenario": "encrypted_pdf",
+      "expected_static_result": "reject_encrypted",
+      "related_fixture_ids": [
+        "C-001"
+      ],
+      "task_ids": [
+        "DOC-002",
+        "TEST-001"
+      ]
+    },
+    {
+      "id": "BIN-PDF-DAMAGED",
+      "file": "tests/fixtures/pdf-damaged.pdf",
+      "format": "pdf",
+      "declared_mime": "application/pdf",
+      "size_bytes": 254,
+      "sha256": "625FD9834436177426F1F400C3AD731948FFAC544B0B87EFD523DA33B8232401",
+      "synthetic": true,
+      "scenario": "damaged_pdf",
+      "expected_static_result": "reject_malformed",
+      "related_fixture_ids": [
+        "C-001"
+      ],
+      "task_ids": [
+        "DOC-002",
+        "TEST-001"
+      ]
+    },
+    {
+      "id": "BIN-PDF-MULTI-POLICY",
+      "file": "tests/fixtures/policy-multi-document.pdf",
+      "format": "pdf",
+      "declared_mime": "application/pdf",
+      "size_bytes": 16552,
+      "sha256": "DD5A2B7B35F4E84D0F4D1A3E8D999B15DBFEF3FAA6EAD07C32F542A15706C738",
+      "synthetic": true,
+      "scenario": "multi_document_pdf",
+      "expected_static_result": "accept",
+      "related_fixture_ids": [
+        "P-001-V1",
+        "P-001-V2"
+      ],
+      "task_ids": [
+        "DOC-002",
+        "TEST-001"
+      ]
+    },
+    {
+      "id": "BIN-PDF-MIME-SPOOF",
+      "file": "tests/fixtures/mime-spoof.pdf",
+      "format": "pdf",
+      "declared_mime": "application/pdf",
+      "size_bytes": 156,
+      "sha256": "E7B7860D76973C546BD786ACF2FE8C6D78053BBA60BAE5DB54FE1C90726ACE44",
+      "synthetic": true,
+      "scenario": "mime_spoof_pdf",
+      "expected_static_result": "reject_signature",
+      "related_fixture_ids": [
+        "C-001"
+      ],
+      "task_ids": [
+        "FILE-001",
+        "TEST-001",
+        "TEST-006"
+      ]
+    },
+    {
+      "id": "BIN-IMAGE-INVOICE-I001-CLEAR",
+      "file": "tests/fixtures/invoice-i001-clear.png",
+      "format": "png",
+      "declared_mime": "image/png",
+      "size_bytes": 111153,
+      "sha256": "E4E079BD812030E1A99A3FF05C625D13EE138D3791A5B5F90C2184498BFACBED",
+      "synthetic": true,
+      "scenario": "clear_invoice_image",
+      "expected_static_result": "accept",
+      "related_fixture_ids": [
+        "I-001"
+      ],
+      "task_ids": [
+        "DOC-004",
+        "TEST-001"
+      ]
+    },
+    {
+      "id": "BIN-IMAGE-INVOICE-I002-BLURRED",
+      "file": "tests/fixtures/invoice-i002-blurred.jpg",
+      "format": "jpeg",
+      "declared_mime": "image/jpeg",
+      "size_bytes": 126748,
+      "sha256": "9B982D5081D2E182FED997FFE7EF4710E50D571E396E84595EB60E8689DED86D",
+      "synthetic": true,
+      "scenario": "blurred_invoice_image",
+      "expected_static_result": "accept",
+      "related_fixture_ids": [
+        "I-002"
+      ],
+      "task_ids": [
+        "DOC-004",
+        "TEST-001"
+      ]
+    },
+    {
+      "id": "BIN-IMAGE-INVOICE-I003-ROTATED",
+      "file": "tests/fixtures/invoice-i003-rotated.jpeg",
+      "format": "jpeg",
+      "declared_mime": "image/jpeg",
+      "size_bytes": 215677,
+      "sha256": "C06D396AE71A4B524FA2AD86D69CF1BE6321257D2AC18E5E138D811A5D6D7D06",
+      "synthetic": true,
+      "scenario": "rotated_invoice_image",
+      "expected_static_result": "accept",
+      "related_fixture_ids": [
+        "I-003"
+      ],
+      "task_ids": [
+        "DOC-004",
+        "TEST-001"
+      ]
+    },
+    {
+      "id": "BIN-IMAGE-INVOICE-I001-DUP-OCCLUDED",
+      "file": "tests/fixtures/invoice-i001-dup-occluded.png",
+      "format": "png",
+      "declared_mime": "image/png",
+      "size_bytes": 109770,
+      "sha256": "A8E3C28C9A673B22C4BDDAB1083CE6E0CCAD53FD2BAA1A0BC966C93139F52D45",
+      "synthetic": true,
+      "scenario": "occluded_duplicate_invoice_image",
+      "expected_static_result": "accept",
+      "related_fixture_ids": [
+        "I-001-DUP"
+      ],
+      "task_ids": [
+        "DOC-004",
+        "TEST-001"
+      ]
+    }
+  ]
+}

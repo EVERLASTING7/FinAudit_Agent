@@ -1,0 +1,1109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:schema:ai-policy-v1",
+  "title": "FinAudit AI Policy v1 final envelope or pre-hash payload",
+  "description": "CR-011 draft machine contract. A final envelope contains policy_hash; a pre-hash payload is the same closed object with only that top-level member removed.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/finalPolicy"
+    },
+    {
+      "$ref": "#/$defs/preHashPayload"
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "safeNonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "safePositiveInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "profileId": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,100}$"
+    },
+    "stableAsciiId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$"
+    },
+    "canonicalHostname": {
+      "type": "string",
+      "maxLength": 253,
+      "pattern": "^(?!xn--)(?!.*\\.xn--)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$"
+    },
+    "canonicalCidr": {
+      "type": "string",
+      "oneOf": [
+        {
+          "pattern": "^(?:0|[1-9][0-9]{0,2})(?:\\.(?:0|[1-9][0-9]{0,2})){3}/(?:0|[1-9]|[12][0-9]|3[0-2])$"
+        },
+        {
+          "pattern": "^[0-9a-f:]+/(?:0|[1-9][0-9]?|1[01][0-9]|12[0-8])$"
+        }
+      ]
+    },
+    "providerProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_type",
+        "adapter_id",
+        "endpoint_id",
+        "network_scope",
+        "base_url",
+        "approved_hostnames",
+        "allowed_cidrs",
+        "address_policy_version",
+        "capabilities",
+        "model_id",
+        "model_version",
+        "allowed_response_model_ids",
+        "auth_scheme",
+        "secret_slot",
+        "context_window_tokens",
+        "tokenizer_id",
+        "tokenizer_hash",
+        "embedding_dimension",
+        "pricing_version",
+        "billing_mode",
+        "input_price_micro_usd_per_million",
+        "output_price_micro_usd_per_million",
+        "redis_unavailable_mode"
+      ],
+      "properties": {
+        "profile_type": {
+          "enum": [
+            "openai-chat-completions-v1",
+            "openai-embeddings-v1"
+          ]
+        },
+        "adapter_id": {
+          "$ref": "#/$defs/stableAsciiId"
+        },
+        "endpoint_id": {
+          "$ref": "#/$defs/stableAsciiId"
+        },
+        "network_scope": {
+          "enum": [
+            "external_public",
+            "internal_service"
+          ]
+        },
+        "base_url": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^https?://[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?(?::[1-9][0-9]{0,4})?/v1$"
+        },
+        "approved_hostnames": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/canonicalHostname"
+          }
+        },
+        "allowed_cidrs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/canonicalCidr"
+          }
+        },
+        "address_policy_version": {
+          "const": "ip-deny-cidrs-v1"
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "embedding",
+              "llm_extraction",
+              "llm_generation"
+            ]
+          }
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "model_version": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowed_response_model_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "auth_scheme": {
+          "const": "bearer"
+        },
+        "secret_slot": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+        },
+        "context_window_tokens": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "tokenizer_id": {
+          "$ref": "#/$defs/stableAsciiId"
+        },
+        "tokenizer_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "embedding_dimension": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/safePositiveInteger"
+            }
+          ]
+        },
+        "pricing_version": {
+          "$ref": "#/$defs/stableAsciiId"
+        },
+        "billing_mode": {
+          "enum": [
+            "external_usd",
+            "internal_unmetered"
+          ]
+        },
+        "input_price_micro_usd_per_million": {
+          "$ref": "#/$defs/safeNonNegativeInteger"
+        },
+        "output_price_micro_usd_per_million": {
+          "$ref": "#/$defs/safeNonNegativeInteger"
+        },
+        "redis_unavailable_mode": {
+          "enum": [
+            "fail_closed",
+            "process_local_restricted"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "profile_type": {
+                "const": "openai-chat-completions-v1"
+              }
+            },
+            "required": [
+              "profile_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "adapter_id": {
+                "const": "openai_chat_completions_v1"
+              },
+              "embedding_dimension": {
+                "type": "null"
+              },
+              "capabilities": {
+                "oneOf": [
+                  {
+                    "const": [
+                      "llm_extraction"
+                    ]
+                  },
+                  {
+                    "const": [
+                      "llm_generation"
+                    ]
+                  },
+                  {
+                    "const": [
+                      "llm_extraction",
+                      "llm_generation"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile_type": {
+                "const": "openai-embeddings-v1"
+              }
+            },
+            "required": [
+              "profile_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "adapter_id": {
+                "const": "openai_embeddings_v1"
+              },
+              "embedding_dimension": {
+                "$ref": "#/$defs/safePositiveInteger"
+              },
+              "capabilities": {
+                "const": [
+                  "embedding"
+                ]
+              },
+              "output_price_micro_usd_per_million": {
+                "const": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "network_scope": {
+                "const": "external_public"
+              }
+            },
+            "required": [
+              "network_scope"
+            ]
+          },
+          "then": {
+            "properties": {
+              "base_url": {
+                "pattern": "^https://"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "network_scope": {
+                "const": "internal_service"
+              }
+            },
+            "required": [
+              "network_scope"
+            ]
+          },
+          "then": {
+            "properties": {
+              "billing_mode": {
+                "const": "internal_unmetered"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "billing_mode": {
+                "const": "internal_unmetered"
+              }
+            },
+            "required": [
+              "billing_mode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "input_price_micro_usd_per_million": {
+                "const": 0
+              },
+              "output_price_micro_usd_per_million": {
+                "const": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "billing_mode": {
+                "const": "external_usd"
+              }
+            },
+            "required": [
+              "billing_mode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "redis_unavailable_mode": {
+                "const": "fail_closed"
+              }
+            }
+          }
+        }
+      ],
+      "x-finaudit-invariants": [
+        "base_url hostname must already be lowercase ASCII, must not be an IP literal, and must be present in approved_hostnames; the port must be in 1..65535",
+        "allowed_response_model_ids, capabilities, and approved_hostnames must already be sorted by UTF-16 code unit; allowed_cidrs must use (ip_version, unsigned_network_integer, prefix_length) order",
+        "all arrays must be non-empty, unique, canonical, and already sorted; allowed_cidrs must also be semantically non-overlapping",
+        "address_policy_version must identify the same registry version pinned by outbound_limits",
+        "external_public allowed_cidrs must not overlap any network in the registry named by outbound_limits",
+        "internal_service allowed_cidrs must be contained by private app_network_eligible registry entries and must not overlap loopback, link_local, metadata, or wildcard ranges"
+      ]
+    },
+    "operationBaseProperties": {
+      "connect_timeout_seconds": {
+        "const": 5
+      },
+      "deadline_seconds": {
+        "$ref": "#/$defs/safePositiveInteger"
+      },
+      "max_attempts": {
+        "$ref": "#/$defs/safePositiveInteger"
+      },
+      "max_same_target_attempts": {
+        "$ref": "#/$defs/safePositiveInteger"
+      },
+      "max_provider_attempts_per_business_operation": {
+        "$ref": "#/$defs/safePositiveInteger"
+      },
+      "max_model_repairs": {
+        "$ref": "#/$defs/safeNonNegativeInteger"
+      },
+      "max_input_tokens_per_request": {
+        "$ref": "#/$defs/safeNonNegativeInteger"
+      },
+      "max_output_tokens_per_request": {
+        "$ref": "#/$defs/safeNonNegativeInteger"
+      },
+      "max_total_tokens": {
+        "$ref": "#/$defs/safeNonNegativeInteger"
+      },
+      "max_cost_micro_usd": {
+        "$ref": "#/$defs/safeNonNegativeInteger"
+      },
+      "report_use_fallback": {
+        "type": "boolean"
+      },
+      "primary_profile_id": {
+        "$ref": "#/$defs/profileId"
+      },
+      "fallback_profile_id": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/profileId"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "contractFieldExtractionOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connect_timeout_seconds",
+        "deadline_seconds",
+        "max_attempts",
+        "max_same_target_attempts",
+        "max_provider_attempts_per_business_operation",
+        "max_model_repairs",
+        "max_input_tokens_per_request",
+        "max_output_tokens_per_request",
+        "max_total_tokens",
+        "max_cost_micro_usd",
+        "report_use_fallback",
+        "primary_profile_id",
+        "fallback_profile_id"
+      ],
+      "properties": {
+        "connect_timeout_seconds": {
+          "const": 5
+        },
+        "deadline_seconds": {
+          "const": 120
+        },
+        "max_attempts": {
+          "const": 3
+        },
+        "max_same_target_attempts": {
+          "const": 2
+        },
+        "max_provider_attempts_per_business_operation": {
+          "const": 6
+        },
+        "max_model_repairs": {
+          "const": 2
+        },
+        "max_input_tokens_per_request": {
+          "const": 32768
+        },
+        "max_output_tokens_per_request": {
+          "const": 2500
+        },
+        "max_total_tokens": {
+          "const": 212000
+        },
+        "max_cost_micro_usd": {
+          "const": 500000
+        },
+        "report_use_fallback": {
+          "const": false
+        },
+        "primary_profile_id": {
+          "$ref": "#/$defs/profileId"
+        },
+        "fallback_profile_id": {
+          "$ref": "#/$defs/profileId"
+        }
+      }
+    },
+    "invoiceFieldExtractionOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connect_timeout_seconds",
+        "deadline_seconds",
+        "max_attempts",
+        "max_same_target_attempts",
+        "max_provider_attempts_per_business_operation",
+        "max_model_repairs",
+        "max_input_tokens_per_request",
+        "max_output_tokens_per_request",
+        "max_total_tokens",
+        "max_cost_micro_usd",
+        "report_use_fallback",
+        "primary_profile_id",
+        "fallback_profile_id"
+      ],
+      "properties": {
+        "connect_timeout_seconds": {
+          "const": 5
+        },
+        "deadline_seconds": {
+          "const": 60
+        },
+        "max_attempts": {
+          "const": 3
+        },
+        "max_same_target_attempts": {
+          "const": 2
+        },
+        "max_provider_attempts_per_business_operation": {
+          "const": 6
+        },
+        "max_model_repairs": {
+          "const": 2
+        },
+        "max_input_tokens_per_request": {
+          "const": 16384
+        },
+        "max_output_tokens_per_request": {
+          "const": 2500
+        },
+        "max_total_tokens": {
+          "const": 114000
+        },
+        "max_cost_micro_usd": {
+          "const": 250000
+        },
+        "report_use_fallback": {
+          "const": false
+        },
+        "primary_profile_id": {
+          "$ref": "#/$defs/profileId"
+        },
+        "fallback_profile_id": {
+          "$ref": "#/$defs/profileId"
+        }
+      }
+    },
+    "riskExplanationOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connect_timeout_seconds",
+        "deadline_seconds",
+        "max_attempts",
+        "max_same_target_attempts",
+        "max_provider_attempts_per_business_operation",
+        "max_model_repairs",
+        "max_input_tokens_per_request",
+        "max_output_tokens_per_request",
+        "max_total_tokens",
+        "max_cost_micro_usd",
+        "report_use_fallback",
+        "primary_profile_id",
+        "fallback_profile_id"
+      ],
+      "properties": {
+        "connect_timeout_seconds": {
+          "const": 5
+        },
+        "deadline_seconds": {
+          "const": 60
+        },
+        "max_attempts": {
+          "const": 3
+        },
+        "max_same_target_attempts": {
+          "const": 2
+        },
+        "max_provider_attempts_per_business_operation": {
+          "const": 6
+        },
+        "max_model_repairs": {
+          "const": 2
+        },
+        "max_input_tokens_per_request": {
+          "const": 16384
+        },
+        "max_output_tokens_per_request": {
+          "const": 1600
+        },
+        "max_total_tokens": {
+          "const": 108000
+        },
+        "max_cost_micro_usd": {
+          "const": 250000
+        },
+        "report_use_fallback": {
+          "const": false
+        },
+        "primary_profile_id": {
+          "$ref": "#/$defs/profileId"
+        },
+        "fallback_profile_id": {
+          "$ref": "#/$defs/profileId"
+        }
+      }
+    },
+    "ragAnswerOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connect_timeout_seconds",
+        "deadline_seconds",
+        "max_attempts",
+        "max_same_target_attempts",
+        "max_provider_attempts_per_business_operation",
+        "max_model_repairs",
+        "max_input_tokens_per_request",
+        "max_output_tokens_per_request",
+        "max_total_tokens",
+        "max_cost_micro_usd",
+        "report_use_fallback",
+        "primary_profile_id",
+        "fallback_profile_id"
+      ],
+      "properties": {
+        "connect_timeout_seconds": {
+          "const": 5
+        },
+        "deadline_seconds": {
+          "const": 90
+        },
+        "max_attempts": {
+          "const": 3
+        },
+        "max_same_target_attempts": {
+          "const": 2
+        },
+        "max_provider_attempts_per_business_operation": {
+          "const": 6
+        },
+        "max_model_repairs": {
+          "const": 2
+        },
+        "max_input_tokens_per_request": {
+          "const": 16384
+        },
+        "max_output_tokens_per_request": {
+          "const": 1800
+        },
+        "max_total_tokens": {
+          "const": 110000
+        },
+        "max_cost_micro_usd": {
+          "const": 250000
+        },
+        "report_use_fallback": {
+          "const": false
+        },
+        "primary_profile_id": {
+          "$ref": "#/$defs/profileId"
+        },
+        "fallback_profile_id": {
+          "$ref": "#/$defs/profileId"
+        }
+      }
+    },
+    "reportDraftOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connect_timeout_seconds",
+        "deadline_seconds",
+        "max_attempts",
+        "max_same_target_attempts",
+        "max_provider_attempts_per_business_operation",
+        "max_model_repairs",
+        "max_input_tokens_per_request",
+        "max_output_tokens_per_request",
+        "max_total_tokens",
+        "max_cost_micro_usd",
+        "report_use_fallback",
+        "primary_profile_id",
+        "fallback_profile_id"
+      ],
+      "properties": {
+        "connect_timeout_seconds": {
+          "const": 5
+        },
+        "deadline_seconds": {
+          "const": 90
+        },
+        "max_attempts": {
+          "enum": [
+            2,
+            3
+          ]
+        },
+        "max_same_target_attempts": {
+          "const": 2
+        },
+        "max_provider_attempts_per_business_operation": {
+          "const": 6
+        },
+        "max_model_repairs": {
+          "const": 2
+        },
+        "max_input_tokens_per_request": {
+          "const": 16384
+        },
+        "max_output_tokens_per_request": {
+          "const": 3000
+        },
+        "max_total_tokens": {
+          "const": 117000
+        },
+        "max_cost_micro_usd": {
+          "const": 250000
+        },
+        "report_use_fallback": {
+          "type": "boolean"
+        },
+        "primary_profile_id": {
+          "$ref": "#/$defs/profileId"
+        },
+        "fallback_profile_id": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/profileId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "report_use_fallback": {
+                "const": true
+              }
+            },
+            "required": [
+              "report_use_fallback"
+            ]
+          },
+          "then": {
+            "properties": {
+              "max_attempts": {
+                "const": 3
+              },
+              "fallback_profile_id": {
+                "$ref": "#/$defs/profileId"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "max_attempts": {
+                "const": 2
+              },
+              "fallback_profile_id": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "embeddingOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connect_timeout_seconds",
+        "deadline_seconds",
+        "max_attempts",
+        "max_same_target_attempts",
+        "max_provider_attempts_per_business_operation",
+        "max_model_repairs",
+        "max_input_tokens_per_request",
+        "max_output_tokens_per_request",
+        "max_total_tokens",
+        "max_cost_micro_usd",
+        "report_use_fallback",
+        "primary_profile_id",
+        "fallback_profile_id"
+      ],
+      "properties": {
+        "connect_timeout_seconds": {
+          "const": 5
+        },
+        "deadline_seconds": {
+          "const": 30
+        },
+        "max_attempts": {
+          "const": 3
+        },
+        "max_same_target_attempts": {
+          "const": 3
+        },
+        "max_provider_attempts_per_business_operation": {
+          "const": 3
+        },
+        "max_model_repairs": {
+          "const": 0
+        },
+        "max_input_tokens_per_request": {
+          "const": 16384
+        },
+        "max_output_tokens_per_request": {
+          "const": 0
+        },
+        "max_total_tokens": {
+          "const": 50000
+        },
+        "max_cost_micro_usd": {
+          "const": 50000
+        },
+        "report_use_fallback": {
+          "const": false
+        },
+        "primary_profile_id": {
+          "$ref": "#/$defs/profileId"
+        },
+        "fallback_profile_id": {
+          "type": "null"
+        }
+      }
+    },
+    "operations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_field_extraction",
+        "invoice_field_extraction",
+        "risk_explanation",
+        "rag_answer",
+        "report_draft",
+        "embedding"
+      ],
+      "properties": {
+        "contract_field_extraction": {
+          "$ref": "#/$defs/contractFieldExtractionOperation"
+        },
+        "invoice_field_extraction": {
+          "$ref": "#/$defs/invoiceFieldExtractionOperation"
+        },
+        "risk_explanation": {
+          "$ref": "#/$defs/riskExplanationOperation"
+        },
+        "rag_answer": {
+          "$ref": "#/$defs/ragAnswerOperation"
+        },
+        "report_draft": {
+          "$ref": "#/$defs/reportDraftOperation"
+        },
+        "embedding": {
+          "$ref": "#/$defs/embeddingOperation"
+        }
+      },
+      "x-finaudit-invariants": [
+        "every profile reference must resolve within profiles",
+        "primary and fallback profile IDs must differ",
+        "referenced profile capabilities must contain the operation capability",
+        "no profile may be unreferenced",
+        "adapter_id plus endpoint_id plus model_id must be unique across profiles"
+      ]
+    },
+    "retry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backoff_base_seconds",
+        "backoff_multiplier",
+        "backoff_max_seconds",
+        "jitter_ratio",
+        "jitter_algorithm",
+        "read_idle_timeout_seconds",
+        "min_processing_margin_seconds"
+      ],
+      "properties": {
+        "backoff_base_seconds": {
+          "const": 1
+        },
+        "backoff_multiplier": {
+          "const": 2
+        },
+        "backoff_max_seconds": {
+          "const": 30
+        },
+        "jitter_ratio": {
+          "const": 0.2
+        },
+        "jitter_algorithm": {
+          "const": "symmetric-uniform-cap-v1"
+        },
+        "read_idle_timeout_seconds": {
+          "const": 30
+        },
+        "min_processing_margin_seconds": {
+          "const": 1
+        }
+      }
+    },
+    "breaker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "failures",
+        "window_seconds",
+        "open_seconds",
+        "half_open_probes"
+      ],
+      "properties": {
+        "failures": {
+          "const": 5
+        },
+        "window_seconds": {
+          "const": 60
+        },
+        "open_seconds": {
+          "const": 30
+        },
+        "half_open_probes": {
+          "const": 1
+        }
+      }
+    },
+    "rateLimitPool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "concurrency",
+        "rpm",
+        "tpm",
+        "burst"
+      ],
+      "properties": {
+        "concurrency": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "rpm": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "tpm": {
+          "$ref": "#/$defs/safePositiveInteger"
+        },
+        "burst": {
+          "$ref": "#/$defs/safePositiveInteger"
+        }
+      }
+    },
+    "rateLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rag",
+        "async_generation",
+        "embedding"
+      ],
+      "properties": {
+        "rag": {
+          "const": {
+            "concurrency": 2,
+            "rpm": 12,
+            "tpm": 100000,
+            "burst": 2
+          }
+        },
+        "async_generation": {
+          "const": {
+            "concurrency": 4,
+            "rpm": 30,
+            "tpm": 250000,
+            "burst": 4
+          }
+        },
+        "embedding": {
+          "const": {
+            "concurrency": 2,
+            "rpm": 30,
+            "tpm": 500000,
+            "burst": 2
+          }
+        }
+      }
+    },
+    "outboundLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_request_bytes",
+        "max_response_header_bytes",
+        "max_chat_decompressed_bytes",
+        "max_embedding_decompressed_bytes",
+        "ip_deny_registry_version",
+        "ip_deny_registry_sha256"
+      ],
+      "properties": {
+        "max_request_bytes": {
+          "const": 4194304
+        },
+        "max_response_header_bytes": {
+          "const": 65536
+        },
+        "max_chat_decompressed_bytes": {
+          "const": 2097152
+        },
+        "max_embedding_decompressed_bytes": {
+          "const": 4194304
+        },
+        "ip_deny_registry_version": {
+          "const": "ip-deny-cidrs-v1"
+        },
+        "ip_deny_registry_sha256": {
+          "const": "628dbf127cf3e88095c479cd8a6a03e87ece7e7f0977856357269579188eca34"
+        }
+      }
+    },
+    "policyCore": {
+      "type": "object",
+      "required": [
+        "policy_version",
+        "provider_calls_enabled",
+        "profiles",
+        "operations",
+        "retry",
+        "breaker",
+        "rate_limits",
+        "outbound_limits"
+      ],
+      "properties": {
+        "policy_version": {
+          "const": 1
+        },
+        "provider_calls_enabled": {
+          "const": false
+        },
+        "profiles": {
+          "type": "object",
+          "minProperties": 3,
+          "propertyNames": {
+            "$ref": "#/$defs/profileId"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/providerProfile"
+          }
+        },
+        "operations": {
+          "$ref": "#/$defs/operations"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry"
+        },
+        "breaker": {
+          "$ref": "#/$defs/breaker"
+        },
+        "rate_limits": {
+          "$ref": "#/$defs/rateLimits"
+        },
+        "outbound_limits": {
+          "$ref": "#/$defs/outboundLimits"
+        }
+      }
+    },
+    "preHashPayload": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/policyCore"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "finalPolicy": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/policyCore"
+        },
+        {
+          "type": "object",
+          "required": [
+            "policy_hash"
+          ],
+          "properties": {
+            "policy_hash": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false,
+      "$comment": "Verification removes only the top-level policy_hash, applies RFC 8785 JCS to the remaining object, computes SHA-256, and compares lowercase hex exactly. Source parsing must reject duplicate object keys before schema validation."
+    }
+  },
+  "x-finaudit-source-number-grammar": "All schema integer fields must use the unsigned JSON lexical form 0|[1-9][0-9]* with no sign, fraction, or exponent before RFC 8785 canonicalization.",
+  "x-finaudit-companion-validator": {
+    "file": "ai-policy-v1.companion-validator.json",
+    "required": true,
+    "normative_rule_ids": [
+      "POL-VAL-001",
+      "POL-VAL-002",
+      "POL-VAL-003",
+      "POL-VAL-004",
+      "POL-VAL-005",
+      "POL-VAL-006",
+      "POL-VAL-007",
+      "POL-VAL-008",
+      "POL-VAL-009",
+      "POL-VAL-010",
+      "POL-VAL-011",
+      "POL-VAL-012"
+    ]
+  },
+  "x-finaudit-cross-field-validation": "The companion validator is normative. Draft 2020-12 validation alone is insufficient and every x-finaudit-invariants annotation maps to one or more companion rule IDs."
+}

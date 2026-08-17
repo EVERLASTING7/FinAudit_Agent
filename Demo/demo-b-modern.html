@@ -1,0 +1,3485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FinAudit Agent · 财务审核智能平台</title>
+<style>
+  /* ===== 基础变量 ===== */
+  :root {
+    --brand-1: #6366F1;
+    --brand-2: #8B5CF6;
+    --brand-grad: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+    --brand-grad-soft: linear-gradient(135deg, rgba(99,102,241,.10) 0%, rgba(139,92,246,.10) 100%);
+    --success: #10B981;
+    --warning: #F59E0B;
+    --danger: #F43F5E;
+    --info: #06B6D4;
+    --neutral: #9CA3AF;
+
+    --bg: #FFFFFF;
+    --bg-soft: #F9FAFB;
+    --bg-mute: #F3F4F6;
+    --line: #E5E7EB;
+    --line-soft: #F3F4F6;
+    --text: #111827;
+    --text-2: #4B5563;
+    --text-3: #9CA3AF;
+
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-xl: 20px;
+
+    --shadow-sm: 0 1px 2px rgba(17,24,39,.04);
+    --shadow: 0 4px 14px rgba(17,24,39,.06), 0 1px 2px rgba(17,24,39,.04);
+    --shadow-lg: 0 12px 36px rgba(17,24,39,.08), 0 2px 6px rgba(17,24,39,.04);
+    --shadow-brand: 0 8px 28px rgba(99,102,241,.25);
+
+    --sidebar-w: 240px;
+    --topbar-h: 60px;
+    --crumb-h: 44px;
+    --title-h: 72px;
+
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    color: var(--text);
+    background: var(--bg-soft);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--brand-1); text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+  input, select, textarea { font-family: inherit; }
+
+  /* ===== 通用 ===== */
+  .hidden { display: none !important; }
+  .flex { display: flex; }
+  .center { display: flex; align-items: center; justify-content: center; }
+  .between { display: flex; align-items: center; justify-content: space-between; }
+  .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; } .gap-6 { gap: 24px; }
+  .col { display: flex; flex-direction: column; }
+  .row { display: flex; flex-direction: row; }
+  .full { width: 100%; }
+  .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .muted { color: var(--text-3); }
+  .text-2 { color: var(--text-2); }
+  .mt-2 { margin-top: 8px; } .mt-3 { margin-top: 12px; } .mt-4 { margin-top: 16px; } .mt-6 { margin-top: 24px; }
+  .mb-2 { margin-bottom: 8px; } .mb-3 { margin-bottom: 12px; } .mb-4 { margin-bottom: 16px; } .mb-6 { margin-bottom: 24px; }
+  .small { font-size: 12px; }
+  .tiny { font-size: 11px; }
+  .mono { font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; }
+
+  /* ===== 顶栏 ===== */
+  .topbar {
+    height: var(--topbar-h);
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .topbar .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 16px;
+    color: var(--text);
+    margin-right: 28px;
+  }
+  .topbar .logo .mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--brand-grad);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 14px;
+    box-shadow: var(--shadow-brand);
+  }
+  .topbar .env-chip {
+    font-size: 11px; padding: 3px 8px;
+    background: rgba(99,102,241,.08); color: var(--brand-1);
+    border-radius: 6px; font-weight: 600;
+    margin-right: 16px;
+  }
+  .topbar .spacer { flex: 1; }
+  .topbar .topbar-task {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px;
+    background: rgba(245,158,11,.10);
+    color: #B45309;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-right: 12px;
+  }
+  .topbar .role-switch {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px;
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-2);
+    margin-right: 12px;
+    cursor: pointer;
+  }
+  .topbar .user {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 12px 4px 4px;
+    background: var(--bg-soft);
+    border-radius: 24px;
+    cursor: pointer;
+  }
+  .topbar .user .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--brand-grad);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 13px;
+  }
+  .topbar .user .name { font-size: 13px; font-weight: 600; }
+  .topbar .user .role {
+    font-size: 11px;
+    background: #fff;
+    color: var(--text-2);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+
+  /* ===== 侧边栏 ===== */
+  .layout { display: flex; min-height: calc(100vh - var(--topbar-h)); }
+  .sidebar {
+    width: var(--sidebar-w);
+    background: #fff;
+    border-right: 1px solid var(--line);
+    padding: 20px 12px;
+    position: sticky;
+    top: var(--topbar-h);
+    height: calc(100vh - var(--topbar-h));
+    overflow-y: auto;
+  }
+  .sidebar .group { margin-bottom: 20px; }
+  .sidebar .group-title {
+    font-size: 11px; font-weight: 600; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: .5px;
+    padding: 0 12px 8px;
+  }
+  .sidebar .menu-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    color: var(--text-2);
+    font-size: 13.5px; font-weight: 500;
+    margin-bottom: 2px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .sidebar .menu-item:hover { background: var(--bg-soft); color: var(--text); }
+  .sidebar .menu-item.active {
+    background: var(--brand-grad-soft);
+    color: var(--brand-1);
+    font-weight: 600;
+  }
+  .sidebar .menu-item .icon { font-size: 16px; width: 18px; text-align: center; }
+  .sidebar .menu-item .badge {
+    margin-left: auto;
+    font-size: 11px;
+    background: var(--danger);
+    color: #fff;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  /* ===== 主区域 ===== */
+  .main {
+    flex: 1;
+    min-width: 0;
+    display: flex; flex-direction: column;
+  }
+  .crumb {
+    height: var(--crumb-h);
+    padding: 0 32px;
+    display: flex; align-items: center;
+    font-size: 13px; color: var(--text-3);
+    background: #fff;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .crumb .sep { margin: 0 8px; color: var(--text-3); }
+  .crumb .current { color: var(--text); font-weight: 500; }
+
+  .title-bar {
+    height: var(--title-h);
+    padding: 0 32px;
+    background: #fff;
+    border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: center;
+    gap: 12px;
+  }
+  .title-bar h1 { font-size: 22px; font-weight: 700; margin: 0; }
+  .title-bar .sub { font-size: 13px; color: var(--text-3); }
+  .title-bar .actions { margin-left: auto; display: flex; gap: 8px; }
+
+  .content {
+    flex: 1;
+    padding: 24px 32px 48px;
+    overflow-y: auto;
+  }
+
+  /* ===== 按钮 ===== */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    background: #fff;
+    color: var(--text);
+  }
+  .btn:hover { background: var(--bg-soft); }
+  .btn-primary {
+    background: var(--brand-grad);
+    color: #fff;
+    box-shadow: var(--shadow-brand);
+    border: none;
+  }
+  .btn-primary:hover { filter: brightness(1.05); background: var(--brand-grad); }
+  .btn-secondary {
+    border-color: var(--line);
+    background: #fff;
+    color: var(--text);
+  }
+  .btn-secondary:hover { background: var(--bg-soft); }
+  .btn-ghost { background: transparent; color: var(--text-2); }
+  .btn-ghost:hover { background: var(--bg-soft); }
+  .btn-danger { background: rgba(244,63,94,.10); color: var(--danger); border-color: rgba(244,63,94,.20); }
+  .btn-danger:hover { background: rgba(244,63,94,.16); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+
+  /* ===== 状态 chip ===== */
+  .status {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--bg-mute);
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+  .status::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; opacity: .9;
+  }
+  .status-success { background: rgba(16,185,129,.10); color: #047857; }
+  .status-info    { background: rgba(99,102,241,.10); color: #4F46E5; }
+  .status-pending { background: rgba(245,158,11,.12); color: #B45309; }
+  .status-warning { background: rgba(245,158,11,.12); color: #B45309; }
+  .status-danger  { background: rgba(244,63,94,.10); color: #BE123C; }
+  .status-neutral { background: var(--bg-mute); color: var(--text-2); }
+  .status-muted   { background: var(--bg-mute); color: var(--text-3); }
+
+  /* 风险 5 档 */
+  .risk { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .risk::before { content:""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .risk-none    { background: rgba(16,185,129,.10); color: #047857; }
+  .risk-notice  { background: rgba(6,182,212,.10); color: #0E7490; }
+  .risk-low     { background: rgba(99,102,241,.10); color: #4F46E5; }
+  .risk-medium  { background: rgba(245,158,11,.14); color: #B45309; }
+  .risk-high    { background: rgba(244,63,94,.12); color: #BE123C; }
+
+  /* ===== 卡片 ===== */
+  .card {
+    background: #fff;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow);
+  }
+  .card .card-h {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: center;
+    gap: 10px;
+  }
+  .card .card-h h3 { margin: 0; font-size: 15px; font-weight: 700; }
+  .card .card-h .sub { font-size: 12px; color: var(--text-3); }
+  .card .card-h .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .card .card-b { padding: 20px; }
+  .card .card-b.flush { padding: 0; }
+
+  /* ===== 表格 ===== */
+  .table-wrap { overflow-x: auto; }
+  table.t {
+    width: 100%; border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.t th {
+    text-align: left;
+    background: var(--bg-soft);
+    color: var(--text-2);
+    font-weight: 600;
+    font-size: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line-soft);
+    white-space: nowrap;
+  }
+  table.t td {
+    padding: 0 16px;
+    height: 56px;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--text);
+    vertical-align: middle;
+  }
+  table.t tr:hover td { background: var(--bg-soft); }
+  table.t tr:last-child td { border-bottom: none; }
+  table.t td.num { font-family: "SF Mono", Menlo, monospace; font-feature-settings: "tnum"; }
+  table.t td.right { text-align: right; }
+  table.t .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+  table.t .cell-title { font-weight: 600; color: var(--text); }
+  table.t .cell-sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  table.t tr.row-danger td { background: rgba(244,63,94,.04); }
+  table.t tr.row-danger:hover td { background: rgba(244,63,94,.08); }
+
+  /* ===== 表单 ===== */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12.5px; color: var(--text-2); font-weight: 500; }
+  .field label .req { color: var(--danger); }
+  .field input, .field select, .field textarea {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 13.5px;
+    color: var(--text);
+    background: #fff;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--brand-1);
+    box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+  }
+  .field input::placeholder, .field textarea::placeholder { color: var(--text-3); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+
+  /* ===== Banner / 提示 ===== */
+  .banner {
+    padding: 12px 16px;
+    border-radius: var(--r-md);
+    display: flex; align-items: flex-start; gap: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .banner .ico { font-size: 18px; }
+  .banner .b-title { font-weight: 700; }
+  .banner .b-sub { color: var(--text-2); font-size: 12.5px; margin-top: 2px; }
+  .banner-warning { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+  .banner-info    { background: #EEF2FF; color: #3730A3; border: 1px solid #C7D2FE; }
+  .banner-danger  { background: #FFF1F2; color: #9F1239; border: 1px solid #FECDD3; }
+  .banner-success { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+
+  /* ===== 引用卡片（RAG） ===== */
+  .quote-card {
+    background: #fff;
+    border: 1px solid var(--line-soft);
+    border-left: 3px solid var(--brand-1);
+    border-radius: var(--r-md);
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--text-2);
+    line-height: 1.6;
+    box-shadow: var(--shadow-sm);
+  }
+  .quote-card .q-meta {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11.5px;
+    color: var(--text-3);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .quote-card .q-meta .src { color: var(--brand-1); font-weight: 600; }
+  .quote-card .q-text { color: var(--text); }
+  .quote-card .q-text mark { background: rgba(245,158,11,.30); color: inherit; padding: 0 2px; border-radius: 2px; }
+  .quote-card .q-foot { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 11.5px; color: var(--text-3); }
+  .quote-card .q-foot .conf { color: var(--success); font-weight: 600; }
+
+  /* ===== 气泡（聊天） ===== */
+  .bubble {
+    max-width: 78%;
+    padding: 12px 16px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.7;
+    word-wrap: break-word;
+  }
+  .bubble-user {
+    background: var(--brand-grad);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+    margin-left: auto;
+    box-shadow: var(--shadow-brand);
+  }
+  .bubble-ai {
+    background: #fff;
+    color: var(--text);
+    border: 1px solid var(--line-soft);
+    border-bottom-left-radius: 4px;
+    box-shadow: var(--shadow-sm);
+  }
+  .bubble-meta { font-size: 11.5px; color: var(--text-3); margin: 4px 6px; }
+
+  /* ===== Pill（标签页） ===== */
+  .pills {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    background: var(--bg-mute);
+    padding: 4px;
+    border-radius: 10px;
+    width: fit-content;
+  }
+  .pill {
+    padding: 7px 14px;
+    font-size: 13px; font-weight: 600;
+    border-radius: 8px;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .pill:hover { color: var(--text); }
+  .pill.active {
+    background: #fff;
+    color: var(--brand-1);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ===== 子标签（tab） ===== */
+  .tabs {
+    display: flex; gap: 4px;
+    border-bottom: 1px solid var(--line-soft);
+    padding: 0 4px;
+  }
+  .tab {
+    padding: 10px 14px;
+    font-size: 13.5px; font-weight: 500;
+    color: var(--text-2);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--brand-1);
+    border-bottom-color: var(--brand-1);
+    font-weight: 600;
+  }
+  .tab .count {
+    font-size: 11px; padding: 1px 6px; border-radius: 8px;
+    background: var(--bg-mute); color: var(--text-2); margin-left: 4px;
+  }
+
+  /* ===== 标签 ===== */
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    background: var(--bg-mute); color: var(--text-2);
+    font-size: 11.5px; font-weight: 500;
+  }
+  .tag-brand { background: rgba(99,102,241,.10); color: var(--brand-1); }
+  .tag-success { background: rgba(16,185,129,.10); color: #047857; }
+  .tag-warning { background: rgba(245,158,11,.12); color: #B45309; }
+  .tag-danger { background: rgba(244,63,94,.10); color: #BE123C; }
+
+  /* ===== KPI ===== */
+  .kpi {
+    background: #fff;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .kpi .label { font-size: 12.5px; color: var(--text-3); font-weight: 500; }
+  .kpi .value { font-size: 28px; font-weight: 700; color: var(--text); margin-top: 6px; line-height: 1.1; }
+  .kpi .delta { font-size: 12px; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+  .kpi .delta.up { color: var(--success); }
+  .kpi .delta.down { color: var(--danger); }
+  .kpi .ico {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--brand-grad-soft);
+    color: var(--brand-1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+
+  /* ===== 上传区 ===== */
+  .dropzone {
+    border: 2px dashed var(--line);
+    border-radius: var(--r-lg);
+    padding: 40px;
+    text-align: center;
+    background: var(--bg-soft);
+    transition: all .15s;
+  }
+  .dropzone:hover { border-color: var(--brand-1); background: rgba(99,102,241,.04); }
+  .dropzone .ico { font-size: 36px; margin-bottom: 8px; }
+  .dropzone .title { font-size: 16px; font-weight: 600; }
+  .dropzone .sub { font-size: 13px; color: var(--text-3); margin-top: 4px; }
+
+  /* ===== 三栏布局 ===== */
+  .three-col {
+    display: grid;
+    grid-template-columns: 280px 1fr 320px;
+    gap: 16px;
+  }
+  .col-panel { background:#fff; border:1px solid var(--line-soft); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+  .col-panel .ph { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); font-weight: 700; font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
+  .col-panel .pb { padding: 14px 16px; }
+  .col-list-item { padding: 12px 16px; border-bottom: 1px solid var(--line-soft); cursor: pointer; }
+  .col-list-item:hover { background: var(--bg-soft); }
+  .col-list-item.active { background: var(--brand-grad-soft); }
+  .col-list-item:last-child { border-bottom: none; }
+
+  /* ===== 时间线 ===== */
+  .timeline { position: relative; padding-left: 22px; }
+  .timeline::before { content: ""; position: absolute; left: 7px; top: 4px; bottom: 4px; width: 2px; background: var(--line); }
+  .tl-item { position: relative; padding-bottom: 18px; }
+  .tl-item::before {
+    content: ""; position: absolute; left: -19px; top: 4px; width: 12px; height: 12px; border-radius: 50%;
+    background: #fff; border: 2px solid var(--brand-1);
+  }
+  .tl-item.success::before { border-color: var(--success); background: var(--success); }
+  .tl-item.warning::before { border-color: var(--warning); }
+  .tl-item.danger::before { border-color: var(--danger); background: var(--danger); }
+  .tl-item .tl-time { font-size: 11.5px; color: var(--text-3); }
+  .tl-item .tl-title { font-size: 13.5px; font-weight: 600; margin-top: 2px; }
+  .tl-item .tl-sub { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+
+  /* ===== 简单进度条 ===== */
+  .bar { height: 6px; background: var(--bg-mute); border-radius: 3px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--brand-grad); border-radius: 3px; }
+  .bar.success > i { background: var(--success); }
+  .bar.warning > i { background: var(--warning); }
+  .bar.danger > i { background: var(--danger); }
+
+  /* ===== 详情布局 ===== */
+  .detail-2col { display: grid; grid-template-columns: 1fr 420px; gap: 16px; }
+  .preview {
+    background: #fff;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow);
+    height: 720px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .preview .ph { padding: 12px 16px; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; }
+  .preview .pb { flex: 1; overflow-y: auto; padding: 24px; background: var(--bg-soft); }
+  .doc-page {
+    background: #fff; padding: 36px 40px; margin-bottom: 12px;
+    border-radius: 6px; box-shadow: var(--shadow-sm);
+    color: var(--text); font-size: 13.5px; line-height: 1.9;
+    min-height: 480px;
+  }
+  .doc-page h4 { font-size: 15px; text-align: center; margin: 0 0 18px; }
+  .doc-page p { margin: 8px 0; color: var(--text-2); }
+  .doc-page mark.hl { background: rgba(245,158,11,.30); padding: 0 2px; border-radius: 2px; }
+
+  /* ===== 证据 ===== */
+  .evidence {
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 12px 14px;
+    background: var(--bg-soft);
+  }
+  .evidence .e-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+  .evidence .e-snippet { font-size: 13px; color: var(--text); line-height: 1.6; }
+  .evidence mark { background: rgba(245,158,11,.30); padding: 0 2px; border-radius: 2px; }
+  .evidence .e-foot { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 11.5px; color: var(--text-3); }
+  .evidence .conf { color: var(--success); font-weight: 600; }
+
+  /* ===== 复选框/勾选 ===== */
+  .check-pass { color: var(--success); }
+  .check-fail { color: var(--danger); }
+
+  /* ===== 杂项 ===== */
+  hr.div { border: 0; border-top: 1px solid var(--line-soft); margin: 16px 0; }
+  .hash {
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 11.5px;
+    color: var(--text-3);
+    background: var(--bg-mute);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  /* ===== 登录页特殊 ===== */
+  body.login-mode { background: #fff; }
+  .login-bg {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(99,102,241,.30) 0%, transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(139,92,246,.30) 0%, transparent 40%),
+      linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%);
+    color: #fff;
+  }
+  .login-left { padding: 64px; display: flex; flex-direction: column; justify-content: space-between; }
+  .login-brand { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 700; }
+  .login-brand .mark { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.20); display:flex; align-items:center; justify-content:center; }
+  .login-headline h1 { font-size: 48px; line-height: 1.15; font-weight: 800; margin: 0 0 18px; letter-spacing: -.02em; }
+  .login-headline p { font-size: 17px; line-height: 1.6; color: rgba(255,255,255,.75); max-width: 480px; margin: 0; }
+  .login-features { display: flex; flex-direction: column; gap: 14px; }
+  .login-feat { display: flex; align-items: center; gap: 12px; font-size: 14px; color: rgba(255,255,255,.85); }
+  .login-feat .dot { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; font-size:13px; }
+  .login-foot { font-size: 12.5px; color: rgba(255,255,255,.50); }
+  .login-right {
+    background: #fff; color: var(--text);
+    padding: 48px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .login-card { max-width: 380px; width: 100%; margin: 0 auto; }
+  .login-card h2 { font-size: 24px; margin: 0 0 6px; font-weight: 700; }
+  .login-card .lead { color: var(--text-2); font-size: 14px; margin-bottom: 28px; }
+  .login-err {
+    background: #FFF1F2; border: 1px solid #FECDD3; color: #9F1239;
+    padding: 10px 12px; border-radius: 8px; font-size: 13px;
+    display: flex; gap: 8px; align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .login-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+  .login-actions .btn-primary { width: 100%; justify-content: center; padding: 12px; font-size: 14px; }
+  .login-extra { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--text-3); margin-top: 12px; }
+  .login-extra a { color: var(--brand-1); }
+  .login-tip { text-align: center; font-size: 11.5px; color: var(--text-3); margin-top: 28px; }
+
+  /* ===== 工作台特殊 ===== */
+  .welcome-card {
+    background: var(--brand-grad);
+    border-radius: var(--r-xl);
+    padding: 28px 32px;
+    color: #fff;
+    display: flex; align-items: center; gap: 24px;
+    box-shadow: var(--shadow-brand);
+    position: relative;
+    overflow: hidden;
+  }
+  .welcome-card::before {
+    content: ""; position: absolute; right: -40px; top: -40px;
+    width: 240px; height: 240px; border-radius: 50%;
+    background: rgba(255,255,255,.10);
+  }
+  .welcome-card::after {
+    content: ""; position: absolute; right: 80px; bottom: -80px;
+    width: 180px; height: 180px; border-radius: 50%;
+    background: rgba(255,255,255,.06);
+  }
+  .welcome-card h2 { font-size: 22px; margin: 0 0 4px; font-weight: 700; position: relative; z-index: 1; }
+  .welcome-card p { margin: 0; font-size: 13.5px; color: rgba(255,255,255,.85); position: relative; z-index: 1; }
+  .welcome-card .stat { display: flex; gap: 28px; margin-left: auto; position: relative; z-index: 1; }
+  .welcome-card .stat .v { font-size: 24px; font-weight: 700; }
+  .welcome-card .stat .l { font-size: 11.5px; color: rgba(255,255,255,.75); }
+
+  .grid-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .grid-cards-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+
+  .todo-card {
+    background: #fff;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+    display: flex; align-items: center; gap: 14px;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .todo-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .todo-card .ico {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .todo-card .ico.brand  { background: rgba(99,102,241,.10); color: var(--brand-1); }
+  .todo-card .ico.warn   { background: rgba(245,158,11,.12); color: #B45309; }
+  .todo-card .ico.danger { background: rgba(244,63,94,.10); color: #BE123C; }
+  .todo-card .ico.success{ background: rgba(16,185,129,.10); color: #047857; }
+  .todo-card .num { font-size: 22px; font-weight: 700; line-height: 1; }
+  .todo-card .lbl { font-size: 12.5px; color: var(--text-2); margin-top: 4px; }
+  .todo-card .arrow { margin-left: auto; color: var(--text-3); font-size: 18px; }
+
+  .risk-bar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .risk-bar:last-child { border-bottom: none; }
+  .risk-bar .lbl { width: 80px; font-size: 13px; }
+  .risk-bar .v { width: 50px; text-align: right; font-weight: 700; font-size: 14px; }
+
+  /* ===== 文件预览模拟 ===== */
+  .file-thumb {
+    width: 36px; height: 44px; border-radius: 4px;
+    background: #fff; border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: var(--brand-1);
+    flex-shrink: 0;
+  }
+  .file-thumb.pdf { background: #FFF1F2; color: #BE123C; border-color: #FECDD3; }
+  .file-thumb.doc { background: #EEF2FF; color: #4F46E5; border-color: #C7D2FE; }
+  .file-thumb.xls { background: #ECFDF5; color: #047857; border-color: #A7F3D0; }
+  .file-thumb.img { background: #FFFBEB; color: #B45309; border-color: #FDE68A; }
+
+  /* 滚动条 */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* 报表预览 */
+  .report-preview {
+    background: #fff; padding: 48px 56px; margin: 0 auto;
+    max-width: 880px;
+    border: 1px solid var(--line-soft);
+    box-shadow: var(--shadow-lg);
+    border-radius: var(--r-md);
+    color: var(--text);
+  }
+  .report-preview h1 { font-size: 24px; text-align: center; margin: 0 0 8px; }
+  .report-preview .report-meta { text-align: center; font-size: 12.5px; color: var(--text-3); margin-bottom: 32px; }
+  .report-preview h2 { font-size: 16px; margin: 24px 0 10px; padding-left: 10px; border-left: 3px solid var(--brand-1); }
+  .report-preview p { font-size: 13.5px; line-height: 1.85; color: var(--text-2); }
+  .report-preview table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  .report-preview table th, .report-preview table td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; }
+  .report-preview table th { background: var(--bg-soft); font-weight: 600; }
+
+  /* AI 拒答卡 */
+  .refusal {
+    background: #FFFBEB;
+    border: 1px dashed #FCD34D;
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    color: #92400E;
+    font-size: 13px;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+
+  /* 用户头像组 */
+  .avatar-sm {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--brand-grad);
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+  }
+  .avatar-stack { display: inline-flex; }
+  .avatar-stack .avatar-sm { margin-left: -8px; border: 2px solid #fff; }
+  .avatar-stack .avatar-sm:first-child { margin-left: 0; }
+  .avatar-green { background: linear-gradient(135deg,#10B981,#34D399); }
+  .avatar-pink  { background: linear-gradient(135deg,#F43F5E,#FB7185); }
+  .avatar-amber { background: linear-gradient(135deg,#F59E0B,#FBBF24); }
+
+  /* 进度圆 */
+  .ring {
+    --p: 75; --c: var(--brand-1);
+    width: 36px; height: 36px; border-radius: 50%;
+    background: conic-gradient(var(--c) calc(var(--p)*1%), var(--bg-mute) 0);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: var(--text-2);
+    position: relative;
+  }
+  .ring::after {
+    content: ""; position: absolute; inset: 4px; border-radius: 50%;
+    background: #fff;
+  }
+  .ring span { position: relative; z-index: 1; }
+</style>
+</head>
+<body>
+
+<!-- ============== 登录页 ============== -->
+<div id="page-login" class="page login-bg-wrap">
+  <div class="login-bg">
+    <div class="login-left">
+      <div class="login-brand">
+        <div class="mark">⚡</div>
+        FinAudit Agent
+      </div>
+      <div class="login-headline">
+        <h1>让财务审核<br/>跑在 AI 之上</h1>
+        <p>合同、发票、制度的三方智能核验平台。从 OCR 解析到风险复核，全流程可解释、可追溯、有人把关。</p>
+      </div>
+      <div class="login-features">
+        <div class="login-feat"><span class="dot">✓</span> 多模态文档解析 · 字段级证据</div>
+        <div class="login-feat"><span class="dot">✓</span> 制度 RAG · 引用到具体条款</div>
+        <div class="login-feat"><span class="dot">✓</span> 确定性规则 · 5 档风险分级</div>
+        <div class="login-feat"><span class="dot">✓</span> 职责分离 · AI 建议，人做决定</div>
+      </div>
+      <div class="login-foot">© 2026 星辰智能 · 仅供审核辅助，最终决定由人工做出</div>
+    </div>
+    <div class="login-right">
+      <div class="login-card">
+        <h2>欢迎回来 👋</h2>
+        <div class="lead">使用企业账号登录，开始今天的审核工作</div>
+        <div class="login-err">
+          <span>⚠</span>
+          <div>
+            <div style="font-weight:600;">检测到 1 个待处理告警</div>
+            <div style="font-size:12px;margin-top:2px;color:#9F1239;">昨日子账号 "苏婉" 在异地登录，登录已自动阻断</div>
+          </div>
+        </div>
+        <div class="col gap-3">
+          <div class="field">
+            <label>企业邮箱 <span class="req">*</span></label>
+            <input type="text" value="linxiao@xingchen.ai" />
+          </div>
+          <div class="field">
+            <label>密码 <span class="req">*</span></label>
+            <input type="password" value="••••••••••" />
+          </div>
+          <div class="field">
+            <label>动态验证码</label>
+            <div class="row gap-2">
+              <input type="text" value="8 4 2 9 7 1" style="flex:1;letter-spacing:6px;text-align:center;" />
+              <button class="btn btn-secondary btn-sm">重新发送</button>
+            </div>
+          </div>
+        </div>
+        <div class="login-actions">
+          <button class="btn btn-primary">登 录</button>
+          <div class="login-extra">
+            <label class="row gap-2 small"><input type="checkbox" checked /> 7 天内自动登录</label>
+            <a href="#">忘记密码</a>
+          </div>
+        </div>
+        <div class="login-tip">
+          登录即代表您同意 <a href="#">《AI 辅助审核使用规范》</a> 与 <a href="#">《数据安全承诺》</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 工作台 ============== -->
+<div id="page-dashboard" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 2 个规则正在执行，预计 4 分钟</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div>
+        <div class="name">林晓</div>
+        <div class="role">财务审核</div>
+      </div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>FinAudit</span><span class="sep">/</span><span class="current">工作台</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <h1>早上好，林晓 ☀️</h1>
+          <div class="sub">2026 年 8 月 5 日 · 周三 · 距 Q3 季末还有 26 天</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">📥 导入文件</button>
+          <button class="btn btn-primary">＋ 新建审核任务</button>
+        </div>
+      </div>
+      <div class="content">
+        <!-- 欢迎横幅 -->
+        <div class="welcome-card mb-6">
+          <div style="position:relative;z-index:1;">
+            <h2>你今天有 5 件事需要处理</h2>
+            <p>其中 2 件高风险待复核，建议优先处理。已为你按风险等级排序。</p>
+          </div>
+          <div class="stat">
+            <div><div class="v">5</div><div class="l">待我处理</div></div>
+            <div><div class="v">12</div><div class="l">本周已审</div></div>
+            <div><div class="v">98%</div><div class="l">规则通过率</div></div>
+          </div>
+        </div>
+
+        <!-- AI 降级声明 -->
+        <div class="banner banner-warning mb-6">
+          <span class="ico">⚠</span>
+          <div>
+            <div class="b-title">AI 解释服务部分降级</div>
+            <div class="b-sub">受第三方模型 API 速率限制，"风险解释"与"制度引用"模块暂时仅返回规则引擎结论。规则结果仍可正常复核，不影响最终决策。</div>
+          </div>
+        </div>
+
+        <!-- KPI -->
+        <div class="grid-cards mb-6">
+          <div class="kpi">
+            <div class="ico">📥</div>
+            <div class="label">待我审核</div>
+            <div class="value">5</div>
+            <div class="delta up">▲ 2 较昨日</div>
+          </div>
+          <div class="kpi">
+            <div class="ico">🔍</div>
+            <div class="label">待复核（高风险）</div>
+            <div class="value">2</div>
+            <div class="delta down">▼ 1 较昨日</div>
+          </div>
+          <div class="kpi">
+            <div class="ico">⏰</div>
+            <div class="label">即将逾期（48h 内）</div>
+            <div class="value">1</div>
+            <div class="delta down">需关注</div>
+          </div>
+          <div class="kpi">
+            <div class="ico">⚡</div>
+            <div class="label">本月已自动化</div>
+            <div class="value">87<span style="font-size:18px;color:var(--text-3);"> / 120</span></div>
+            <div class="delta up">完成度 72.5%</div>
+          </div>
+        </div>
+
+        <!-- 待办 + 风险摘要 -->
+        <div class="grid-3-2 mb-6">
+          <div class="card">
+            <div class="card-h">
+              <h3>📋 我的待办</h3>
+              <span class="status status-pending">5 项</span>
+              <div class="right"><a href="#/tasks" class="small">查看全部 →</a></div>
+            </div>
+            <div class="card-b">
+              <div class="col gap-3">
+                <div class="todo-card">
+                  <div class="ico brand">📄</div>
+                  <div style="flex:1;">
+                    <div class="num">极兆云 SAAS 服务订阅 · 6.5 万/月</div>
+                    <div class="lbl">合同编号 CT-2026-0882 · 已存在 2 个风险点</div>
+                  </div>
+                  <span class="risk risk-medium">medium</span>
+                  <span class="arrow">›</span>
+                </div>
+                <div class="todo-card">
+                  <div class="ico danger">🚨</div>
+                  <div style="flex:1;">
+                    <div class="num">质跃供应链 · 设备采购合同</div>
+                    <div class="lbl">单笔 ¥ 248,000 超采购授权 · <span class="hash">trace: a3f9d2e1</span></div>
+                  </div>
+                  <span class="risk risk-high">high</span>
+                  <span class="arrow">›</span>
+                </div>
+                <div class="todo-card">
+                  <div class="ico warn">📑</div>
+                  <div style="flex:1;">
+                    <div class="num">3 张发票重复检测</div>
+                    <div class="lbl">速运物流 6 月 8 月 11 月 出现同号同金额</div>
+                  </div>
+                  <span class="risk risk-medium">medium</span>
+                  <span class="arrow">›</span>
+                </div>
+                <div class="todo-card">
+                  <div class="ico warn">📋</div>
+                  <div style="flex:1;">
+                    <div class="num">差旅报销 · 林晓 · 8 月</div>
+                    <div class="lbl">机票 4 段中有 2 段超标准 ¥ 380</div>
+                  </div>
+                  <span class="risk risk-low">low</span>
+                  <span class="arrow">›</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-h"><h3>📊 风险分布</h3><span class="sub">本月 · 全部任务</span></div>
+            <div class="card-b">
+              <div class="risk-bar">
+                <span class="lbl"><span class="risk risk-high">high</span></span>
+                <div class="bar danger" style="flex:1;"><i style="width:8%;"></i></div>
+                <span class="v">12</span>
+              </div>
+              <div class="risk-bar">
+                <span class="lbl"><span class="risk risk-medium">medium</span></span>
+                <div class="bar warning" style="flex:1;"><i style="width:24%;"></i></div>
+                <span class="v">38</span>
+              </div>
+              <div class="risk-bar">
+                <span class="lbl"><span class="risk risk-low">low</span></span>
+                <div class="bar" style="flex:1;"><i style="width:38%;"></i></div>
+                <span class="v">61</span>
+              </div>
+              <div class="risk-bar">
+                <span class="lbl"><span class="risk risk-notice">notice</span></span>
+                <div class="bar" style="flex:1;--c:var(--info);"><i style="width:18%;background:var(--info);"></i></div>
+                <span class="v">28</span>
+              </div>
+              <div class="risk-bar">
+                <span class="lbl"><span class="risk risk-none">none</span></span>
+                <div class="bar success" style="flex:1;"><i style="width:62%;"></i></div>
+                <span class="v">98</span>
+              </div>
+              <hr class="div" />
+              <div class="row between small">
+                <span class="muted">总样本数</span>
+                <span style="font-weight:700;">237 任务</span>
+              </div>
+              <div class="row between small mt-2">
+                <span class="muted">平均处理时长</span>
+                <span style="font-weight:700;">3.2 分钟</span>
+              </div>
+              <div class="row between small mt-2">
+                <span class="muted">AI 自动通过率</span>
+                <span style="font-weight:700;color:var(--success);">41.4%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 最近任务 + 失败任务 -->
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-h">
+              <h3>🕘 最近任务</h3>
+              <div class="right"><a href="#/tasks" class="small">查看全部 →</a></div>
+            </div>
+            <div class="card-b flush">
+              <div class="table-wrap">
+                <table class="t">
+                  <thead><tr>
+                    <th>任务名</th><th>类型</th><th>风险</th><th>状态</th><th>时间</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <div class="cell-title">2026Q3 财务专项审计</div>
+                        <div class="cell-sub">AI 设备采购</div>
+                      </td>
+                      <td><span class="tag tag-brand">专项</span></td>
+                      <td><span class="risk risk-high">high</span></td>
+                      <td><span class="status status-pending">复核中</span></td>
+                      <td class="muted">14:32</td>
+                    </tr>
+                    <tr>
+                      <td><div class="cell-title">极兆云 SAAS 续签审核</div></td>
+                      <td><span class="tag">合同</span></td>
+                      <td><span class="risk risk-medium">medium</span></td>
+                      <td><span class="status status-success">已通过</span></td>
+                      <td class="muted">11:08</td>
+                    </tr>
+                    <tr>
+                      <td><div class="cell-title">速运物流 6-8 月发票核验</div></td>
+                      <td><span class="tag">发票</span></td>
+                      <td><span class="risk risk-low">low</span></td>
+                      <td><span class="status status-info">执行中</span></td>
+                      <td class="muted">10:45</td>
+                    </tr>
+                    <tr>
+                      <td><div class="cell-title">差旅标准 v3.0 制度上线</div></td>
+                      <td><span class="tag tag-brand">制度</span></td>
+                      <td><span class="risk risk-none">none</span></td>
+                      <td><span class="status status-success">已确认</span></td>
+                      <td class="muted">09:12</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-h">
+              <h3>⚠ 失败 / 异常任务</h3>
+              <span class="status status-danger">3 项</span>
+              <div class="right"><a href="#/tasks" class="small">查看全部 →</a></div>
+            </div>
+            <div class="card-b flush">
+              <div class="table-wrap">
+                <table class="t">
+                  <thead><tr>
+                    <th>任务</th><th>错误</th><th>Trace ID</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr class="row-danger">
+                      <td>
+                        <div class="cell-title">咨询合同 5.pdf</div>
+                        <div class="cell-sub">解析失败</div>
+                      </td>
+                      <td><span class="status status-danger">文件损坏</span></td>
+                      <td><span class="hash">a3f9d2e1</span></td>
+                    </tr>
+                    <tr class="row-danger">
+                      <td>
+                        <div class="cell-title">质跃 · 设备清单.xlsx</div>
+                        <div class="cell-sub">执行超时</div>
+                      </td>
+                      <td><span class="status status-danger">超时 30s</span></td>
+                      <td><span class="hash">7b12cc44</span></td>
+                    </tr>
+                    <tr class="row-danger">
+                      <td>
+                        <div class="cell-title">月度合并报表 v2</div>
+                        <div class="cell-sub">AI 拒答</div>
+                      </td>
+                      <td><span class="status status-danger">信息不足</span></td>
+                      <td><span class="hash">5e9f0a8c</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 文件管理 ============== -->
+<div id="page-files" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 解析队列 12 个</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div><div class="name">林晓</div><div class="role">财务审核</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-2"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>文件管理</span><span class="sep">/</span><span class="current">全部文件</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <h1>文件管理</h1>
+          <div class="sub">上传、解析与版本管理 · 共 248 个文件 · 占 1.2 GB</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">📁 新建文件夹</button>
+          <button class="btn btn-primary">⬆ 上传文件</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="dropzone mb-6">
+          <div class="ico">☁️</div>
+          <div class="title">拖拽文件到这里，或 <a href="#">点击选择</a></div>
+          <div class="sub">支持 PDF / Word / Excel / 图片（OCR） · 单文件 ≤ 50MB · 单次 ≤ 20 个</div>
+        </div>
+
+        <div class="card mb-6">
+          <div class="card-h">
+            <h3>文件列表</h3>
+            <div class="right">
+              <div class="row gap-2">
+                <input class="field" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;width:200px;" placeholder="🔍 搜索文件名、合同号..." />
+                <select class="field" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;">
+                  <option>全部类型</option><option>合同</option><option>发票</option><option>制度</option>
+                </select>
+                <select class="field" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;">
+                  <option>全部状态</option><option>解析完成</option><option>解析中</option><option>失败</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="card-b flush">
+            <div class="table-wrap">
+              <table class="t">
+                <thead><tr>
+                  <th>文件名</th><th>类型</th><th>大小</th><th>上传人</th><th>上传时间</th>
+                  <th>文件</th><th>解析</th><th>Markdown</th><th class="right">操作</th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="file-thumb pdf">PDF</div>
+                        <div>
+                          <div class="cell-title">极兆云_SAAS服务订阅协议_v2.pdf</div>
+                          <div class="cell-sub">sha256: a3f9d2e1...8c4b</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="tag tag-brand">合同</span></td>
+                    <td class="num">2.4 MB</td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-green">苏</div>苏婉</div></td>
+                    <td class="muted">08-05 14:32</td>
+                    <td><span class="status status-success">已存储</span></td>
+                    <td><span class="status status-success">已完成</span></td>
+                    <td><span class="status status-success">已生成</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="file-thumb pdf">PDF</div>
+                        <div>
+                          <div class="cell-title">质跃供应链_设备采购合同_CT-2026-0883.pdf</div>
+                          <div class="cell-sub">sha256: 7b12cc44...e9f0</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="tag tag-brand">合同</span></td>
+                    <td class="num">4.1 MB</td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-green">苏</div>苏婉</div></td>
+                    <td class="muted">08-05 11:08</td>
+                    <td><span class="status status-success">已存储</span></td>
+                    <td><span class="status status-success">已完成</span></td>
+                    <td><span class="status status-success">已生成</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="file-thumb xls">XLS</div>
+                        <div>
+                          <div class="cell-title">速运物流_6-8月发票明细.xlsx</div>
+                          <div class="cell-sub">sha256: 5e9f0a8c...12d4</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="tag">发票</span></td>
+                    <td class="num">318 KB</td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="muted">08-04 16:45</td>
+                    <td><span class="status status-success">已存储</span></td>
+                    <td><span class="status status-success">已完成</span></td>
+                    <td><span class="status status-info">生成中</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="file-thumb pdf">PDF</div>
+                        <div>
+                          <div class="cell-title">咨询合同_5_会议纪要.pdf</div>
+                          <div class="cell-sub">sha256: 2c1dab34...8ee1</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="tag">合同</span></td>
+                    <td class="num">1.1 MB</td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="muted">08-04 14:12</td>
+                    <td><span class="status status-success">已存储</span></td>
+                    <td><span class="status status-danger">文件损坏</span></td>
+                    <td><span class="status status-muted">—</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="file-thumb img">IMG</div>
+                        <div>
+                          <div class="cell-title">差旅_8月_林晓_发票照片.zip</div>
+                          <div class="cell-sub">含 4 张照片 · OCR 处理中</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="tag">票据</span></td>
+                    <td class="num">5.7 MB</td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="muted">08-03 18:30</td>
+                    <td><span class="status status-success">已存储</span></td>
+                    <td><span class="status status-info">OCR 识别中 78%</span></td>
+                    <td><span class="status status-pending">待生成</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="file-thumb doc">DOC</div>
+                        <div>
+                          <div class="cell-title">差旅报销管理办法_v3.0_终稿.docx</div>
+                          <div class="cell-sub">sha256: e8a0fc19...b7c3</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="tag tag-success">制度</span></td>
+                    <td class="num">864 KB</td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-pink">周</div>周辰</div></td>
+                    <td class="muted">08-02 09:55</td>
+                    <td><span class="status status-success">已存储</span></td>
+                    <td><span class="status status-success">已完成</span></td>
+                    <td><span class="status status-success">已生成</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="file-thumb pdf">PDF</div>
+                        <div>
+                          <div class="cell-title">广州速运_物流服务合同_2025续签.pdf</div>
+                          <div class="cell-sub">sha256: 4f2e901a...31a2</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="tag tag-brand">合同</span></td>
+                    <td class="num">1.8 MB</td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-green">苏</div>苏婉</div></td>
+                    <td class="muted">07-29 10:21</td>
+                    <td><span class="status status-success">已存储</span></td>
+                    <td><span class="status status-success">已完成</span></td>
+                    <td><span class="status status-success">已生成</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 文件详情示例 -->
+        <div class="card">
+          <div class="card-h">
+            <h3>📄 文件详情 · 极兆云_SAAS服务订阅协议_v2.pdf</h3>
+            <div class="right">
+              <button class="btn btn-secondary btn-sm">⬇ 下载原始</button>
+              <button class="btn btn-secondary btn-sm">🔄 重新解析</button>
+              <button class="btn btn-primary btn-sm">＋ 发起审核</button>
+            </div>
+          </div>
+          <div class="card-b">
+            <div class="detail-2col">
+              <div class="preview">
+                <div class="ph">
+                  <span>📃 文档预览</span>
+                  <span class="muted" style="margin-left:auto;font-weight:normal;">第 1 / 12 页</span>
+                </div>
+                <div class="pb">
+                  <div class="doc-page">
+                    <h4>SAAS 服务订阅协议</h4>
+                    <p style="text-align:center;color:var(--text-3);">合同编号：CT-2026-0882 · 签订日期：2026-08-01</p>
+                    <p><b>甲方：</b>星辰智能科技（深圳）有限公司</p>
+                    <p><b>乙方：</b>极兆云科技（上海）有限公司</p>
+                    <hr/>
+                    <p>鉴于乙方拥有成熟的 SAAS 产品"极兆云协作平台"，甲方拟向乙方采购相关订阅服务，经友好协商，达成如下协议：</p>
+                    <p><b>第一条 服务内容</b></p>
+                    <p>乙方向甲方提供 <mark class="hl">企业版订阅服务</mark>，包含不限人数协作空间、API 调用额度 100 万次/月、专属客户经理。</p>
+                    <p><b>第二条 服务期限与费用</b></p>
+                    <p>本合同期限为 <mark class="hl">36 个月</mark>，自 2026-08-15 起至 2029-08-14 止。服务费为人民币 <mark class="hl">¥ 65,000.00 / 月</mark>，按季支付。</p>
+                    <p><b>第三条 付款方式</b></p>
+                    <p>甲方应于每季度首月 10 日前向乙方支付当季服务费，逾期按日万分之五计违约金。</p>
+                  </div>
+                  <div class="doc-page">
+                    <h4>SAAS 服务订阅协议 (续)</h4>
+                    <p><b>第四条 数据安全</b></p>
+                    <p>乙方应按照国家《数据安全法》要求对甲方数据进行分类分级管理，重要数据不出境。</p>
+                    <p><b>第五条 违约责任</b></p>
+                    <p>任一方违约，守约方有权要求 <mark class="hl">赔偿实际损失</mark>，但赔偿总额不超过 <mark class="hl">本合同总金额的 30%</mark>。</p>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div class="card mb-4">
+                  <div class="card-h"><h3>📋 元数据</h3></div>
+                  <div class="card-b">
+                    <div class="col gap-3">
+                      <div class="row between small"><span class="muted">文件类型</span><span>PDF · 12 页</span></div>
+                      <div class="row between small"><span class="muted">文件大小</span><span class="mono">2,457,128 B</span></div>
+                      <div class="row between small"><span class="muted">SHA-256</span><span class="hash">a3f9d2e1...8c4b</span></div>
+                      <div class="row between small"><span class="muted">上传人</span><span>苏婉</span></div>
+                      <div class="row between small"><span class="muted">上传时间</span><span class="mono">2026-08-05 14:32:18</span></div>
+                      <div class="row between small"><span class="muted">解析引擎</span><span>v3.2 · DocLayout-YOLO</span></div>
+                      <div class="row between small"><span class="muted">Markdown 路径</span><a href="#">/files/a3f9d2e1.md</a></div>
+                      <div class="row between small"><span class="muted">关联合同</span><a href="#/contracts/CT-2026-0882">CT-2026-0882</a></div>
+                      <div class="row between small"><span class="muted">关联任务</span><a href="#/tasks/T-2026-Q3-04">T-2026-Q3-04</a></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="card-h"><h3>🔍 解析分块预览</h3><span class="sub">共 28 块</span></div>
+                  <div class="card-b" style="max-height:280px;overflow-y:auto;">
+                    <div class="col gap-3">
+                      <div class="evidence">
+                        <div class="e-head"><span class="tag tag-brand">块 #1</span><span>第 1 页 · 标题区</span></div>
+                        <div class="e-snippet">SAAS 服务订阅协议 · 合同编号：CT-2026-0882 ...</div>
+                        <div class="e-foot">类型：text · 置信度 <span class="conf">99.2%</span></div>
+                      </div>
+                      <div class="evidence">
+                        <div class="e-head"><span class="tag tag-brand">块 #5</span><span>第 2 页 · 条款</span></div>
+                        <div class="e-snippet">服务期限为 <mark>36 个月</mark>，服务费 ¥ 65,000.00 / 月</div>
+                        <div class="e-foot">类型：clause · 置信度 <span class="conf">96.8%</span></div>
+                      </div>
+                      <div class="evidence">
+                        <div class="e-head"><span class="tag tag-brand">块 #12</span><span>第 5 页 · 违约条款</span></div>
+                        <div class="e-snippet">赔偿总额不超过 <mark>本合同总金额的 30%</mark></div>
+                        <div class="e-foot">类型：clause · 置信度 <span class="conf">94.1%</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 合同列表 ============== -->
+<div id="page-contracts" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 2 个规则正在执行</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div><div class="name">林晓</div><div class="role">财务审核</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-3"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>合同管理</span><span class="sep">/</span><span class="current">全部合同</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <h1>合同管理</h1>
+          <div class="sub">共 86 份合同 · 7 份待我处理 · 2 份高风险</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">📤 导出 Excel</button>
+          <button class="btn btn-primary">＋ 录入合同</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card mb-6">
+          <div class="card-b">
+            <div class="form-row">
+              <div class="field"><label>合同编号</label><input placeholder="如 CT-2026-0882" /></div>
+              <div class="field"><label>合同名称</label><input placeholder="关键字搜索..." /></div>
+              <div class="field"><label>供应商</label>
+                <select><option>全部</option><option>极兆云科技（上海）</option><option>质跃供应链</option><option>广州速运物流</option></select>
+              </div>
+              <div class="field"><label>状态</label>
+                <select><option>全部</option><option>已确认</option><option>审核中</option><option>已驳回</option><option>草稿</option></select>
+              </div>
+            </div>
+            <div class="row gap-2 mt-4">
+              <button class="btn btn-primary">查询</button>
+              <button class="btn btn-secondary">重置</button>
+              <span class="muted small" style="margin-left:auto;">高级筛选 · 金额区间 · 签约日期 · 风险等级</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">
+            <h3>合同列表 · 86 条</h3>
+            <div class="right">
+              <span class="status status-info">已确认 71</span>
+              <span class="status status-pending">审核中 12</span>
+              <span class="status status-danger">驳回 3</span>
+            </div>
+          </div>
+          <div class="card-b flush">
+            <div class="table-wrap">
+              <table class="t">
+                <thead><tr>
+                  <th>合同编号</th><th>合同名称</th><th>供应商</th><th>金额</th><th>签约日期</th>
+                  <th>风险</th><th>状态</th><th>负责人</th><th class="right">操作</th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="mono">CT-2026-0882</td>
+                    <td><a href="#/contracts/CT-2026-0882" class="cell-title">SAAS 服务订阅协议</a></td>
+                    <td>极兆云科技（上海）</td>
+                    <td class="num right">¥ 2,340,000.00</td>
+                    <td class="muted">2026-08-01</td>
+                    <td><span class="risk risk-medium">medium</span></td>
+                    <td><span class="status status-info">审核中</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr class="row-danger">
+                    <td class="mono">CT-2026-0883</td>
+                    <td><a href="#/contracts/CT-2026-0883" class="cell-title">设备采购合同</a>
+                      <div class="cell-sub"><span class="risk risk-high" style="font-size:10.5px;padding:1px 6px;">超授权</span></div>
+                    </td>
+                    <td>质跃供应链</td>
+                    <td class="num right">¥ 248,000.00</td>
+                    <td class="muted">2026-08-05</td>
+                    <td><span class="risk risk-high">high</span></td>
+                    <td><span class="status status-danger">待复核</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-pink">周</div>周辰</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono">CT-2026-0871</td>
+                    <td><a href="#/contracts/CT-2026-0871" class="cell-title">咨询服务合同</a></td>
+                    <td>中正管理咨询</td>
+                    <td class="num right">¥ 580,000.00</td>
+                    <td class="muted">2026-07-28</td>
+                    <td><span class="risk risk-low">low</span></td>
+                    <td><span class="status status-success">已确认</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono">CT-2026-0856</td>
+                    <td><a href="#/contracts/CT-2026-0856" class="cell-title">物流服务合同（2025 续签）</a></td>
+                    <td>广州速运物流</td>
+                    <td class="num right">¥ 1,200,000.00</td>
+                    <td class="muted">2026-07-15</td>
+                    <td><span class="risk risk-notice">notice</span></td>
+                    <td><span class="status status-success">已确认</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-green">苏</div>苏婉</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono">CT-2026-0841</td>
+                    <td><a href="#/contracts/CT-2026-0841" class="cell-title">差旅服务集采合同</a></td>
+                    <td>携程商旅</td>
+                    <td class="num right">¥ 360,000.00</td>
+                    <td class="muted">2026-07-08</td>
+                    <td><span class="risk risk-none">none</span></td>
+                    <td><span class="status status-success">已确认</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono">CT-2026-0828</td>
+                    <td><a href="#/contracts/CT-2026-0828" class="cell-title">企业邮箱扩容合同</a></td>
+                    <td>阿里云</td>
+                    <td class="num right">¥ 48,000.00</td>
+                    <td class="muted">2026-06-25</td>
+                    <td><span class="risk risk-none">none</span></td>
+                    <td><span class="status status-success">已确认</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono">CT-2026-0815</td>
+                    <td><a href="#/contracts/CT-2026-0815" class="cell-title">AI 模型 API 接入合同</a></td>
+                    <td>智谱 AI</td>
+                    <td class="num right">¥ 720,000.00</td>
+                    <td class="muted">2026-06-18</td>
+                    <td><span class="risk risk-medium">medium</span></td>
+                    <td><span class="status status-info">审核中</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-pink">周</div>周辰</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="row between" style="padding:12px 16px;font-size:12.5px;color:var(--text-3);">
+              <div>共 86 条 · 当前 1-7</div>
+              <div class="row gap-2">
+                <button class="btn btn-secondary btn-sm">‹</button>
+                <span>1 / 13</span>
+                <button class="btn btn-secondary btn-sm">›</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 合同详情 ============== -->
+<div id="page-contract-detail" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 2 个规则正在执行</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div><div class="name">林晓</div><div class="role">财务审核</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-4"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>合同管理</span><span class="sep">/</span><span>全部合同</span><span class="sep">/</span>
+        <span class="current">CT-2026-0883 · 设备采购合同</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <div class="row gap-3" style="align-items:center;">
+            <h1>设备采购合同</h1>
+            <span class="risk risk-high">high</span>
+            <span class="status status-danger">待复核</span>
+            <span class="tag tag-brand">CT-2026-0883</span>
+          </div>
+          <div class="sub">质跃供应链 · ¥ 248,000.00 · 签约 2026-08-05 · 负责人 周辰</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">📤 分享</button>
+          <button class="btn btn-secondary">⬇ 导出</button>
+          <button class="btn btn-danger">驳 回</button>
+          <button class="btn btn-primary">通过 · 提请复核</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="banner banner-danger mb-6">
+          <span class="ico">🚨</span>
+          <div>
+            <div class="b-title">本单合同触发 2 个高风险规则</div>
+            <div class="b-sub">1) 单笔金额超采购授权上限（财务授权 20 万，本笔 24.8 万） 2) 供应商未在合格供应商名录 · 根据制度，high 风险须由审计复核人员终审（职责分离）</div>
+          </div>
+        </div>
+
+        <div class="detail-2col">
+          <!-- 左：文档预览 -->
+          <div>
+            <div class="preview">
+              <div class="ph">
+                <span>📃 设备采购合同.pdf</span>
+                <span class="muted" style="margin-left:auto;font-weight:normal;">第 2 / 8 页</span>
+              </div>
+              <div class="pb">
+                <div class="doc-page">
+                  <h4>设备采购合同</h4>
+                  <p style="text-align:center;color:var(--text-3);">合同编号：CT-2026-0883</p>
+                  <p><b>甲方（采购方）：</b>星辰智能科技（深圳）有限公司</p>
+                  <p><b>乙方（供应方）：</b>质跃供应链管理有限公司</p>
+                  <hr/>
+                  <p><b>第一条 标的</b></p>
+                  <p>乙方向甲方提供：AI 训练服务器 × 4 台、GPU 加速卡 × 8 张、机柜 × 2 台。详细规格见附件 A。</p>
+                  <p><b>第二条 价款</b></p>
+                  <p>本合同总金额为人民币 <mark class="hl">¥ 248,000.00</mark>（贰拾肆万捌仟元整），含 13% 增值税。</p>
+                  <p><b>第三条 付款</b></p>
+                  <p>合同签订后 5 个工作日内，甲方向乙方支付 <mark class="hl">合同全款</mark>，乙方收到款项后 15 日内完成交付。</p>
+                </div>
+                <div class="doc-page">
+                  <h4>设备采购合同 (续)</h4>
+                  <p><b>第四条 质量与验收</b></p>
+                  <p>乙方应保证所交付设备为全新原厂正品，符合附件 A 所列技术规格。甲方在到货后 7 个工作日内组织验收。</p>
+                  <p><b>第五条 违约</b></p>
+                  <p>如乙方迟延交付超过 10 日，甲方有权解除合同，乙方应返还已付款项并按 <mark class="hl">合同金额 20%</mark> 支付违约金。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右：详情 tabs -->
+          <div>
+            <div class="card">
+              <div class="card-h" style="padding:0 8px;">
+                <div class="tabs" style="border-bottom:none;">
+                  <div class="tab active">基础字段 <span class="count">14</span></div>
+                  <div class="tab">条款 <span class="count">6</span></div>
+                  <div class="tab">补充协议</div>
+                  <div class="tab">附件</div>
+                  <div class="tab">历史 <span class="count">8</span></div>
+                </div>
+              </div>
+              <div class="card-b" style="max-height:680px;overflow-y:auto;">
+                <h4 style="margin:0 0 12px;font-size:13.5px;">📋 合同基础信息</h4>
+                <div class="col gap-3">
+                  <div class="row between small"><span class="muted">合同编号</span><span class="mono">CT-2026-0883</span></div>
+                  <div class="row between small"><span class="muted">合同名称</span><span style="font-weight:600;">设备采购合同</span></div>
+                  <div class="row between small"><span class="muted">供应商</span><a href="#">质跃供应链管理有限公司</a></div>
+                  <div class="row between small"><span class="muted">合同类型</span><span><span class="tag tag-brand">采购</span></span></div>
+                  <div class="row between small"><span class="muted">总金额</span><span style="font-weight:700;color:var(--text);">¥ 248,000.00</span></div>
+                  <div class="row between small"><span class="muted">币种</span><span>CNY · 人民币</span></div>
+                  <div class="row between small"><span class="muted">签约日期</span><span class="mono">2026-08-05</span></div>
+                  <div class="row between small"><span class="muted">生效日期</span><span class="mono">2026-08-05</span></div>
+                  <div class="row between small"><span class="muted">履约期限</span><span class="mono">至 2026-09-15</span></div>
+                  <div class="row between small"><span class="muted">付款方式</span><span>一次性付款</span></div>
+                  <div class="row between small"><span class="muted">合同负责人</span><span><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></span></div>
+                  <div class="row between small"><span class="muted">复核人</span><span><div class="row gap-2"><div class="avatar-sm avatar-pink">周</div>周辰</div></span></div>
+                  <div class="row between small"><span class="muted">采购授权</span><span style="color:var(--danger);font-weight:600;">超 ¥ 48,000</span></div>
+                </div>
+
+                <hr class="div" />
+                <h4 style="margin:0 0 12px;font-size:13.5px;">🔍 字段提取证据</h4>
+                <div class="col gap-3">
+                  <div class="evidence">
+                    <div class="e-head"><span class="tag tag-brand">金额</span><span>第 2 页 · 第 1 行</span></div>
+                    <div class="e-snippet">本合同总金额为人民币 <mark>¥ 248,000.00</mark></div>
+                    <div class="e-foot">置信度 <span class="conf">98.7%</span> · 来源：第二页扫描匹配</div>
+                  </div>
+                  <div class="evidence">
+                    <div class="e-head"><span class="tag tag-brand">付款方式</span><span>第 2 页 · 第 3 行</span></div>
+                    <div class="e-snippet">合同签订后 5 个工作日内，甲方向乙方支付 <mark>合同全款</mark></div>
+                    <div class="e-foot">置信度 <span class="conf">95.3%</span></div>
+                  </div>
+                  <div class="evidence">
+                    <div class="e-head"><span class="tag tag-warning">违约</span><span>第 3 页 · 第 5 行</span></div>
+                    <div class="e-snippet">按 <mark>合同金额 20%</mark> 支付违约金</div>
+                    <div class="e-foot">置信度 <span class="conf">92.1%</span></div>
+                  </div>
+                </div>
+
+                <hr class="div" />
+                <h4 style="margin:0 0 12px;font-size:13.5px;">⚡ 触发的规则</h4>
+                <div class="col gap-2">
+                  <div class="row between" style="padding:8px 10px;background:rgba(244,63,94,.06);border-radius:8px;">
+                    <div class="row gap-2 small"><span class="check-fail">✗</span><span><b>采购授权上限</b> · 单笔 ≤ ¥ 200,000</span></div>
+                    <span class="risk risk-high" style="font-size:10.5px;padding:1px 6px;">high</span>
+                  </div>
+                  <div class="row between" style="padding:8px 10px;background:rgba(244,63,94,.06);border-radius:8px;">
+                    <div class="row gap-2 small"><span class="check-fail">✗</span><span><b>合格供应商名录</b> · 质跃供应链未在册</span></div>
+                    <span class="risk risk-high" style="font-size:10.5px;padding:1px 6px;">high</span>
+                  </div>
+                  <div class="row between" style="padding:8px 10px;background:rgba(245,158,11,.08);border-radius:8px;">
+                    <div class="row gap-2 small"><span class="check-fail" style="color:#B45309;">⚠</span><span><b>一次性付款条款</b> · 建议分期</span></div>
+                    <span class="risk risk-medium" style="font-size:10.5px;padding:1px 6px;">medium</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 发票列表 ============== -->
+<div id="page-invoices" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 解析队列 12 个</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div><div class="name">林晓</div><div class="role">财务审核</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-5"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>发票管理</span><span class="sep">/</span><span class="current">全部发票</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <h1>发票管理</h1>
+          <div class="sub">本月已收 142 张 · 待核验 8 张 · 重复嫌疑 3 张</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">📤 导出</button>
+          <button class="btn btn-secondary">🔁 批量核验</button>
+          <button class="btn btn-primary">＋ 录入发票</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card mb-6">
+          <div class="card-b">
+            <div class="form-row">
+              <div class="field"><label>发票号码</label><input placeholder="如 24412000000..." /></div>
+              <div class="field"><label>开票方</label>
+                <select><option>全部</option><option>极兆云科技（上海）</option><option>质跃供应链</option><option>广州速运物流</option></select>
+              </div>
+              <div class="field"><label>关联合同</label><input placeholder="合同号" /></div>
+              <div class="field"><label>重复状态</label>
+                <select><option>全部</option><option>正常</option><option>疑似重复</option><option>已确认重复</option></select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">
+            <h3>发票列表 · 142 条</h3>
+            <div class="right">
+              <span class="status status-danger">重复 3</span>
+              <span class="status status-pending">待核验 8</span>
+              <span class="status status-success">已核验 131</span>
+            </div>
+          </div>
+          <div class="card-b flush">
+            <div class="table-wrap">
+              <table class="t">
+                <thead><tr>
+                  <th>发票号码</th><th>类型</th><th>开票方</th><th>金额（含税）</th><th>开票日期</th>
+                  <th>关联合同</th><th>重复</th><th>状态</th><th class="right">操作</th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="mono small">24412000000881234056</td>
+                    <td><span class="tag">电子专票</span></td>
+                    <td>极兆云科技（上海）</td>
+                    <td class="num right">¥ 73,450.00</td>
+                    <td class="muted">2026-08-01</td>
+                    <td><a href="#">CT-2026-0882</a></td>
+                    <td><span class="status status-success">正常</span></td>
+                    <td><span class="status status-success">已核验</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono small">24412000000881234102</td>
+                    <td><span class="tag">电子专票</span></td>
+                    <td>极兆云科技（上海）</td>
+                    <td class="num right">¥ 73,450.00</td>
+                    <td class="muted">2026-08-04</td>
+                    <td><a href="#">CT-2026-0882</a></td>
+                    <td><span class="status status-success">正常</span></td>
+                    <td><span class="status status-success">已核验</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr class="row-danger">
+                    <td class="mono small">144002005011</td>
+                    <td><span class="tag">电子普票</span></td>
+                    <td>广州速运物流</td>
+                    <td class="num right">¥ 18,400.00</td>
+                    <td class="muted">2026-06-08</td>
+                    <td><a href="#">CT-2026-0856</a></td>
+                    <td><span class="status status-danger">疑似重复</span></td>
+                    <td><span class="status status-danger">待复核</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr class="row-danger">
+                    <td class="mono small">144002005011</td>
+                    <td><span class="tag">电子普票</span></td>
+                    <td>广州速运物流</td>
+                    <td class="num right">¥ 18,400.00</td>
+                    <td class="muted">2026-08-11</td>
+                    <td><a href="#">—</a></td>
+                    <td><span class="status status-danger">疑似重复</span></td>
+                    <td><span class="status status-danger">待复核</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr class="row-danger">
+                    <td class="mono small">144002005011</td>
+                    <td><span class="tag">电子普票</span></td>
+                    <td>广州速运物流</td>
+                    <td class="num right">¥ 18,400.00</td>
+                    <td class="muted">2026-11-15</td>
+                    <td><a href="#">—</a></td>
+                    <td><span class="status status-danger">疑似重复</span></td>
+                    <td><span class="status status-danger">待复核</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono small">24412000000870000123</td>
+                    <td><span class="tag">电子专票</span></td>
+                    <td>质跃供应链</td>
+                    <td class="num right">¥ 248,000.00</td>
+                    <td class="muted">2026-08-05</td>
+                    <td><a href="#">CT-2026-0883</a></td>
+                    <td><span class="status status-success">正常</span></td>
+                    <td><span class="status status-pending">待核验</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono small">24412000000864289110</td>
+                    <td><span class="tag">电子专票</span></td>
+                    <td>中正管理咨询</td>
+                    <td class="num right">¥ 290,000.00</td>
+                    <td class="muted">2026-07-28</td>
+                    <td><a href="#">CT-2026-0871</a></td>
+                    <td><span class="status status-success">正常</span></td>
+                    <td><span class="status status-success">已核验</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 发票详情 ============== -->
+<div id="page-invoice-detail" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 解析队列 12 个</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div><div class="name">林晓</div><div class="role">财务审核</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-6"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>发票管理</span><span class="sep">/</span><span>发票列表</span><span class="sep">/</span>
+        <span class="current">144002005011 · 速运物流 6 月</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <div class="row gap-3" style="align-items:center;">
+            <h1>电子普通发票</h1>
+            <span class="risk risk-high">high</span>
+            <span class="status status-danger">疑似重复</span>
+            <span class="tag">144002005011</span>
+          </div>
+          <div class="sub">广州速运物流 · ¥ 18,400.00 · 开票日 2026-06-08 · 重复 3 次</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">⬇ 导出 OFD</button>
+          <button class="btn btn-danger">标记重复 · 退回报销</button>
+          <button class="btn btn-primary">确认为真</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="banner banner-danger mb-6">
+          <span class="ico">🚨</span>
+          <div>
+            <div class="b-title">该发票号在系统内出现 3 次，开票方、金额、号码均完全一致</div>
+            <div class="b-sub">可能为发票号复用 / 重复报销。已自动关联相关合同（CT-2026-0856），等待人工确认。<span class="hash" style="margin-left:6px;">trace: dup-9e2f7a31</span></div>
+          </div>
+        </div>
+
+        <div class="detail-2col">
+          <div>
+            <div class="preview">
+              <div class="ph">
+                <span>📃 速运物流_6月_发票.png</span>
+                <span class="muted" style="margin-left:auto;font-weight:normal;">OCR 识别</span>
+              </div>
+              <div class="pb">
+                <div class="doc-page" style="font-family: 'SimSun', serif;">
+                  <h4 style="font-family: var(--font);">电子普通发票</h4>
+                  <div style="text-align:center;color:var(--text-3);font-size:11.5px;">发票代码：044002005011 · 发票号码：144002005011</div>
+                  <hr style="border-color:var(--line-soft);"/>
+                  <div style="font-size:12.5px;line-height:2.2;">
+                    <div class="row between"><span>开票日期：</span><span><b>2026 年 06 月 08 日</b></span></div>
+                    <div class="row between"><span>购方名称：</span><span>星辰智能科技（深圳）有限公司</span></div>
+                    <div class="row between"><span>销方名称：</span><span>广州速运物流有限公司</span></div>
+                    <hr style="border-color:var(--line-soft);"/>
+                    <table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+                      <thead><tr style="background:#F3F4F6;"><th style="padding:6px;text-align:left;">货物名称</th><th style="padding:6px;width:80px;">数量</th><th style="padding:6px;width:100px;text-align:right;">金额</th></tr></thead>
+                      <tbody>
+                        <tr><td style="padding:6px;">*运输服务*城际公路运输费</td><td style="padding:6px;text-align:center;">1</td><td style="padding:6px;text-align:right;">¥ 18,400.00</td></tr>
+                      </tbody>
+                    </table>
+                    <hr style="border-color:var(--line-soft);"/>
+                    <div class="row between"><span>价税合计（大写）：</span><span>壹万捌仟肆佰元整</span></div>
+                    <div class="row between" style="font-size:14px;font-weight:700;"><span>（小写）</span><span>¥ 18,400.00</span></div>
+                    <hr style="border-color:var(--line-soft);"/>
+                    <div class="row between"><span>销方：</span><span>广州速运物流有限公司</span></div>
+                    <div style="margin-top:14px;color:var(--text-3);font-size:11.5px;">校验码：8847 2938 1024 5566 7788 · 发票联次：发票联</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <div class="card-h" style="padding:0 8px;">
+                <div class="tabs" style="border-bottom:none;">
+                  <div class="tab active">字段</div>
+                  <div class="tab">明细</div>
+                  <div class="tab">证据 <span class="count">6</span></div>
+                  <div class="tab">重复检测 <span class="count">3</span></div>
+                  <div class="tab">合同</div>
+                </div>
+              </div>
+              <div class="card-b" style="max-height:680px;overflow-y:auto;">
+                <h4 style="margin:0 0 12px;font-size:13.5px;">📋 发票基础信息</h4>
+                <div class="col gap-3">
+                  <div class="row between small"><span class="muted">发票号码</span><span class="mono">144002005011</span></div>
+                  <div class="row between small"><span class="muted">发票代码</span><span class="mono">044002005011</span></div>
+                  <div class="row between small"><span class="muted">发票类型</span><span>电子普通发票</span></div>
+                  <div class="row between small"><span class="muted">购方</span><span>星辰智能科技（深圳）</span></div>
+                  <div class="row between small"><span class="muted">销方</span><span>广州速运物流</span></div>
+                  <div class="row between small"><span class="muted">不含税金额</span><span class="num">¥ 17,079.65</span></div>
+                  <div class="row between small"><span class="muted">税额</span><span class="num">¥ 1,320.35</span></div>
+                  <div class="row between small"><span class="muted">价税合计</span><span class="num" style="font-weight:700;">¥ 18,400.00</span></div>
+                  <div class="row between small"><span class="muted">税率</span><span>7.73%</span></div>
+                  <div class="row between small"><span class="muted">开票日期</span><span class="mono">2026-06-08</span></div>
+                  <div class="row between small"><span class="muted">校验码</span><span class="hash">8847-2938-1024</span></div>
+                </div>
+
+                <hr class="div" />
+                <h4 style="margin:0 0 12px;font-size:13.5px;">🔁 重复检测结果</h4>
+                <div class="col gap-2">
+                  <div class="evidence" style="background:rgba(244,63,94,.05);border-color:rgba(244,63,94,.2);">
+                    <div class="e-head"><span class="tag tag-danger">疑似重复 1</span><span>2026-06-08 · 本次</span></div>
+                    <div class="e-snippet small">发票号 144002005011 · 金额 ¥ 18,400.00 · 关联 CT-2026-0856</div>
+                  </div>
+                  <div class="evidence" style="background:rgba(244,63,94,.05);border-color:rgba(244,63,94,.2);">
+                    <div class="e-head"><span class="tag tag-danger">疑似重复 2</span><span>2026-08-11</span></div>
+                    <div class="e-snippet small">同号同金额 · 无合同关联 · 提交人：林晓</div>
+                  </div>
+                  <div class="evidence" style="background:rgba(244,63,94,.05);border-color:rgba(244,63,94,.2);">
+                    <div class="e-head"><span class="tag tag-danger">疑似重复 3</span><span>2026-11-15</span></div>
+                    <div class="e-snippet small">同号同金额 · 无合同关联 · 提交人：林晓（预测）</div>
+                  </div>
+                </div>
+                <div class="small mt-3" style="color:var(--text-2);line-height:1.6;">
+                  重复判定依据：<b>号码完全相同</b> + 销方相同 + 金额相同。规则版本 R-DUP-002。
+                </div>
+
+                <hr class="div" />
+                <h4 style="margin:0 0 12px;font-size:13.5px;">🔗 合同关系</h4>
+                <div class="evidence">
+                  <div class="e-head"><span class="tag tag-brand">候选</span><span>CT-2026-0856 · 物流服务合同</span></div>
+                  <div class="e-snippet small">广州速运物流 · 合同金额 ¥ 1,200,000.00 · 履约期 2025-09 至 2026-09</div>
+                  <div class="e-foot">匹配分数 <span class="conf">0.94</span> · 匹配依据：销方 + 服务内容</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 合同发票关联 ============== -->
+<div id="page-links" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 解析队列 12 个</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div><div class="name">林晓</div><div class="role">财务审核</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-7"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>合同发票关联</span><span class="sep">/</span><span class="current">关联工作台</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <h1>合同发票关联</h1>
+          <div class="sub">三栏对照 · 自动匹配 + 人工确认</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">🔁 重新匹配</button>
+          <button class="btn btn-primary">✓ 确认关联</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="banner banner-info mb-6">
+          <span class="ico">💡</span>
+          <div>
+            <div class="b-title">本次匹配：合同 → 发票</div>
+            <div class="b-sub">已根据销方、金额、合同号三个维度自动匹配 12 张发票，其中 9 张高置信度（≥0.85），3 张需要人工确认。</div>
+          </div>
+        </div>
+
+        <div class="three-col">
+          <!-- 左：当前对象 -->
+          <div>
+            <div class="col-panel">
+              <div class="ph">📄 当前对象 · 合同</div>
+              <div class="pb" style="background:var(--bg-soft);">
+                <div class="col gap-3">
+                  <div>
+                    <div class="muted small">合同编号</div>
+                    <div class="mono" style="font-weight:600;">CT-2026-0856</div>
+                  </div>
+                  <div>
+                    <div class="muted small">合同名称</div>
+                    <div style="font-weight:600;">物流服务合同（2025 续签）</div>
+                  </div>
+                  <div>
+                    <div class="muted small">供应商</div>
+                    <div>广州速运物流</div>
+                  </div>
+                  <div>
+                    <div class="muted small">合同金额</div>
+                    <div style="font-weight:700;">¥ 1,200,000.00</div>
+                  </div>
+                  <div>
+                    <div class="muted small">履约期</div>
+                    <div class="mono small">2025-09-01 ~ 2026-09-01</div>
+                  </div>
+                  <div>
+                    <div class="muted small">已关联发票</div>
+                    <div style="font-weight:700;color:var(--brand-1);">9 张 / ¥ 887,400.00</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-panel mt-4">
+              <div class="ph">📊 关联统计</div>
+              <div class="pb">
+                <div class="col gap-2">
+                  <div class="row between small"><span class="muted">自动高置信度</span><span style="font-weight:700;color:var(--success);">9 张</span></div>
+                  <div class="row between small"><span class="muted">待人工确认</span><span style="font-weight:700;color:#B45309;">3 张</span></div>
+                  <div class="row between small"><span class="muted">无匹配</span><span style="font-weight:700;">2 张</span></div>
+                  <div class="row between small"><span class="muted">已开票金额占比</span><span style="font-weight:700;">73.9%</span></div>
+                  <hr class="div" style="margin:10px 0;"/>
+                  <div class="bar"><i style="width:74%;"></i></div>
+                  <div class="small muted" style="text-align:center;">合同已使用 ¥ 887,400 / ¥ 1,200,000</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 中：候选关系 -->
+          <div>
+            <div class="col-panel">
+              <div class="ph">🔗 候选关联发票（14 张）<span style="margin-left:auto;font-size:11.5px;color:var(--text-3);font-weight:normal;">按置信度排序</span></div>
+              <div>
+                <div class="col-list-item active">
+                  <div class="row between">
+                    <div style="font-weight:600;">144002005011 · 速运 6 月</div>
+                    <span class="tag tag-success">0.94</span>
+                  </div>
+                  <div class="small muted mt-2">¥ 18,400.00 · 2026-06-08 · 自动匹配</div>
+                </div>
+                <div class="col-list-item">
+                  <div class="row between">
+                    <div style="font-weight:600;">144002005023 · 速运 7 月</div>
+                    <span class="tag tag-success">0.94</span>
+                  </div>
+                  <div class="small muted mt-2">¥ 18,400.00 · 2026-07-08 · 自动匹配</div>
+                </div>
+                <div class="col-list-item">
+                  <div class="row between">
+                    <div style="font-weight:600;">144002005037 · 速运 8 月</div>
+                    <span class="tag tag-success">0.92</span>
+                  </div>
+                  <div class="small muted mt-2">¥ 18,400.00 · 2026-08-08 · 自动匹配</div>
+                </div>
+                <div class="col-list-item">
+                  <div class="row between">
+                    <div style="font-weight:600;">144002005041 · 速运 8 月</div>
+                    <span class="tag tag-warning">0.71</span>
+                  </div>
+                  <div class="small muted mt-2">¥ 22,300.00 · 2026-08-25 · 待确认</div>
+                </div>
+                <div class="col-list-item">
+                  <div class="row between">
+                    <div style="font-weight:600;">144002005055 · 速运 9 月（预测）</div>
+                    <span class="tag tag-warning">0.68</span>
+                  </div>
+                  <div class="small muted mt-2">¥ 18,400.00 · 2026-09-08 · 待确认</div>
+                </div>
+                <div class="col-list-item">
+                  <div class="row between">
+                    <div style="font-weight:600;">144002005068 · 速运 10 月（预测）</div>
+                    <span class="tag tag-warning">0.65</span>
+                  </div>
+                  <div class="small muted mt-2">¥ 18,400.00 · 待确认</div>
+                </div>
+                <div class="col-list-item">
+                  <div class="row between">
+                    <div style="font-weight:600;">144002005072 · 速运加急</div>
+                    <span class="tag tag-danger">0.42</span>
+                  </div>
+                  <div class="small muted mt-2">¥ 3,200.00 · 2026-08-29 · 置信度低</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右：匹配依据 -->
+          <div>
+            <div class="col-panel">
+              <div class="ph">📐 匹配依据详情</div>
+              <div class="pb">
+                <div class="col gap-3">
+                  <div>
+                    <div class="row between small mb-2">
+                      <span class="muted">销方名称</span>
+                      <span style="color:var(--success);font-weight:600;">✓ 完全一致</span>
+                    </div>
+                    <div class="small text-2">合同：广州速运物流</div>
+                    <div class="small text-2">发票：广州速运物流有限公司</div>
+                  </div>
+                  <div>
+                    <div class="row between small mb-2">
+                      <span class="muted">服务期间</span>
+                      <span style="color:var(--success);font-weight:600;">✓ 在期内</span>
+                    </div>
+                    <div class="small text-2">合同：2025-09-01 ~ 2026-09-01</div>
+                    <div class="small text-2">发票：2026-06-08</div>
+                  </div>
+                  <div>
+                    <div class="row between small mb-2">
+                      <span class="muted">金额匹配</span>
+                      <span style="color:var(--success);font-weight:600;">✓ 月度一致</span>
+                    </div>
+                    <div class="small text-2">合同月度：¥ 100,000.00（推算）</div>
+                    <div class="small text-2">发票：¥ 18,400.00（占月度 18.4%）</div>
+                  </div>
+                  <div>
+                    <div class="row between small mb-2">
+                      <span class="muted">累计金额</span>
+                      <span style="color:var(--success);font-weight:600;">✓ 未超合同</span>
+                    </div>
+                  </div>
+                </div>
+                <hr class="div" />
+                <div class="small muted">综合匹配分数</div>
+                <div class="row gap-2" style="align-items:center;margin-top:6px;">
+                  <div class="bar" style="flex:1;"><i style="width:94%;"></i></div>
+                  <span style="font-weight:700;color:var(--success);">0.94</span>
+                </div>
+                <div class="small muted mt-2">建议：自动关联</div>
+              </div>
+            </div>
+
+            <div class="col-panel mt-4">
+              <div class="ph">⚙ 操作</div>
+              <div class="pb">
+                <div class="col gap-2">
+                  <button class="btn btn-primary" style="justify-content:center;">✓ 确认此关联</button>
+                  <button class="btn btn-secondary" style="justify-content:center;">✗ 拒绝并重选</button>
+                  <button class="btn btn-ghost" style="justify-content:center;">📝 添加备注</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 制度知识库 ============== -->
+<div id="page-knowledge" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 2 个规则正在执行</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div><div class="name">林晓</div><div class="role">财务审核</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-8"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>制度知识库</span><span class="sep">/</span><span class="current">概览</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <h1>制度知识库</h1>
+          <div class="sub">公司制度 · RAG 检索底库 · 当前共 12 份制度 · 3 份近期更新</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">📤 导出索引</button>
+          <button class="btn btn-primary">＋ 上传新制度</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="pills mb-6">
+          <div class="pill active">概览</div>
+          <div class="pill">制度</div>
+          <div class="pill">Markdown</div>
+          <div class="pill">分块</div>
+          <div class="pill">索引</div>
+          <div class="pill">检索</div>
+          <div class="pill">评测集 <span class="tag tag-brand" style="margin-left:4px;">128</span></div>
+          <div class="pill">评测运行 <span class="tag" style="margin-left:4px;">V3</span></div>
+        </div>
+
+        <!-- 概览 -->
+        <div class="grid-cards mb-6">
+          <div class="kpi">
+            <div class="ico">📚</div>
+            <div class="label">制度总数</div>
+            <div class="value">12<span style="font-size:14px;color:var(--text-3);"> 份</span></div>
+            <div class="delta up">▲ 3 本季度</div>
+          </div>
+          <div class="kpi">
+            <div class="ico">📄</div>
+            <div class="label">已分块</div>
+            <div class="value">1,842</div>
+            <div class="delta up">块</div>
+          </div>
+          <div class="kpi">
+            <div class="ico">🔍</div>
+            <div class="label">检索调用（30 天）</div>
+            <div class="value">2,461</div>
+            <div class="delta up">▲ 18.2%</div>
+          </div>
+          <div class="kpi">
+            <div class="ico">🎯</div>
+            <div class="label">Top-5 召回率</div>
+            <div class="value">0.92</div>
+            <div class="delta up">▲ 0.04 较上版</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-h"><h3>📚 制度清单</h3><span class="sub">点击进入查看 / 编辑</span></div>
+            <div class="card-b flush">
+              <div class="table-wrap">
+                <table class="t">
+                  <thead><tr>
+                    <th>制度名称</th><th>版本</th><th>分块</th><th>更新</th><th>状态</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr>
+                      <td><a href="#" class="cell-title">差旅报销管理</a></td>
+                      <td><span class="tag tag-brand">v3.0</span></td>
+                      <td>186</td>
+                      <td class="muted small">2026-08-02</td>
+                      <td><span class="status status-success">已生效</span></td>
+                    </tr>
+                    <tr>
+                      <td><a href="#" class="cell-title">采购管理办法</a></td>
+                      <td><span class="tag tag-brand">v2.5</span></td>
+                      <td>248</td>
+                      <td class="muted small">2026-07-15</td>
+                      <td><span class="status status-success">已生效</span></td>
+                    </tr>
+                    <tr>
+                      <td><a href="#" class="cell-title">AI 应用合规指引</a></td>
+                      <td><span class="tag tag-brand">v1.0</span></td>
+                      <td>124</td>
+                      <td class="muted small">2026-08-01</td>
+                      <td><span class="status status-success">已生效</span></td>
+                    </tr>
+                    <tr>
+                      <td><a href="#" class="cell-title">合同管理制度</a></td>
+                      <td><span class="tag">v4.2</span></td>
+                      <td>312</td>
+                      <td class="muted small">2026-05-20</td>
+                      <td><span class="status status-success">已生效</span></td>
+                    </tr>
+                    <tr>
+                      <td><a href="#" class="cell-title">费用报销细则</a></td>
+                      <td><span class="tag">v2.1</span></td>
+                      <td>156</td>
+                      <td class="muted small">2026-04-18</td>
+                      <td><span class="status status-neutral">已停用</span></td>
+                    </tr>
+                    <tr>
+                      <td><a href="#" class="cell-title">财务审批权限表</a></td>
+                      <td><span class="tag">v1.3</span></td>
+                      <td>68</td>
+                      <td class="muted small">2026-03-01</td>
+                      <td><span class="status status-success">已生效</span></td>
+                    </tr>
+                    <tr>
+                      <td><a href="#" class="cell-title">发票管理规范</a></td>
+                      <td><span class="tag">v2.0</span></td>
+                      <td>104</td>
+                      <td class="muted small">2026-06-12</td>
+                      <td><span class="status status-warning">审核中</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="col gap-4">
+            <div class="card">
+              <div class="card-h"><h3>🧪 评测集分布</h3></div>
+              <div class="card-b">
+                <div class="col gap-3">
+                  <div>
+                    <div class="row between small mb-2"><span>采购类（规则问题）</span><span style="font-weight:700;">42</span></div>
+                    <div class="bar"><i style="width:33%;"></i></div>
+                  </div>
+                  <div>
+                    <div class="row between small mb-2"><span>差旅类（标准问题）</span><span style="font-weight:700;">38</span></div>
+                    <div class="bar success"><i style="width:30%;"></i></div>
+                  </div>
+                  <div>
+                    <div class="row between small mb-2"><span>合同类（条款问题）</span><span style="font-weight:700;">28</span></div>
+                    <div class="bar warning"><i style="width:22%;"></i></div>
+                  </div>
+                  <div>
+                    <div class="row between small mb-2"><span>拒答类（信息不足）</span><span style="font-weight:700;">20</span></div>
+                    <div class="bar danger"><i style="width:15%;"></i></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-h"><h3>🆕 最近更新</h3></div>
+              <div class="card-b" style="padding:0;">
+                <div class="timeline" style="padding:16px 16px 16px 32px;">
+                  <div class="tl-item success">
+                    <div class="tl-time">2026-08-02</div>
+                    <div class="tl-title">差旅报销管理 v3.0 上线</div>
+                    <div class="tl-sub">新增"机票 4 段限制"、"高铁限二等座"两条规则</div>
+                  </div>
+                  <div class="tl-item success">
+                    <div class="tl-time">2026-08-01</div>
+                    <div class="tl-title">AI 应用合规指引 v1.0 上线</div>
+                    <div class="tl-sub">含 AI 拒答、AI 引用披露、模型版本声明等 5 章</div>
+                  </div>
+                  <div class="tl-item warning">
+                    <div class="tl-time">2026-07-25</div>
+                    <div class="tl-title">采购办法 v2.5 起草中</div>
+                    <div class="tl-sub">新增"小额采购"专章 · 待合规审核</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== AI 问答 ============== -->
+<div id="page-qa" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 解析队列 12 个</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div><div class="name">林晓</div><div class="role">财务审核</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-9"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>AI 问答</span><span class="sep">/</span><span class="current">对话</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <h1>AI 问答</h1>
+          <div class="sub">基于制度知识库 · 答案附引用 · 不可回答时会明确告知</div>
+        </div>
+        <div class="actions">
+          <select class="field" style="padding:7px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;">
+            <option>📚 制度知识库</option><option>📄 当前合同集</option><option>🧾 当前发票集</option>
+          </select>
+          <button class="btn btn-secondary">🧹 新对话</button>
+        </div>
+      </div>
+      <div class="content" style="padding:0;display:flex;">
+        <!-- 左：历史对话列表 -->
+        <div style="width:240px;border-right:1px solid var(--line-soft);background:#fff;padding:16px;">
+          <div class="muted small" style="font-weight:600;margin-bottom:8px;">最近对话</div>
+          <div class="col gap-1">
+            <div style="padding:8px 10px;background:var(--brand-grad-soft);border-radius:8px;font-size:13px;color:var(--brand-1);font-weight:600;cursor:pointer;">机票超标准能否报销？</div>
+            <div style="padding:8px 10px;font-size:13px;color:var(--text-2);cursor:pointer;" class="truncate">差旅机票限制规定</div>
+            <div style="padding:8px 10px;font-size:13px;color:var(--text-2);cursor:pointer;" class="truncate">采购授权上限</div>
+            <div style="padding:8px 10px;font-size:13px;color:var(--text-2);cursor:pointer;" class="truncate">合同超期如何续签</div>
+            <div style="padding:8px 10px;font-size:13px;color:var(--text-2);cursor:pointer;" class="truncate">AI 拒答的处理流程</div>
+            <div style="padding:8px 10px;font-size:13px;color:var(--text-2);cursor:pointer;" class="truncate">2025 年差旅费标准</div>
+          </div>
+          <hr class="div" />
+          <div class="muted small" style="font-weight:600;margin-bottom:8px;">📌 收藏答案</div>
+          <div class="col gap-1">
+            <div style="padding:8px 10px;font-size:12.5px;color:var(--text-2);cursor:pointer;" class="truncate">⭐ 违约金上限 30%</div>
+            <div style="padding:8px 10px;font-size:12.5px;color:var(--text-2);cursor:pointer;" class="truncate">⭐ AI 拒答场景清单</div>
+          </div>
+        </div>
+
+        <!-- 右：对话区 -->
+        <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+          <div style="flex:1;padding:32px 48px;overflow-y:auto;background:var(--bg-soft);">
+            <div class="col gap-6" style="max-width:880px;margin:0 auto;">
+
+              <!-- 用户问 -->
+              <div>
+                <div class="bubble bubble-user">本月我出差深圳 → 上海，订了 4 段航班。其中两段（CA4338、MU5301）总价比标准舱贵了 380 元，能报销吗？需要走什么流程？</div>
+                <div class="bubble-meta" style="text-align:right;">2026-08-05 15:42 · 林晓</div>
+              </div>
+
+              <!-- AI 答 -->
+              <div>
+                <div class="bubble-ai bubble" style="max-width:100%;">
+                  <div class="row gap-2 mb-3" style="align-items:center;">
+                    <div style="width:24px;height:24px;border-radius:7px;background:var(--brand-grad);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;">⚡</div>
+                    <span style="font-weight:700;font-size:13px;">FinAudit AI</span>
+                    <span class="tag tag-brand">v3 · 引用 3 条</span>
+                  </div>
+                  <div style="line-height:1.8;">
+                    <p style="margin:0 0 12px;">可以报销，但需要按"特价票超标准"流程审批。</p>
+                    <p style="margin:0 0 8px;">根据 <b>《差旅报销管理 v3.0》</b> 第 5.2 条，机票舱位与价格同时符合下述条件时，无需额外审批：</p>
+                    <ul style="margin:0 0 12px;padding-left:20px;color:var(--text-2);">
+                      <li>舱位：经济舱（含特价经济舱）</li>
+                      <li>价格：单段 ≤ 同期同航线经济舱全价的 1.2 倍</li>
+                    </ul>
+                    <p style="margin:0 0 12px;">你的情况：4 段中有 2 段超 ¥ 380，<b>单段超支 18%</b>，按制度需走"超标准审批"流程，由直属上级 + 财务 BP 双签。报销时附<b>舱位差价说明</b>即可。</p>
+                    <p style="margin:0;">⚠ <b>提示</b>：如超支超过 30%，需提请 CFO 特批。</p>
+                  </div>
+                </div>
+                <div class="bubble-meta">15:42 · 引用 3 条 · 用时 1.2s</div>
+              </div>
+
+              <!-- 引用卡片 -->
+              <div>
+                <div style="font-size:12px;color:var(--text-3);font-weight:600;margin-bottom:8px;padding-left:6px;">📎 参考引用（3 条）</div>
+                <div class="col gap-3">
+                  <div class="quote-card">
+                    <div class="q-meta">
+                      <span class="src">📘 差旅报销管理 v3.0</span>
+                      <span>·</span>
+                      <span>第 5.2 条 · 第 3 页</span>
+                      <span style="margin-left:auto;"><span class="tag tag-success">强相关</span></span>
+                    </div>
+                    <div class="q-text">"机票舱位为经济舱，且单段价格不超过同期同航线经济舱全价的 <mark>1.2 倍</mark> 的，视为标准范围；超出部分按本制度第 5.3 条执行超标准审批。"</div>
+                    <div class="q-foot">
+                      <span>📄 <b>《差旅报销管理》</b> v3.0</span>
+                      <span>·</span>
+                      <span>第 3 页</span>
+                      <span>·</span>
+                      <span class="conf">相似度 0.93</span>
+                    </div>
+                  </div>
+
+                  <div class="quote-card">
+                    <div class="q-meta">
+                      <span class="src">📘 差旅报销管理 v3.0</span>
+                      <span>·</span>
+                      <span>第 5.3 条 · 第 4 页</span>
+                      <span style="margin-left:auto;"><span class="tag tag-success">强相关</span></span>
+                    </div>
+                    <div class="q-text">"超支 <mark>20%–30%</mark> 由直属上级 + 财务 BP 双签；超支 <mark>30% 以上</mark> 需提请 CFO 特批。"</div>
+                    <div class="q-foot">
+                      <span>📄 <b>《差旅报销管理》</b> v3.0</span>
+                      <span>·</span>
+                      <span>第 4 页</span>
+                      <span>·</span>
+                      <span class="conf">相似度 0.89</span>
+                    </div>
+                  </div>
+
+                  <div class="quote-card">
+                    <div class="q-meta">
+                      <span class="src">📗 财务审批权限表 v1.3</span>
+                      <span>·</span>
+                      <span>第 2 页 · 附表 1</span>
+                      <span style="margin-left:auto;"><span class="tag">辅助</span></span>
+                    </div>
+                    <div class="q-text">"差旅类超支 < ¥ 1,000 的，财务 BP 即可审批；超支 ≥ ¥ 1,000 的，需财务负责人复签。"</div>
+                    <div class="q-foot">
+                      <span>📄 <b>《财务审批权限表》</b> v1.3</span>
+                      <span>·</span>
+                      <span>第 2 页</span>
+                      <span>·</span>
+                      <span class="conf">相似度 0.76</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 第二个问答：拒答示例 -->
+              <hr class="div" />
+              <div>
+                <div class="bubble bubble-user">2027 年差旅标准会不会调整？什么时候公布？</div>
+                <div class="bubble-meta" style="text-align:right;">15:48</div>
+              </div>
+              <div>
+                <div class="bubble-ai bubble" style="max-width:100%;">
+                  <div class="row gap-2 mb-3" style="align-items:center;">
+                    <div style="width:24px;height:24px;border-radius:7px;background:var(--brand-grad);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;">⚡</div>
+                    <span style="font-weight:700;font-size:13px;">FinAudit AI</span>
+                    <span class="tag tag-warning">拒答</span>
+                  </div>
+                  <div class="refusal">
+                    <span>🤔</span>
+                    <div>
+                      <div style="font-weight:700;">这个问题我无法基于现有知识库回答。</div>
+                      <div class="small mt-2" style="line-height:1.6;">
+                        原因：知识库中未包含 2027 年差旅标准相关制度（最新为 v3.0，覆盖至 2026-12-31）。如需了解后续计划，请咨询 <b>财务部</b> 或 <b>HR</b>。
+                      </div>
+                    </div>
+                  </div>
+                  <div class="small muted mt-3">规则：信息不足即拒答，不进行编造 · 来源：<span class="hash">refusal-2c1d</span></div>
+                </div>
+                <div class="bubble-meta">15:48 · 拒答 · 不计入引用</div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- 输入区 -->
+          <div style="background:#fff;padding:16px 48px 24px;border-top:1px solid var(--line-soft);">
+            <div style="max-width:880px;margin:0 auto;">
+              <div style="border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:#fff;box-shadow:var(--shadow);">
+                <textarea placeholder="向 FinAudit 提问：例如"采购授权上限是多少？"、"合同超 30 天未续签怎么办？"" rows="2" style="width:100%;border:none;outline:none;resize:none;font-size:14px;font-family:inherit;line-height:1.6;"></textarea>
+                <div class="row between mt-2">
+                  <div class="row gap-2">
+                    <button class="btn btn-ghost btn-sm">📎 引用合同</button>
+                    <button class="btn btn-ghost btn-sm">📄 引用制度</button>
+                    <span class="small muted">⌘+Enter 发送</span>
+                  </div>
+                  <button class="btn btn-primary btn-sm">发送 ⚡</button>
+                </div>
+              </div>
+              <div class="small muted" style="text-align:center;margin-top:8px;">
+                AI 回答仅供参考，最终决定由人工做出 · 所有回答均附引用与来源
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 审核任务列表 ============== -->
+<div id="page-tasks" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 2 个任务执行中</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div><div class="name">林晓</div><div class="role">财务审核</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-10"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>审核任务</span><span class="sep">/</span><span class="current">全部任务</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <h1>审核任务</h1>
+          <div class="sub">任务状态（业务态）vs 执行状态（引擎态）独立展示</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">📤 导出</button>
+          <button class="btn btn-primary">＋ 新建任务</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card mb-6">
+          <div class="card-b">
+            <div class="form-row">
+              <div class="field"><label>任务名</label><input placeholder="搜索任务..." /></div>
+              <div class="field"><label>任务类型</label>
+                <select><option>全部</option><option>合同审核</option><option>发票核验</option><option>专项审计</option><option>制度更新</option></select>
+              </div>
+              <div class="field"><label>任务状态</label>
+                <select><option>全部</option><option>待我处理</option><option>复核中</option><option>已通过</option><option>已驳回</option></select>
+              </div>
+              <div class="field"><label>风险等级</label>
+                <select><option>全部</option><option>high</option><option>medium</option><option>low</option></select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">
+            <h3>任务列表 · 36 条</h3>
+            <div class="right">
+              <span class="status status-info">执行中 4</span>
+              <span class="status status-pending">待复核 5</span>
+              <span class="status status-success">已通过 25</span>
+              <span class="status status-danger">已驳回 2</span>
+            </div>
+          </div>
+          <div class="card-b flush">
+            <div class="table-wrap">
+              <table class="t">
+                <thead><tr>
+                  <th>任务编号</th><th>任务名</th><th>类型</th><th>风险</th>
+                  <th>任务状态</th><th>执行状态</th><th>执行版本</th><th>负责人</th><th class="right">操作</th>
+                </tr></thead>
+                <tbody>
+                  <tr class="row-danger">
+                    <td class="mono small">T-2026-Q3-04</td>
+                    <td><a href="#/tasks/T-2026-Q3-04" class="cell-title">2026Q3 财务专项审计</a>
+                      <div class="cell-sub">AI 设备采购</div>
+                    </td>
+                    <td><span class="tag tag-danger">专项</span></td>
+                    <td><span class="risk risk-high">high</span></td>
+                    <td><span class="status status-pending">复核中</span></td>
+                    <td><span class="status status-success">已结束</span></td>
+                    <td><span class="tag tag-brand">V3</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono small">T-2026-Q3-03</td>
+                    <td><a href="#/tasks/T-2026-Q3-03" class="cell-title">极兆云 SAAS 续签审核</a></td>
+                    <td><span class="tag tag-brand">合同</span></td>
+                    <td><span class="risk risk-medium">medium</span></td>
+                    <td><span class="status status-pending">待我处理</span></td>
+                    <td><span class="status status-info">执行中 65%</span></td>
+                    <td><span class="tag tag-brand">V3</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono small">T-2026-Q3-02</td>
+                    <td><a href="#/tasks/T-2026-Q3-02" class="cell-title">速运物流发票核验</a></td>
+                    <td><span class="tag">发票</span></td>
+                    <td><span class="risk risk-low">low</span></td>
+                    <td><span class="status status-info">执行中</span></td>
+                    <td><span class="status status-info">执行中 28%</span></td>
+                    <td><span class="tag tag-brand">V3</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono small">T-2026-Q3-01</td>
+                    <td><a href="#/tasks/T-2026-Q3-01" class="cell-title">差旅标准 v3.0 制度上线</a></td>
+                    <td><span class="tag">制度</span></td>
+                    <td><span class="risk risk-none">none</span></td>
+                    <td><span class="status status-success">已通过</span></td>
+                    <td><span class="status status-success">已结束</span></td>
+                    <td><span class="tag">V2</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-pink">周</div>周辰</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr class="row-danger">
+                    <td class="mono small">T-2026-08-22</td>
+                    <td><a href="#/tasks/T-2026-08-22" class="cell-title">咨询合同 5 会议纪要</a>
+                      <div class="cell-sub">trace: 2c1dab34...8ee1</div>
+                    </td>
+                    <td><span class="tag">合同</span></td>
+                    <td><span class="risk risk-high">high</span></td>
+                    <td><span class="status status-danger">已失败</span></td>
+                    <td><span class="status status-danger">文件损坏</span></td>
+                    <td><span class="tag">V1</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono small">T-2026-08-19</td>
+                    <td><a href="#/tasks/T-2026-08-19" class="cell-title">差旅报销 · 林晓 · 8 月</a></td>
+                    <td><span class="tag">报销</span></td>
+                    <td><span class="risk risk-low">low</span></td>
+                    <td><span class="status status-pending">待我处理</span></td>
+                    <td><span class="status status-success">已结束</span></td>
+                    <td><span class="tag tag-brand">V3</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                  <tr>
+                    <td class="mono small">T-2026-08-15</td>
+                    <td><a href="#/tasks/T-2026-08-15" class="cell-title">AI 模型 API 接入审核</a></td>
+                    <td><span class="tag tag-brand">合同</span></td>
+                    <td><span class="risk risk-medium">medium</span></td>
+                    <td><span class="status status-info">执行中</span></td>
+                    <td><span class="status status-info">规则中</span></td>
+                    <td><span class="tag tag-brand">V3</span></td>
+                    <td><div class="row gap-2"><div class="avatar-sm avatar-pink">周</div>周辰</div></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">查看</button></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 审核任务详情 ============== -->
+<div id="page-task-detail" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 2 个任务执行中</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div><div class="name">林晓</div><div class="role">财务审核</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-11"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>审核任务</span><span class="sep">/</span><span>任务列表</span><span class="sep">/</span>
+        <span class="current">T-2026-Q3-04 · AI 设备采购专项</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <div class="row gap-3" style="align-items:center;">
+            <h1>2026Q3 财务专项审计</h1>
+            <span class="risk risk-high">high</span>
+            <span class="status status-pending">复核中</span>
+            <span class="tag tag-danger">专项审计</span>
+          </div>
+          <div class="sub">AI 设备采购专项 · 含 4 个标的 · 启动于 2026-07-25 · 执行版本 <span class="tag tag-brand" style="margin-left:4px;">V3</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">📤 分享</button>
+          <button class="btn btn-secondary">🔁 重新执行</button>
+          <button class="btn btn-danger">驳 回</button>
+          <button class="btn btn-primary">通过 · 归档</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="banner banner-danger mb-6">
+          <span class="ico">🚨</span>
+          <div>
+            <div class="b-title">high 风险须由审计复核人员终审（职责分离）</div>
+            <div class="b-sub">当前任务由 财务审核人员（林晓）发起并完成初审。最终通过/驳回须由 审计复核人员（周辰）操作。 当前可执行：通过初审 · 提请复核 / 驳回</div>
+          </div>
+        </div>
+
+        <!-- 概览数据 -->
+        <div class="grid-cards mb-6">
+          <div class="kpi"><div class="ico">📄</div><div class="label">合同</div><div class="value">3</div><div class="delta">已关联 3</div></div>
+          <div class="kpi"><div class="ico">🧾</div><div class="label">发票</div><div class="value">7</div><div class="delta">已核验 6</div></div>
+          <div class="kpi"><div class="ico">📚</div><div class="label">引用制度</div><div class="value">5<span style="font-size:14px;color:var(--text-3);"> 份</span></div><div class="delta">28 条引用</div></div>
+          <div class="kpi"><div class="ico">⚡</div><div class="label">触发规则</div><div class="value">12</div><div class="delta down">高风险 2</div></div>
+        </div>
+
+        <div class="card mb-6">
+          <div class="card-h" style="padding:0 8px;">
+            <div class="tabs" style="border-bottom:none;">
+              <div class="tab active">概览</div>
+              <div class="tab">快照 <span class="count">3</span></div>
+              <div class="tab">规则 <span class="count">12</span></div>
+              <div class="tab">风险 <span class="count">2</span></div>
+              <div class="tab">证据 <span class="count">28</span></div>
+              <div class="tab">历史</div>
+              <div class="tab">时间线</div>
+            </div>
+          </div>
+          <div class="card-b">
+            <!-- 概览内容 -->
+            <div class="grid-2">
+              <div>
+                <h4 style="margin:0 0 12px;font-size:13.5px;">📋 任务基础信息</h4>
+                <div class="col gap-3">
+                  <div class="row between small"><span class="muted">任务编号</span><span class="mono">T-2026-Q3-04</span></div>
+                  <div class="row between small"><span class="muted">任务名</span><span style="font-weight:600;">2026Q3 财务专项审计 · AI 设备采购</span></div>
+                  <div class="row between small"><span class="muted">任务类型</span><span class="tag tag-danger">专项审计</span></div>
+                  <div class="row between small"><span class="muted">启动时间</span><span class="mono">2026-07-25 09:00</span></div>
+                  <div class="row between small"><span class="muted">结束时间</span><span class="mono">2026-08-05 14:32</span></div>
+                  <div class="row between small"><span class="muted">执行时长</span><span>11 天 5 小时</span></div>
+                  <div class="row between small"><span class="muted">执行版本</span><span><span class="tag tag-brand">V3</span> <span class="muted">· 2026-07-15 部署</span></span></div>
+                  <div class="row between small"><span class="muted">模型版本</span><span>glm-4.6 · embed-bge-v1.5</span></div>
+                  <div class="row between small"><span class="muted">启动人</span><span><div class="row gap-2"><div class="avatar-sm avatar-amber">林</div>林晓</div></span></div>
+                  <div class="row between small"><span class="muted">复核人</span><span><div class="row gap-2"><div class="avatar-sm avatar-pink">周</div>周辰</div></span></div>
+                </div>
+              </div>
+              <div>
+                <h4 style="margin:0 0 12px;font-size:13.5px;">📊 执行结果</h4>
+                <div class="col gap-3">
+                  <div>
+                    <div class="row between small mb-2"><span class="muted">规则通过率</span><span style="font-weight:700;">10 / 12 (83.3%)</span></div>
+                    <div class="bar"><i style="width:83%;"></i></div>
+                  </div>
+                  <div>
+                    <div class="row between small mb-2"><span>high 风险</span><span class="risk risk-high" style="font-size:10.5px;padding:1px 6px;">2 条</span></div>
+                    <div>
+                      <div class="row between small mb-2"><span>medium 风险</span><span class="risk risk-medium" style="font-size:10.5px;padding:1px 6px;">3 条</span></div>
+                      <div>
+                        <div class="row between small mb-2"><span>low 风险</span><span class="risk risk-low" style="font-size:10.5px;padding:1px 6px;">4 条</span></div>
+                        <div>
+                          <div class="row between small mb-2"><span>通过</span><span class="risk risk-none" style="font-size:10.5px;padding:1px 6px;">3 条</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <hr class="div" style="margin:6px 0;" />
+                  <div class="row between small"><span class="muted">审核快照哈希</span><span class="hash">sha256: 9c4d2af1...b8e2</span></div>
+                  <div class="row between small"><span class="muted">快照创建</span><span class="mono">2026-08-05 14:32:08</span></div>
+                  <div class="row between small"><span class="muted">规则版本</span><span>R-SET-2026-08-v3</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 风险明细 -->
+        <div class="card mb-6">
+          <div class="card-h"><h3>⚠ 风险明细（5 条）</h3><span class="sub">2 条 high 须审计复核人员终审</span></div>
+          <div class="card-b" style="padding:0;">
+            <div class="table-wrap">
+              <table class="t">
+                <thead><tr>
+                  <th>风险</th><th>规则</th><th>对象</th><th>证据</th><th>建议</th>
+                </tr></thead>
+                <tbody>
+                  <tr class="row-danger">
+                    <td><span class="risk risk-high">high</span></td>
+                    <td><div class="cell-title">采购授权上限</div><div class="cell-sub">R-AUTH-001 · ¥ 200,000</div></td>
+                    <td>CT-2026-0883 · 设备采购</td>
+                    <td>
+                      <div class="quote-card" style="padding:8px 10px;">
+                        <div class="e-snippet small">合同总金额为人民币 <mark>¥ 248,000.00</mark>，超授权 ¥ 48,000</div>
+                        <div class="e-foot">第 2 页 · 置信度 <span class="conf">98.7%</span></div>
+                      </div>
+                    </td>
+                    <td><span style="color:var(--danger);font-weight:600;">需 CFO 特批</span></td>
+                  </tr>
+                  <tr class="row-danger">
+                    <td><span class="risk risk-high">high</span></td>
+                    <td><div class="cell-title">合格供应商名录</div><div class="cell-sub">R-SUP-002</div></td>
+                    <td>质跃供应链</td>
+                    <td>
+                      <div class="quote-card" style="padding:8px 10px;">
+                        <div class="e-snippet small">销方：<mark>质跃供应链管理有限公司</mark> · 不在 Q3 名录</div>
+                        <div class="e-foot">第 1 页 · 置信度 <span class="conf">99.1%</span></div>
+                      </div>
+                    </td>
+                    <td><span style="color:var(--danger);font-weight:600;">需补充资质</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="risk risk-medium">medium</span></td>
+                    <td><div class="cell-title">一次性付款</div><div class="cell-sub">R-PAY-005</div></td>
+                    <td>CT-2026-0883</td>
+                    <td>
+                      <div class="quote-card" style="padding:8px 10px;">
+                        <div class="e-snippet small">甲方向乙方支付 <mark>合同全款</mark>，未见分期条款</div>
+                        <div class="e-foot">第 2 页 · 置信度 <span class="conf">95.3%</span></div>
+                      </div>
+                    </td>
+                    <td>建议分期</td>
+                  </tr>
+                  <tr>
+                    <td><span class="risk risk-medium">medium</span></td>
+                    <td><div class="cell-title">违约金过低</div><div class="cell-sub">R-PEN-003</div></td>
+                    <td>CT-2026-0883</td>
+                    <td>
+                      <div class="quote-card" style="padding:8px 10px;">
+                        <div class="e-snippet small">违约金 <mark>合同金额 20%</mark>，低于 30% 标准</div>
+                        <div class="e-foot">第 3 页 · 置信度 <span class="conf">92.1%</span></div>
+                      </div>
+                    </td>
+                    <td>建议调整</td>
+                  </tr>
+                  <tr>
+                    <td><span class="risk risk-low">low</span></td>
+                    <td><div class="cell-title">质保期未明确</div><div class="cell-sub">R-WAR-007</div></td>
+                    <td>CT-2026-0883</td>
+                    <td>
+                      <div class="quote-card" style="padding:8px 10px;">
+                        <div class="e-snippet small">合同中未找到 <mark>"质保期"</mark> 字样</div>
+                        <div class="e-foot">第 3-4 页 · 置信度 <span class="conf">88.5%</span></div>
+                      </div>
+                    </td>
+                    <td>建议补充</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 时间线 -->
+        <div class="card">
+          <div class="card-h"><h3>🕒 时间线</h3></div>
+          <div class="card-b">
+            <div class="timeline">
+              <div class="tl-item success">
+                <div class="tl-time">2026-08-05 14:32</div>
+                <div class="tl-title">任务执行结束</div>
+                <div class="tl-sub">执行版本 V3 · 耗时 11 天 · Trace: <span class="hash">t-9c4d2af1</span></div>
+              </div>
+              <div class="tl-item danger">
+                <div class="tl-time">2026-08-04 11:08</div>
+                <div class="tl-title">检测到 high 风险 · 触发复核流程</div>
+                <div class="tl-sub">采购授权超限、合格供应商名录未通过</div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-time">2026-08-02 16:45</div>
+                <div class="tl-title">完成 3 份合同解析</div>
+                <div class="tl-sub">CT-2026-0882、CT-2026-0883、CT-2026-0871</div>
+              </div>
+              <div class="tl-item">
+                <div class="tl-time">2026-07-28 10:20</div>
+                <div class="tl-title">完成 7 张发票核验</div>
+                <div class="tl-sub">含 3 张速运物流重复检测</div>
+              </div>
+              <div class="tl-item success">
+                <div class="tl-time">2026-07-25 09:00</div>
+                <div class="tl-title">任务启动</div>
+                <div class="tl-sub">由 林晓 创建 · 执行版本 V3</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 报告页 ============== -->
+<div id="page-report" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 2 个任务执行中</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">林</div>
+      <div><div class="name">林晓</div><div class="role">财务审核</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-12"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>报告中心</span><span class="sep">/</span><span class="current">R-2026-Q3-04 · 专项审计报告</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <h1>专项审计报告</h1>
+          <div class="sub">2026Q3 AI 设备采购专项 · 生成于 2026-08-05 14:32</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">🖨 打印</button>
+          <button class="btn btn-secondary">📤 分享链接</button>
+          <button class="btn btn-primary">⬇ 下载 PDF</button>
+        </div>
+      </div>
+      <div class="content">
+        <!-- 报告头部 KPI -->
+        <div class="grid-cards mb-6">
+          <div class="kpi"><div class="ico">📋</div><div class="label">审核合同</div><div class="value">3</div><div class="delta">份</div></div>
+          <div class="kpi"><div class="ico">⚠</div><div class="label">高风险</div><div class="value" style="color:var(--danger);">2</div><div class="delta down">须 CFO 复核</div></div>
+          <div class="kpi"><div class="ico">💰</div><div class="label">涉及金额</div><div class="value">¥ 3.17M</div><div class="delta">已审 87%</div></div>
+          <div class="kpi"><div class="ico">✅</div><div class="label">通过率</div><div class="value" style="color:var(--success);">83.3%</div><div class="delta up">▲ 5.2%</div></div>
+        </div>
+
+        <div class="card mb-6">
+          <div class="card-h">
+            <h3>📑 报告预览</h3>
+            <div class="right">
+              <span class="tag">已签发</span>
+              <span class="status status-success">已归档</span>
+            </div>
+          </div>
+          <div class="card-b" style="background:var(--bg-soft);">
+            <div class="report-preview">
+              <h1>2026Q3 财务专项审计报告</h1>
+              <div class="report-meta">
+                报告编号 R-2026-Q3-04 · 报告周期 2026-07-25 ~ 2026-08-05<br/>
+                出具人：FinAudit Agent V3 · 复核人：周辰（审计）· 审核快照哈希 <span class="hash">9c4d2af1...b8e2</span>
+              </div>
+
+              <h2>1. 审计概述</h2>
+              <p>本次专项审计聚焦星辰智能科技（深圳）有限公司 2026 年 Q3 季度 AI 设备采购相关业务，共审核合同 <b>3 份</b>、发票 <b>7 张</b>、关联制度 <b>5 份</b>。审计期间共执行规则 <b>12 条</b>，触发风险 <b>5 条</b>，其中 high 风险 2 条、medium 风险 3 条。</p>
+
+              <h2>2. 风险摘要</h2>
+              <table>
+                <thead><tr><th>等级</th><th>数量</th><th>主要风险</th><th>处理建议</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="risk risk-high" style="font-size:11px;">high</span></td><td>2</td><td>采购授权超限、合格供应商名录缺失</td><td>须 CFO 复核、补充资质</td></tr>
+                  <tr><td><span class="risk risk-medium" style="font-size:11px;">medium</span></td><td>3</td><td>一次性付款、违约金过低、合同条款含糊</td><td>建议修订</td></tr>
+                  <tr><td><span class="risk risk-low" style="font-size:11px;">low</span></td><td>2</td><td>质保期未明确、附件缺失</td><td>建议补充</td></tr>
+                </tbody>
+              </table>
+
+              <h2>3. 风险明细</h2>
+              <h3 style="font-size:14px;margin:14px 0 6px;">3.1 HIGH 风险（2 条）</h3>
+              <p><b>R1 · 采购授权超限</b>（合同 CT-2026-0883）<br/>
+              合同金额 ¥ 248,000.00，超出采购授权上限 ¥ 200,000.00，超支 ¥ 48,000.00。证据：合同第 2 页第 1 行。依据：《采购管理办法 v2.5》§ 4.1。</p>
+              <p><b>R2 · 合格供应商名录缺失</b>（供应商：质跃供应链）<br/>
+              销方"质跃供应链管理有限公司"未在 2026Q3 合格供应商名录内，证据：合同第 1 页。依据：《采购管理办法 v2.5》§ 3.2。</p>
+
+              <h3 style="font-size:14px;margin:14px 0 6px;">3.2 MEDIUM 风险（3 条）</h3>
+              <p><b>R3 · 一次性付款</b>：合同约定签订后 5 日内支付全款，建议改为 30%-30%-40% 分期。<br/>
+              <b>R4 · 违约金过低</b>：违约金为合同金额 20%，低于制度标准 30%。<br/>
+              <b>R5 · 合同条款含糊</b>：交付时间描述"15 日内"未明确起算点。</p>
+
+              <h2>4. 引用制度</h2>
+              <p>本次审计引用制度 5 份，共 28 条：</p>
+              <ul>
+                <li>《采购管理办法 v2.5》—— 14 条</li>
+                <li>《合同管理制度 v4.2》—— 8 条</li>
+                <li>《财务审批权限表 v1.3》—— 3 条</li>
+                <li>《发票管理规范 v2.0》—— 2 条</li>
+                <li>《AI 应用合规指引 v1.0》—— 1 条</li>
+              </ul>
+
+              <h2>5. 处理建议</h2>
+              <p>1) CT-2026-0883 提请 CFO 特批采购授权；<br/>
+              2) 补充质跃供应链资质审核；<br/>
+              3) 建议修订付款条款、违约金条款；<br/>
+              4) 归档并跟踪至下次审计。</p>
+
+              <hr style="border:0;border-top:1px dashed var(--line);margin:24px 0;" />
+              <div class="small muted" style="text-align:center;line-height:1.8;">
+                本报告由 FinAudit Agent V3 自动生成 · 执行快照哈希 9c4d2af1...b8e2<br/>
+                AI 解释不可作为最终决策依据 · 复核与最终决定由 周辰（审计）做出
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><h3>⬇ 下载与归档</h3></div>
+          <div class="card-b">
+            <div class="row gap-3" style="flex-wrap:wrap;">
+              <button class="btn btn-secondary">📄 下载 PDF（带签章）</button>
+              <button class="btn btn-secondary">📊 下载 Excel（风险明细）</button>
+              <button class="btn btn-secondary">📋 下载 Markdown</button>
+              <button class="btn btn-secondary">🔗 复制永久链接</button>
+              <button class="btn btn-secondary">📨 发送至邮箱</button>
+              <button class="btn btn-secondary" style="margin-left:auto;">📦 归档至 Q3 季度</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== 用户管理 ============== -->
+<div id="page-users" class="page hidden">
+  <div class="topbar">
+    <div class="logo"><div class="mark">⚡</div> FinAudit Agent</div>
+    <span class="env-chip">PROD · v2.8.4</span>
+    <div class="spacer"></div>
+    <div class="topbar-task">⏳ 2 个任务执行中</div>
+    <div class="role-switch">🔁 切换角色</div>
+    <div class="user">
+      <div class="avatar">赵</div>
+      <div><div class="name">赵明</div><div class="role">系统管理员</div></div>
+    </div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar-13"></aside>
+    <div class="main">
+      <div class="crumb">
+        <span>系统管理</span><span class="sep">/</span><span class="current">用户管理</span>
+      </div>
+      <div class="title-bar">
+        <div>
+          <h1>用户管理</h1>
+          <div class="sub">共 18 个用户 · 5 个角色 · 仅系统管理员可见</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary">📤 导出</button>
+          <button class="btn btn-secondary">📥 批量导入</button>
+          <button class="btn btn-primary">＋ 新建用户</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="grid-cards mb-6">
+          <div class="kpi"><div class="ico">👥</div><div class="label">总用户</div><div class="value">18</div><div class="delta up">▲ 2 本月</div></div>
+          <div class="kpi"><div class="ico">🟢</div><div class="label">活跃</div><div class="value">15</div><div class="delta">83.3% 活跃率</div></div>
+          <div class="kpi"><div class="ico">⏸</div><div class="label">已停用</div><div class="value">3</div><div class="delta down">▼ 1</div></div>
+          <div class="kpi"><div class="ico">🔐</div><div class="label">角色</div><div class="value">5</div><div class="delta">含 1 待审</div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">
+            <h3>用户列表 · 18 条</h3>
+            <div class="right">
+              <input class="field" placeholder="搜索姓名/邮箱/部门" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;width:200px;" />
+              <select class="field" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;">
+                <option>全部角色</option><option>系统管理员</option><option>财务审核</option><option>审计复核</option><option>合同管理员</option><option>只读用户</option>
+              </select>
+              <select class="field" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;">
+                <option>全部状态</option><option>活跃</option><option>已停用</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-b flush">
+            <div class="table-wrap">
+              <table class="t">
+                <thead><tr>
+                  <th>用户</th><th>部门</th><th>角色</th><th>最近登录</th>
+                  <th>状态</th><th>MFA</th><th class="right">操作</th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="avatar-sm" style="width:32px;height:32px;font-size:13px;">赵</div>
+                        <div>
+                          <div class="cell-title">赵明</div>
+                          <div class="cell-sub">zhaoming@xingchen.ai</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>信息技术部</td>
+                    <td><span class="tag tag-danger">系统管理员</span></td>
+                    <td class="muted">2026-08-05 09:12</td>
+                    <td><span class="status status-success">活跃</span></td>
+                    <td><span class="check-pass">✓ 已开启</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">编辑</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="avatar-sm avatar-amber" style="width:32px;height:32px;font-size:13px;">林</div>
+                        <div>
+                          <div class="cell-title">林晓</div>
+                          <div class="cell-sub">linxiao@xingchen.ai</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>财务部</td>
+                    <td><span class="tag tag-brand">财务审核</span></td>
+                    <td class="muted">2026-08-05 14:32</td>
+                    <td><span class="status status-success">活跃</span></td>
+                    <td><span class="check-pass">✓ 已开启</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">编辑</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="avatar-sm avatar-pink" style="width:32px;height:32px;font-size:13px;">周</div>
+                        <div>
+                          <div class="cell-title">周辰</div>
+                          <div class="cell-sub">zhouchen@xingchen.ai</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>审计部</td>
+                    <td><span class="tag tag-warning">审计复核</span></td>
+                    <td class="muted">2026-08-05 14:20</td>
+                    <td><span class="status status-success">活跃</span></td>
+                    <td><span class="check-pass">✓ 已开启</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">编辑</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="avatar-sm avatar-green" style="width:32px;height:32px;font-size:13px;">苏</div>
+                        <div>
+                          <div class="cell-title">苏婉</div>
+                          <div class="cell-sub">suwan@xingchen.ai</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>法务部</td>
+                    <td><span class="tag">合同管理员</span></td>
+                    <td class="muted">2026-08-04 17:15</td>
+                    <td><span class="status status-warning">异地登录</span></td>
+                    <td><span class="check-pass">✓ 已开启</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">编辑</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="avatar-sm" style="width:32px;height:32px;font-size:13px;background:linear-gradient(135deg,#06B6D4,#22D3EE);">陈</div>
+                        <div>
+                          <div class="cell-title">陈静</div>
+                          <div class="cell-sub">chenjing@xingchen.ai</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>财务部</td>
+                    <td><span class="tag tag-brand">财务审核</span></td>
+                    <td class="muted">2026-08-05 11:08</td>
+                    <td><span class="status status-success">活跃</span></td>
+                    <td><span class="check-pass">✓ 已开启</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">编辑</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="avatar-sm" style="width:32px;height:32px;font-size:13px;background:linear-gradient(135deg,#F97316,#FB923C);">吴</div>
+                        <div>
+                          <div class="cell-title">吴明远</div>
+                          <div class="cell-sub">wumingyuan@xingchen.ai</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>业务部</td>
+                    <td><span class="tag tag-neutral">只读用户</span></td>
+                    <td class="muted">2026-08-03 16:42</td>
+                    <td><span class="status status-success">活跃</span></td>
+                    <td><span class="check-fail">✗ 未开启</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">编辑</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="row gap-3">
+                        <div class="avatar-sm avatar-amber" style="width:32px;height:32px;font-size:13px;">韩</div>
+                        <div>
+                          <div class="cell-title">韩雪</div>
+                          <div class="cell-sub">hanxue@xingchen.ai</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>人力资源部</td>
+                    <td><span class="tag tag-neutral">只读用户</span></td>
+                    <td class="muted">2026-07-12 10:30</td>
+                    <td><span class="status status-neutral">已停用</span></td>
+                    <td><span class="check-pass">✓ 已开启</span></td>
+                    <td class="right"><div class="row-actions"><button class="btn btn-ghost btn-sm">编辑</button><button class="btn btn-ghost btn-sm">⋯</button></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 角色权限说明 -->
+        <div class="card mt-6">
+          <div class="card-h"><h3>🛡 角色权限矩阵</h3><span class="sub">基于职责分离原则设计</span></div>
+          <div class="card-b flush">
+            <div class="table-wrap">
+              <table class="t">
+                <thead><tr>
+                  <th>角色</th><th>代码</th><th>主要权限</th><th>不可操作</th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td><span class="tag tag-danger">系统管理员</span></td>
+                    <td class="mono small">system_admin</td>
+                    <td>用户管理、角色分配、系统配置、查看所有</td>
+                    <td class="muted">—</td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag tag-brand">财务审核</span></td>
+                    <td class="mono small">finance_reviewer</td>
+                    <td>合同初审、发票核验、任务发起、AI 问答</td>
+                    <td class="muted">high 风险终审、用户管理</td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag tag-warning">审计复核</span></td>
+                    <td class="mono small">audit_reviewer</td>
+                    <td>high 风险终审、报告签发、制度审批</td>
+                    <td class="muted">发起审核任务、用户管理</td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag">合同管理员</span></td>
+                    <td class="mono small">contract_admin</td>
+                    <td>合同录入、关联、发票只读</td>
+                    <td class="muted">规则配置、报告签发</td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag tag-neutral">只读用户</span></td>
+                    <td class="mono small">read_only</td>
+                    <td>查看已归档的合同/报告/制度</td>
+                    <td class="muted">所有写操作、AI 问答受限</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ===== 路由 =====
+  const ROUTES = {
+    '#/login': 'page-login',
+    '#/dashboard': 'page-dashboard',
+    '#/files': 'page-files',
+    '#/contracts': 'page-contracts',
+    '#/contracts/CT-2026-0883': 'page-contract-detail',
+    '#/invoices': 'page-invoices',
+    '#/invoices/144002005011': 'page-invoice-detail',
+    '#/links': 'page-links',
+    '#/knowledge': 'page-knowledge',
+    '#/qa': 'page-qa',
+    '#/tasks': 'page-tasks',
+    '#/tasks/T-2026-Q3-04': 'page-task-detail',
+    '#/reports/R-2026-Q3-04': 'page-report',
+    '#/users': 'page-users'
+  };
+
+  const MENU = [
+    { route: '#/dashboard',  icon: '⌂',  label: '工作台' },
+    { route: '#/files',      icon: '📁', label: '文件管理' },
+    { route: '#/contracts',  icon: '📄', label: '合同管理' },
+    { route: '#/invoices',   icon: '🧾', label: '发票管理' },
+    { route: '#/links',      icon: '🔗', label: '合同发票关联' },
+    { route: '#/knowledge',  icon: '📚', label: '制度知识库' },
+    { route: '#/qa',         icon: '💬', label: 'AI 问答' },
+    { route: '#/tasks',      icon: '⚡', label: '审核任务' },
+    { route: '#/reports/R-2026-Q3-04', icon: '📊', label: '报告' },
+    { route: '#/users',      icon: '👥', label: '用户管理', adminOnly: true }
+  ];
+
+  function renderSidebar(targetId, currentHash) {
+    const el = document.getElementById(targetId);
+    if (!el) return;
+    const isAdmin = currentHash === '#/users';
+    el.innerHTML = `
+      <div class="group">
+        <div class="group-title">主要工作</div>
+        ${MENU.filter(m => !m.adminOnly).map(m => `
+          <a class="menu-item ${m.route === currentHash || (m.route === '#/contracts' && currentHash.startsWith('#/contracts/')) || (m.route === '#/invoices' && currentHash.startsWith('#/invoices/')) || (m.route === '#/tasks' && currentHash.startsWith('#/tasks/')) ? 'active' : ''}" href="${m.route}">
+            <span class="icon">${m.icon}</span>
+            <span>${m.label}</span>
+            ${m.label === '审核任务' ? '<span class="badge">5</span>' : ''}
+          </a>
+        `).join('')}
+      </div>
+      ${isAdmin ? `
+        <div class="group">
+          <div class="group-title">系统</div>
+          ${MENU.filter(m => m.adminOnly).map(m => `
+            <a class="menu-item active" href="${m.route}">
+              <span class="icon">${m.icon}</span><span>${m.label}</span>
+            </a>
+          `).join('')}
+        </div>
+      ` : ''}
+      <div class="group" style="margin-top:auto;">
+        <div style="background:var(--bg-soft);border-radius:10px;padding:12px;margin-top:24px;">
+          <div class="row gap-2" style="align-items:center;margin-bottom:6px;">
+            <div style="width:24px;height:24px;border-radius:6px;background:var(--brand-grad);"></div>
+            <div style="font-size:12.5px;font-weight:700;">AI 能力</div>
+          </div>
+          <div class="small muted" style="line-height:1.6;">本月已调用 2,461 次 · 命中率 92%</div>
+          <button class="btn btn-secondary btn-sm" style="width:100%;margin-top:8px;justify-content:center;">查看用量</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function route() {
+    const hash = location.hash || '#/dashboard';
+    const pageId = ROUTES[hash];
+
+    // 隐藏所有页面
+    document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+
+    if (hash === '#/login') {
+      // 登录页：单独布局
+      document.getElementById('page-login').classList.remove('hidden');
+      return;
+    }
+
+    if (pageId) {
+      document.getElementById(pageId).classList.remove('hidden');
+    } else {
+      // 默认到 dashboard
+      document.getElementById('page-dashboard').classList.remove('hidden');
+    }
+
+    // 渲染所有 sidebar
+    ['sidebar','sidebar-2','sidebar-3','sidebar-4','sidebar-5','sidebar-6','sidebar-7','sidebar-8','sidebar-9','sidebar-10','sidebar-11','sidebar-12','sidebar-13'].forEach(id => {
+      renderSidebar(id, hash);
+    });
+
+    // 滚动到顶部
+    document.querySelectorAll('.content, .login-bg-wrap').forEach(c => c.scrollTop = 0);
+    window.scrollTo(0, 0);
+  }
+
+  window.addEventListener('hashchange', route);
+  window.addEventListener('load', () => {
+    if (!location.hash) location.hash = '#/dashboard';
+    route();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+# Bundled Codex primary runtime: Python 3.12.13
+# Required deterministic font: C:\Windows\Fonts\simhei.ttf
+# Font SHA-256: AA4560DD8FE5645745FED3FFA301C3CA4D6C03CBD738145B613303961BA733B8
+Pillow==12.2.0
+pypdf==6.10.0
+python-docx==1.2.0
+reportlab==4.4.9

@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:test:handler-registry:schema:v1",
+  "type": "object",
+  "required": ["registry_version", "handlers"],
+  "properties": {
+    "registry_version": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+    },
+    "handlers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "job_type",
+          "input_schema_version",
+          "input_schema_id",
+          "input_schema_sha256",
+          "handler_code_version",
+          "logical_queue",
+          "max_attempts",
+          "retry_scopes",
+          "steps"
+        ],
+        "properties": {
+          "job_type": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,59}$"
+          },
+          "input_schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "input_schema_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{0,159}$"
+          },
+          "input_schema_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "handler_code_version": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+          },
+          "logical_queue": {
+            "enum": [
+              "document",
+              "extraction",
+              "knowledge",
+              "evaluation",
+              "audit",
+              "report",
+              "maintenance"
+            ]
+          },
+          "max_attempts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "retry_scopes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["scope_code", "start_step_code"],
+              "properties": {
+                "scope_code": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,79}$"
+                },
+                "start_step_code": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,79}$"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "step_code",
+                "summary_schema_id",
+                "summary_schema_sha256"
+              ],
+              "properties": {
+                "step_code": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,79}$"
+                },
+                "summary_schema_id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9._-]{0,159}$"
+                },
+                "summary_schema_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
