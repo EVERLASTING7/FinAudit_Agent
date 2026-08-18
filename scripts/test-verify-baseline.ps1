@@ -515,6 +515,17 @@ if ($leakedGitOverrides.Count -gt 0) {
     throw "Baseline self-test leaked Git environment override names: $($leakedGitOverrides -join ', ')."
 }
 
+$projectRemoteNames = @(& $git -C $projectRoot remote)
+if ($LASTEXITCODE -ne 0) {
+    throw 'Unable to inspect current project remotes for the final baseline assertion.'
+}
+$expectedProjectRemoteMarker = if ($projectRemoteNames.Count -eq 0) {
+    'REMOTE_BRANCH_PROTECTION=NOT_RUN (no remote configured)'
+}
+else {
+    'REMOTE_BRANCH_PROTECTION=NOT_VERIFIED (hosting evidence required)'
+}
+
 $global:LASTEXITCODE = 0
 $baselineOutput = @(
     & $childPowerShell -NoProfile -ExecutionPolicy Bypass -File $verifierPath -RootPath $projectRoot 2>&1
@@ -525,7 +536,7 @@ $baselineResult = [pscustomobject]@{
     Output = $baselineOutput
 }
 Assert-PartialBaselineSuccess -Result $baselineResult `
-    -ExpectedRemoteMarker 'REMOTE_BRANCH_PROTECTION=NOT_RUN (no remote configured)'
+    -ExpectedRemoteMarker $expectedProjectRemoteMarker
 
 $global:LASTEXITCODE = 0
 'BASELINE_SECRET_NEGATIVE_CASES=PASS'

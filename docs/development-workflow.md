@@ -18,7 +18,7 @@
 - `release/<version>`：发布候选稳定化。
 - `hotfix/<issue>`：生产阻断缺陷修复。
 
-当前尚无远程仓库，分支保护不能在本地强制。创建远程后，至少为 `main` 和 `develop` 启用：禁止 Force Push、必须通过 PR、至少一次独立 Review、必须通过相关测试和静态检查。
+截至 2026-08-18，`origin` 已配置为 `https://github.com/EVERLASTING7/FinAudit_Agent.git`，且 `release/local-mvp-0.1.0` 已使用普通 push 发布。远程当前只有该发布分支并将其作为默认分支；实际核验结果为 `protected=false`、仓库 Rulesets 为 0，`main`/`develop` 尚不存在。因此远程治理仍为 `partial`。后续建立稳定分支后，至少为稳定默认分支和 `develop` 启用：禁止 Force Push、必须通过 PR、至少一次独立 Review、必须通过相关测试和静态检查。
 
 以下离线命令只在内存中验证上述项目工作流投影的固定 synthetic fixture 与封闭负例：
 

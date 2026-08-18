@@ -6,13 +6,16 @@
 |---|---|
 | 应用发布决定 | `GO / CR-025 LOCAL MVP ONLY` |
 | production ready | `NO` |
-| 源码远程发布 | `PENDING_REMOTE_URL` |
+| 源码远程发布 | `PUSHED / REMOTE GOVERNANCE PARTIAL` |
 | 发布责任人 | YHBX |
 | UAT | `ACCEPTED`，签署原文为 `Local MVP UAT通过` |
 | 发布日期 | 2026-08-18（Asia/Shanghai） |
 | 发布分支 | `release/local-mvp-0.1.0` |
 | 应用源码提交 | `3449aa5de8cabe1e55201cfcfb4d5705d4098ce1` |
 | 发布记录修订 | 包含本文件最终状态的后续 Git commit |
+| 远程仓库 | `https://github.com/EVERLASTING7/FinAudit_Agent.git` |
+| 首次远程核验提交 | `ad5768e10714e4ebeff439ab957467be35910036` |
+| 远程分支保护 | `VERIFIED / NOT CONFIGURED` |
 | 持久运行镜像修订 | `local-mvp-0.1.0` |
 
 本决定只接受当前 BOSS Windows 本机、Docker Desktop、loopback HTTP Local MVP。13 个 `TEST-001～007`、`DEP-001～006` 工作包继续保持 `partial`，不声明 production、正式代表性质量或完整 AC-001～016 已通过。
@@ -70,7 +73,7 @@
 - 不接受业务代表性合同/发票质量、50/100 条正式检索质量、真实 OCR、正式容量或生产 Provider。
 - Edge、全 P0 路由键盘、屏幕阅读器和 LibreOffice Calc 兼容性尚未完成。
 - Backend 本地镜像剩余 Docker Scout `2C/2H` 均无已修复版本；本记录不签署 production VEX 或风险接受。
-- 仓库尚无指定 remote；远程分支保护、远程 CI、push、tag 和 release 均未运行。
+- `origin` 已配置并以普通 push 发布 `release/local-mvp-0.1.0`，未使用 Force Push。核验时该分支同时为远程默认分支，`protected=false`、仓库 Rulesets 为 0，且远程不存在 `main`/`develop`；因此远程治理仍为 `partial`，远程 CI、tag、GitHub Release 和正式保护演练均未运行。
 
 ## 7. Provider 与候选能力边界
 
@@ -89,7 +92,9 @@
 - [x] 当前发布快照的 PostgreSQL Full 双轮结果已回写。
 - [x] 发布分支 `release/local-mvp-0.1.0` 已创建。
 - [x] 当前发布快照已提交：`3449aa5de8cabe1e55201cfcfb4d5705d4098ce1`。
-- [ ] 用户指定 remote 已配置。
-- [ ] 发布分支已推送且远程分支保护已验证。
+- [x] 用户指定 `origin` 已配置为 `https://github.com/EVERLASTING7/FinAudit_Agent.git`。
+- [x] 发布分支已使用普通 push 推送，未使用 Force Push。
+- [x] 已读取远程分支与 Rulesets 状态：`protected=false`、Rulesets 为 0。
+- [ ] 远程默认稳定分支、必需检查与分支保护尚未配置；转入后续远程治理目标。
 
-在最后四项完成前，应用的 Local MVP `GO` 已成立，但源码远程发布状态保持 `PENDING_REMOTE_URL`。
+应用的 Local MVP `GO` 与源码分支发布均已成立；由于远程分支保护实际未配置，整体状态保持 `GO / LOCAL MVP ONLY` 与 `REMOTE GOVERNANCE PARTIAL`，不得外推为 production ready。

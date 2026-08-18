@@ -287,7 +287,7 @@ MVP-VS-01～08 的本地上传生命周期已有实际运行证据。其后的�
 - **最终认证证据：** BOSS 已亲自完成强制换密并重新登录。数据库确认账号 active、失败数 0、未锁定、`force_change_on_login=false` 和 1 个普通活动会话；真实浏览器显示本地管理员/系统管理员工作台，用户管理页成功读取当前用户并显示全局“密码至少 6 个字符”，直接访问文件管理安全转入 `AUTH_FORBIDDEN`，全部页面 console warning/error 为 0。恢复密码内容先清零后已删除。
 - **UAT 签署：** YHBX 于 2026-08-18 明确回复 `Local MVP UAT通过`；签署范围、证据和排除项记录于 `docs/testing/local-mvp-uat-2026-08-18.md`。该结论只接受本机 loopback HTTP Local MVP，不改变 production 状态。
 - **Local MVP AC 裁定：** `CR-025` 将 AC-001、AC-002、AC-015、AC-016 调整为当前本机口径；当前 HTTP 安全基线/浏览器终审、文件链、备份/隔离恢复/冷启动和既有恢复门禁已逐条绑定，四项状态均为 `ACCEPTED`。证据见 `docs/testing/local-mvp-ac-acceptance-2026-08-18.md`；扩大环境时必须重新验收。
-- **Local MVP 发布决定：** YHBX 已明确选择只按 CR-025 收口；`docs/releases/local-mvp-0.1.0-2026-08-18.md` 记录应用状态 `GO / LOCAL MVP ONLY`。13 个 TEST/DEP 工作包继续保持 `partial`，production 与正式质量转入后续目标；源码远程发布在指定 remote URL、发布提交和分支保护证据存在前保持 `PENDING_REMOTE_URL`。
+- **Local MVP 发布决定：** YHBX 已明确选择只按 CR-025 收口；`docs/releases/local-mvp-0.1.0-2026-08-18.md` 记录应用状态 `GO / LOCAL MVP ONLY`。13 个 TEST/DEP 工作包继续保持 `partial`，production 与正式质量转入后续目标。`origin` 已配置为 BOSS 指定的 GitHub 仓库，`release/local-mvp-0.1.0` 已通过普通 push 发布且未使用 Force Push；远程核验结果为该分支 `protected=false`、Rulesets 为 0，远程治理因此保持 `partial` 并转入后续目标。
 - **非目标：** production、局域网/公网开放、真实域名/CA、OCR、AI Provider、正式容量、异地恢复或正式 AC 签署。
 
 ### PROD-VS-01 可重复 Compose 环境

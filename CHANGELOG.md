@@ -10,7 +10,8 @@
 
 ## [Unreleased]
 
-- 新增 `Local MVP 0.1.0` 发布记录：YHBX 明确选择 CR-025 Windows 本机收口，应用发布决定为 `GO / LOCAL MVP ONLY`；13 个 TEST/DEP 工作包继续保持 `partial`，不声明 production ready。记录绑定运行范围、AC-001/002/015/016、UAT、备份 ID、回滚步骤、已知风险和远程发布待办；remote URL 未指定前源码发布保持 `PENDING_REMOTE_URL`。
+- 完成 `Local MVP 0.1.0` 发布记录：YHBX 明确选择 CR-025 Windows 本机收口，应用发布决定为 `GO / LOCAL MVP ONLY`；13 个 TEST/DEP 工作包继续保持 `partial`，不声明 production ready。记录绑定运行范围、AC-001/002/015/016、UAT、备份 ID、回滚步骤和已知风险；`origin` 已配置到 BOSS 指定的 GitHub 仓库，`release/local-mvp-0.1.0` 已使用普通 push 发布且未 Force Push。远程实际为 `protected=false`、Rulesets 为 0，因此远程治理保持 `partial`。
+- 修复本地 baseline 自测对已配置安全 remote 的当前仓库断言：无 remote 时仍要求 `NOT_RUN`，存在 remote 时要求 `NOT_VERIFIED`；两种状态都继续保持 `BASELINE_TASK_STATUS=PARTIAL`，不把本地配置检查升级为托管平台分支保护证据。
 - 生成发布前第 4 份权威备份并通过只读完整性/新鲜度巡检，随后将持久 `finaudit-local` 按当前工作树重建为镜像修订 `local-mvp-0.1.0`；dependency、bounded logging、restart policy 与受管 metrics 运行门禁全部 PASS。
 - BOSS 直接批准并执行 `CR-026`：仅在 local/test runner 复用现有百炼密钥并启用评测批次 20，production 默认仍逐题；硬上限为 100 请求、50000 input tokens、CNY 10、零重试和 50 条失败即停。Provider 前离线与 PostgreSQL 双轮门禁通过；真实运行以 5 次请求、4971 input tokens、CNY 0.002486 得到 49/50、授权泄露 0，因 1 个 no-answer 假阳性立即停止，100 条和激活未运行。Collection、专用容器和确认环境变量残留为 0。
 - 第二次获同边界 CR-026 单次授权后，真实运行完全复现 5 请求、4971 input tokens、CNY 0.002486、49/50 和 1 个 no-answer 假阳性；100 条仍未运行。捕获的 runtime case UUID 因当次未保存到冻结 source case ID 的映射而不能用于反查，runner 随后只做离线稳定 ID 遥测加固且未第三次调用；第二次授权、Collection、容器和确认变量均已消耗或清理。
