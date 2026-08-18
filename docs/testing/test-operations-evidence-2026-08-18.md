@@ -6,7 +6,7 @@
 
 YHBX 已据此选择 CR-025 Local MVP 路线；应用发布决定记录于 `docs/releases/local-mvp-0.1.0-2026-08-18.md`，状态为 `GO / LOCAL MVP ONLY`。这不是对 production 或正式全量 TEST/DEP 的状态升级。
 
-本轮未调用任何真实 AI/Embedding Provider，未读取或输出真实密钥，未推送、发布或部署到远程环境。
+本轮运维门禁本身未调用任何真实 AI/Embedding Provider，也未读取或输出真实密钥。后续两次另行授权的 `CR-026` local/test 评测均已消耗并失败停止；常驻 Local MVP 仍关闭 Provider。BOSS 随后明确授权配置指定 GitHub remote、普通 push 发布分支并读取远程治理状态；未使用 Force Push，也未部署应用运行环境。
 
 ## 2. 新增或修复的可执行能力
 
@@ -22,10 +22,11 @@ YHBX 已据此选择 CR-025 Local MVP 路线；应用发布决定记录于 `docs
 | 门禁 | 当前结果 | 证据边界 |
 |---|---|---|
 | `scripts/verify-local-offline.ps1` | `LOCAL_OFFLINE_QUALITY=PASS`；Backend `3063 passed / 142 skipped / 1 warning`；Ruff `497 files`；mypy `271 sources`；Frontend `26 files / 527 tests / 147 modules` | PostgreSQL、Compose、浏览器、Provider、remote、production 在该离线包装器中按设计 `NOT_RUN` |
+| GitHub remote 发布核验 | `origin` 指向 `EVERLASTING7/FinAudit_Agent`；`release/local-mvp-0.1.0` 已普通 push；核验基准提交 `ccf2fa09a77d9d3697b3dcc47cb18d6c84ace7a8` 的本地/远程 SHA 一致；当时为唯一/default 分支，`protected=false`、Rulesets 为 0 | 证明源码分支已发布并完成只读状态核验；不代表保护规则、远程 CI、tag、GitHub Release 或 production 已完成 |
 | `scripts/verify-postgresql-current-head.ps1 -Scope Full` | PostgreSQL `16.14`，完整 `149/149 × 2`，两轮 `status=ok`，`POSTGRESQL_CURRENT_HEAD=PASS` | 专用可丢弃数据库；不等于 production migration |
 | `scripts/verify-local-celery-redis.ps1` | `4 passed`，`CELERY_REDIS_BROKER_TRANSPORT=PASS` | 锁定 Redis 7.4.9；残留容器 0 |
 | `verify-local-stack.ps1 -ProjectName finaudit-local -OperationsReadiness` | dependency、bounded logging、restart policy、metrics runtime 全部 PASS | 当前持久 Local MVP；非 production 监控平台 |
-| `audit_local_backups.py` | 完整备份 `3`，最新约 1 分钟，30 天候选 `0`，`LOCAL_BACKUP_AUDIT=PASS` | 只读巡检；不自动删除或调度 |
+| `audit_local_backups.py` | 完整备份 `4`，发布前最新备份目录 `20260818T052018Z`、ID `b94b77a1-1221-49bf-af87-927f97cb3300`，`LOCAL_BACKUP_AUDIT=PASS` | 只读巡检；不自动删除或调度 |
 | `restore-local-stack.ps1` | PostgreSQL 行数、MinIO 卷摘要、Redis/Qdrant 重建、ClamAV 重载 PASS；恢复后运维门禁、普通停止后冷启动再次 PASS | 独立 `finaudit-restore-ops1`；目标容器/网络/卷/运行时最终 0 |
 | `verify-local-stack.ps1 -PerformanceBaseline` | 修复旧 transport 标签后同栈新 run 三轮 PASS；列表 P95 `10.607/10.647/10.978 ms`，上传受理 P95 `36.794/41.385/38.023 ms`，机器 JSON 固定 `transport=http-nginx-backend` | 小型合成 local Profile；AI/OCR/production 为 `NOT_RUN`，不代表正式参考环境完整容量 |
 | `verify-financial-loop-browser-gate.ps1` | 最终 `FINANCIAL_LOOP_BROWSER_GATE=PASS` | 当前代码、合成 DOCX、本地依赖、真实浏览器；不等于代表性业务质量或 production |
@@ -37,7 +38,7 @@ YHBX 已据此选择 CR-025 Local MVP 路线；应用发布决定记录于 `docs
 
 | 工作包 | 本轮新增最强证据 | 仍未关闭的边界 |
 |---|---|---|
-| TEST-001 | 当前离线、PostgreSQL 双轮、Redis/Celery、浏览器、Compose/恢复证据已重新绑定 | 业务代表性审批集、全量正式 AC、production/remote |
+| TEST-001 | 当前离线、PostgreSQL 双轮、Redis/Celery、浏览器、Compose/恢复和远程分支发布证据已重新绑定 | 业务代表性审批集、全量正式 AC、production、远程分支保护与 CI |
 | TEST-002 | 全量 Backend 单元套件与确定性指标继续 PASS | 经审批代表性合同/发票输入未提供，正式指标未运行 |
 | TEST-003 | 89 个 `/api/v1` operationId 全覆盖 meta-gate，遗漏数 0 | 正式 AC API 验收仍未签署 |
 | TEST-004 | 当前代码完整财务浏览器闭环与五角色矩阵 PASS | 代表性业务 UAT、全路由无障碍、production |
@@ -48,7 +49,7 @@ YHBX 已据此选择 CR-025 Local MVP 路线；应用发布决定记录于 `docs
 | DEP-002 | loopback HTTP/Nginx 当前运行；metrics 重复安全头根因修复并实跑 | 非 loopback 必须恢复受信任 TLS/反向代理并重验 |
 | DEP-003 | Docker 日志有界轮转、Trace/追加式操作日志与日志 canary PASS | 集中采集、访问/保留策略和 production 审计平台 |
 | DEP-004 | dependency health 与 OperationsReadiness 当前持久栈 PASS | production SLO、通知通道和告警演练 |
-| DEP-005 | 三份备份新鲜度/完整性 PASS；最新备份隔离恢复与冷启动 PASS | 加密异地备份、自动调度/通知、正式 RPO/RTO |
+| DEP-005 | 四份备份新鲜度/完整性 PASS；最新备份隔离恢复与冷启动 PASS | 加密异地备份、自动调度/通知、正式 RPO/RTO |
 | DEP-006 | 受管 `/metrics` 无凭据 401、正确凭据 200、固定低基数指标和安全响应头 PASS | 长期采集器、告警规则、SLO/留存与 production |
 
 ## 5. 发布停止边界
@@ -58,6 +59,6 @@ YHBX 已据此选择 CR-025 Local MVP 路线；应用发布决定记录于 `docs
 1. TEST-005 的最新 50 条真实 Embedding 技术门禁是 `FAILED (49/50)`，不是 `NOT_RUN`；其后 100 条与激活未运行。`CR-026` 单次授权已经消耗，再次 Provider 调用必须获得新的明确授权。
 2. 合同 85%、发票 95%、结构合法率 99% 需要经业务审批的代表性输入；仓库当前只有计算器和合成/链路证据。
 3. 正式 DAST、生产 CA/TLS、Secret Manager、集中监控告警、异地备份、主机断电和 RPO/RTO 需要目标环境与责任人。
-4. 当前 worktree 仍有未提交改动，且仓库无 remote/upstream；未经 BOSS 明确授权不得自动 commit、push 或创建发布。
+4. `release/local-mvp-0.1.0` 已按 BOSS 授权推送，但远程没有 `main`/`develop`，当前分支未保护且 Rulesets 为 0；其余并行未提交改动不属于本次发布，不得静默提交或推送。
 
 因此，本记录证明 Local MVP 的可运行性/持续性增量已经实装并通过，但不把正式全量 TEST/DEP 或 production 发布状态伪造为完成。
