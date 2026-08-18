@@ -64,14 +64,18 @@ def streaming_response(response: httpx.Response) -> httpx.Response:
     )
 
 
-def outbound_policy() -> OutboundNetworkPolicy:
+def outbound_policy(
+    *,
+    base_url: str = BASE_URL,
+    billing_mode: str = "external_usd",
+) -> OutboundNetworkPolicy:
     return OutboundNetworkPolicy(
         endpoint_id="synthetic-external-001",
         network_scope="external_public",
-        base_url=BASE_URL,
+        base_url=base_url,
         approved_hostnames=("api.synthetic.test",),
         allowed_cidrs=("8.8.8.0/24",),
-        billing_mode="external_usd",
+        billing_mode=billing_mode,  # type: ignore[arg-type]
         address_policy_version="ip-deny-cidrs-v1",
         registry_sha256=REGISTRY_SHA256,
     )
@@ -82,14 +86,16 @@ def profile(
     *,
     embedding_dimension: int | None = None,
     body_limit: int = 2_097_152,
+    base_url: str = BASE_URL,
+    billing_mode: str = "external_usd",
 ) -> OpenAiCompatibleProfile:
     return OpenAiCompatibleProfile(
         profile_type=profile_type,  # type: ignore[arg-type]
-        base_url=BASE_URL,
+        base_url=base_url,
         model_id=MODEL_ID,
         allowed_response_model_ids=(MODEL_ID, f"{MODEL_ID}-versioned"),
         api_key=SecretStr(API_KEY),
-        network_policy=outbound_policy(),
+        network_policy=outbound_policy(base_url=base_url, billing_mode=billing_mode),
         registry_bytes=REGISTRY_BYTES,
         max_response_body_bytes=body_limit,
         embedding_dimension=embedding_dimension,
@@ -440,6 +446,55 @@ def test_embedding_adapter_restores_index_order_and_validates_dimension() -> Non
     assert outcome.vectors == ((0.1, 0.2), (0.3, 0.4))
     assert outcome.input_tokens == 4
     assert outcome.response_body_sha256 == hashlib.sha256(raw_response).hexdigest()
+
+
+def test_embedding_adapter_preserves_compatible_mode_path_and_dimension_parameter() -> None:
+    compatible_base_url = "https://api.synthetic.test:443/compatible-mode/v1"
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return streaming_response(
+            httpx.Response(
+                200,
+                headers={"content-type": "application/json"},
+                json={
+                    "model": MODEL_ID,
+                    "data": [{"index": 0, "embedding": [0.1, 0.2]}],
+                    "usage": {"prompt_tokens": 2, "total_tokens": 2},
+                },
+            )
+        )
+
+    adapter = OpenAiEmbeddingsAdapter(
+        profile(
+            "embedding",
+            embedding_dimension=2,
+            base_url=compatible_base_url,
+            billing_mode="external_cny",
+        ),
+        transport=httpx.MockTransport(handler),
+        resolver=lambda _hostname, _port: (PEER_ADDRESS,),
+        peer_address_reader=lambda _response: PEER_ADDRESS,
+    )
+    try:
+        outcome = adapter.embed(
+            EmbeddingRequest(trace_id=TRACE_ID, input_texts=("first",)),
+            adapter.target,
+            TRANSPORT_POLICY,
+        )
+    finally:
+        adapter.close()
+
+    assert isinstance(outcome, EmbeddingResult)
+    assert captured["url"] == "https://8.8.8.8/compatible-mode/v1/embeddings"
+    assert captured["body"] == {
+        "dimensions": 2,
+        "encoding_format": "float",
+        "input": ["first"],
+        "model": MODEL_ID,
+    }
 
 
 def test_real_adapter_requires_explicit_parameters_and_exact_target() -> None:

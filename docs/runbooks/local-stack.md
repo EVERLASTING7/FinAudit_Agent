@@ -1,15 +1,28 @@
 # 完整本地栈运行手册
 
-本手册只适用于单机开发与隔离验收。它提供可重复的 Backend、Frontend、Worker、PostgreSQL、Redis、MinIO、Qdrant、ClamAV 与 Nginx/TLS 环境，但不等同于 production 部署。
+本手册只适用于单机开发与隔离验收。它提供可重复的 Backend、Frontend、Worker、PostgreSQL、Redis、MinIO、Qdrant、ClamAV 与 Nginx/HTTP 环境，但不等同于 production 部署。
 
 ## 1. 边界与前置
 
 - 需要可用的 Docker Engine 与 PowerShell 7。
 - ClamAV 官方镜像加载病毒库需要较多内存；Docker 资源不足时 Scanner 会保持未就绪，整个业务就绪探针返回 503。
-- 入口只绑定 `127.0.0.1`。本地证书为运行时生成的短期自签名证书，浏览器会显示信任警告。
+- 入口只绑定 `127.0.0.1`。按 BOSS 批准的全局 HTTP Profile，内置入口不生成或配置 TLS 证书。
 - AI Provider 默认关闭；合同、发票、知识问答与报告草稿继续使用当前本地确定性实现。
 - ClamAV 只有 `scanner_updates` 网络可访问外部病毒库，其他数据服务保持内部网络。production 必须另行实施域名出口控制、代理、告警与定义版本审计。
 - PostgreSQL 与 MinIO 是权威数据；Redis、Qdrant 和 ClamAV 定义数据可重建，不进入权威备份。
+
+### 1.1 当前 BOSS Local MVP Profile
+
+2026-08-17 起，当前交付目标固定为 BOSS Windows 本机上的 Local MVP；当前实际使用者 1 人，系统仍支持多账号和五角色，但不承诺多人并发容量：
+
+- 使用 Docker Desktop 和本机现有资源，不形成正式容量基线。
+- 唯一入口为 `http://localhost:8443`，只能监听 `127.0.0.1`；不开放局域网或公网。
+- 使用 Nginx/HTTP 与本地 ClamAV；OCR 和 AI Provider 关闭，扫描件/纯图片不得声明 OCR 成功，AI 不可用时保留确定性规则并显示降级。
+- Secret 位于仓库外的受管文件并通过只读挂载注入；真实密钥不得进入仓库。
+- PostgreSQL/MinIO 使用本机数据卷；重要操作前运行本地备份。异地备份、保留期、正式 RPO/RTO、正式容量和 DAST 暂不进入本阶段承诺。
+- YHBX 是本阶段 UAT 签署人与发布责任人；remote 和分支保护在公网部署前配置。
+
+这个 Profile 的“可运行”要求不仅是容器启动：迁移、依赖健康、loopback 监听、Frontend 渲染和至少一个授权用户真实登录/授权读取都必须通过。production 与正式 AC 继续独立验收。
 
 ## 2. 首次启动
 
@@ -27,24 +40,34 @@
 启动器会：
 
 1. 构建固定基础镜像的 Backend/Frontend。
-2. 在 `%LOCALAPPDATA%\FinAuditAgent\runtime\<project>` 生成运行时 Secret、JWT Key 与短期 TLS 证书。
+2. 在 `%LOCALAPPDATA%\FinAuditAgent\runtime\<project>` 生成运行时 Secret 与 JWT Key；HTTP Profile 不生成 TLS 证书。
 3. 执行 Alembic、七 Bucket、Qdrant Collection 和 first-org/admin 幂等初始化。
 4. 等待 `/health` 与 `/health/dependencies`，只有全部必需依赖为 `ok` 才返回 PASS。
 
-脚本只输出初始密码文件路径，不打印密码。首次登录必须立即完成强制改密。再次以同一项目名启动时，组织与管理员身份参数必须逐字一致；不同值会失败关闭。
+脚本只输出初始密码文件路径，不打印密码。首次登录必须立即完成强制改密。该文件只保存初始化密码；用户换密后不会被改写，也不能被当作当前密码。再次以同一项目名启动时，组织与管理员身份参数必须逐字一致；不同值会失败关闭。若当前密码遗失，不得直接编辑数据库密码 Hash；必须由 BOSS 明确授权受审计的本地恢复操作，并在恢复后撤销旧会话、强制再次换密。
 
 ## 3. 健康与文件链验证
 
-默认入口为 `https://localhost:8443`。本地证书不受系统信任时，可用以下命令只检查本地就绪响应：
+默认入口为 `http://localhost:8443`。可用以下命令检查本地就绪响应：
 
 ```powershell
-curl.exe -k https://localhost:8443/health
-curl.exe -k https://localhost:8443/health/dependencies
+curl.exe http://localhost:8443/health
+curl.exe http://localhost:8443/health/dependencies
 ```
 
 `/health` 仅表示 Backend 进程存活。`/health/dependencies` 才检查 PostgreSQL、Redis、MinIO、Qdrant、Worker 与 ClamAV；AI 在当前 Profile 中明确为 `disabled`。
 
-`scripts/smoke_local_file_upload.py` 由隔离容器运行，读取挂载的初始密码文件但不会回显密码。它验证 TLS/Nginx multipart、最小业务角色、真实 ClamAV INSTREAM、Celery Worker、PostgreSQL 文件终态与 MinIO 原件预览。该脚本面向验收自动化，不作为生产账号初始化工具。
+以下只读门禁进一步检查十个长期容器均为运行态、使用 `unless-stopped` 和 5×10 MiB 的 Docker `local` 日志轮转，并以受管凭据验证 `/metrics` 的 401/200 双路径；凭据和指标正文不会输出：
+
+```powershell
+.\scripts\verify-local-stack.ps1 `
+  -ProjectName 'finaudit-local' `
+  -OperationsReadiness
+```
+
+成功固定输出 `LOCAL_OPERATIONS_READINESS=PASS`。它适合日常巡检，但不替代本节后续业务 smoke、备份恢复、自动重启故障注入或 production 监控平台。
+
+`scripts/smoke_local_file_upload.py` 由隔离容器运行，读取挂载的初始密码文件但不会回显密码。它验证 HTTP/Nginx multipart、最小业务角色、真实 ClamAV INSTREAM、Celery Worker、PostgreSQL 文件终态与 MinIO 原件预览。该脚本面向验收自动化，不作为生产账号初始化工具。
 
 通过受管包装器运行健康门禁与文件烟测：
 
@@ -166,7 +189,7 @@ Maintenance 在租约与宽限到期后以 attempt 2 重放；确定性 Writer �
   -AdminUsername 'ai-audit-admin' `
   -AdminDisplayName '本地 AI 审计管理员' `
   -ProjectName 'finaudit-ai-audit-local1' `
-  -HttpsPort 9445 `
+  -HttpPort 9445 `
   -ImageRevision 'ai-audit-local1'
 
 .\scripts\verify-local-stack.ps1 `
@@ -194,7 +217,7 @@ Maintenance 在租约与宽限到期后以 attempt 2 重放；确定性 Writer �
   -AdminUsername 'perf-admin' `
   -AdminDisplayName '本地性能管理员' `
   -ProjectName 'finaudit-perf-local1' `
-  -HttpsPort 9444 `
+  -HttpPort 9444 `
   -ImageRevision 'perf-local1'
 
 .\scripts\verify-local-stack.ps1 `
@@ -226,7 +249,7 @@ Maintenance 在租约与宽限到期后以 attempt 2 重放；确定性 Writer �
   -AdminUsername 'security-admin' `
   -AdminDisplayName '本地安全管理员' `
   -ProjectName 'finaudit-security-local1' `
-  -HttpsPort 9445 `
+  -HttpPort 9445 `
   -ImageRevision 'security-local1'
 
 .\scripts\verify-local-stack.ps1 `
@@ -234,9 +257,9 @@ Maintenance 在租约与宽限到期后以 attempt 2 重放；确定性 Writer �
   -SecurityBaseline
 ```
 
-门禁验证 loopback TLS 与安全响应头、非法 Trace 上下文不反射、Refresh Origin CSRF、五次失败锁定与防枚举、角色拒绝和存在性隐藏、篡改 Bearer、Trace 到操作日志映射、审计写入失败时业务事务回滚、操作日志 UPDATE/DELETE/TRUNCATE 不可变，以及合成密码哨兵不进入 Backend 日志。它还上传含攻击文本和 canary 的 PDF，经官方 ClamAV、Worker、制度提交/独立审批、安全专用 100 条全 `no_answer` 合成集、float32 向量摘要一致性和真实 Qdrant 索引激活后，分别验证直接注入问题在检索前拒绝、普通问题命中不可信制度正文后由 PostgreSQL 终审拒绝；两条 HTTP 响应和持久化审计均不得包含答案、引用、命中计数或 canary。该合成集只服务于安全链路，不代表 50/100 条业务检索质量集。
+门禁验证 loopback HTTP 与安全响应头、非法 Trace 上下文不反射、Refresh Origin CSRF、五次失败锁定与防枚举、角色拒绝和存在性隐藏、篡改 Bearer、Trace 到操作日志映射、审计写入失败时业务事务回滚、操作日志 UPDATE/DELETE/TRUNCATE 不可变，以及合成密码哨兵不进入 Backend 日志。它还上传含攻击文本和 canary 的 PDF，经官方 ClamAV、Worker、制度提交/独立审批、安全专用 100 条全 `no_answer` 合成集、float32 向量摘要一致性和真实 Qdrant 索引激活后，分别验证直接注入问题在检索前拒绝、普通问题命中不可信制度正文后由 PostgreSQL 终审拒绝；两条 HTTP 响应和持久化审计均不得包含答案、引用、命中计数或 canary。该合成集只服务于安全链路，不代表 50/100 条业务检索质量集。
 
-门禁同时核对业务容器只读根文件系统、`no-new-privileges`、Backend/Worker/Dispatcher/Maintenance 丢弃全部 capabilities，Frontend/Nginx 只保留官方镜像启动所需的 `CHOWN/SETGID/SETUID`，且主机仅暴露 `127.0.0.1` 的 Frontend TLS 端口。
+门禁同时核对业务容器只读根文件系统、`no-new-privileges`、Backend/Worker/Dispatcher/Maintenance 丢弃全部 capabilities，Frontend/Nginx 只保留官方镜像启动所需的 `CHOWN/SETGID/SETUID`，且主机仅暴露 `127.0.0.1` 的 Frontend HTTP 端口。十个长期服务还必须使用 `unless-stopped` 与 Docker `local` 日志驱动，每个容器最多保留 5 个 10 MiB 日志文件；该上限防止本地 stdout/stderr 无界占盘，但不是业务操作日志、合规留存或集中日志平台。门禁会用可丢弃受管凭据验证 `/metrics` 的 401/200 双路径和固定低基数指标，再让 Worker 的 PID 1 自行异常退出并确认同一容器的 `RestartCount` 增加、自动恢复和依赖重新 ready；不读取或输出凭据。
 
 若不执行下一节浏览器增量，完成后清除专用栈；若要执行下一节，则暂不清除，待浏览器数据库终审后再运行同一命令：
 
@@ -250,18 +273,7 @@ P0 Schema 强制单组织，因此本门禁不能构造真实跨组织 IDOR 主�
 
 ### 3.9 本地浏览器 Prompt Injection 增量
 
-浏览器不得绕过自签名证书警告，也不得把本地测试 CA 加入系统信任。保持上一节专用栈运行，在第二个 PowerShell 终端启动受门禁保护、仅绑定 `127.0.0.1` 的一次性中继；中继的上游端口必须等于专用栈的 TLS 端口：
-
-```powershell
-$env:FINAUDIT_LOCAL_TLS_BROWSER_RELAY = `
-  'RUN_DISPOSABLE_LOCAL_TLS_BROWSER_RELAY_V1'
-.\backend\.venv\Scripts\python.exe `
-  .\scripts\local_tls_browser_relay.py `
-  --listen-port 9446 `
-  --upstream-port 9445
-```
-
-该中继只用于本地浏览器验收：浏览器侧为 loopback HTTP，同源请求再由中继通过 TLS 进入原 Nginx；中继只改写与固定端口匹配的 Host/Origin/Referer，不移除上游 Secure Cookie 属性，不接受任意上游，也不提供 production TLS 证据。浏览器使用 `-SecurityBaseline` 输出的合成 username 登录；口令只能使用 `scripts/smoke_local_security.py` 中明确标记为 public/disposable 的 `_prompt_browser_password()` 返回值，禁止读取或输出 bootstrap Secret。进入“AI 问答”，提交由 `_prompt_browser_question(run_id)` 生成的直接注入问题，必须同时看到：
+保持上一节专用栈运行，浏览器直接打开 `-SecurityBaseline` 输出的 loopback HTTP origin。使用门禁输出的合成 username 登录；口令只能使用 `scripts/smoke_local_security.py` 中明确标记为 public/disposable 的 `_prompt_browser_password()` 返回值，禁止读取或输出 bootstrap Secret。进入“AI 问答”，提交由 `_prompt_browser_question(run_id)` 生成的直接注入问题，必须同时看到：
 
 - 当前活动知识库由 Backend 成功加载；
 - “明确拒答”和 `PROMPT_INJECTION_DETECTED`；
@@ -286,7 +298,7 @@ docker compose `
   prompt-injection-browser-database
 ```
 
-只有数据库命令同时输出 `LOCAL_SECURITY_PROMPT_INJECTION_BROWSER_DATABASE_GATE=PASS`、`LOCAL_SECURITY_PROMPT_INJECTION_BROWSER_AUDIT_GATE=PASS` 和 `LOCAL_SECURITY_PROMPT_INJECTION_BROWSER=PASS`，且再次检查依赖 ready 与业务容器日志无 canary 后，才可记录本地浏览器增量通过。该结果不证明浏览器直接信任自签名或生产 CA、真实 Provider、正式 DAST、AC-015、UAT 或 production。终止中继后再按上一节执行专用栈 `-Purge`。
+只有数据库命令同时输出 `LOCAL_SECURITY_PROMPT_INJECTION_BROWSER_DATABASE_GATE=PASS`、`LOCAL_SECURITY_PROMPT_INJECTION_BROWSER_AUDIT_GATE=PASS` 和 `LOCAL_SECURITY_PROMPT_INJECTION_BROWSER=PASS`，且再次检查依赖 ready 与业务容器日志无 canary 后，才可记录本地浏览器增量通过。该结果不提供传输加密证据，也不证明真实 Provider、正式 DAST、AC-015、UAT 或 production。完成后按上一节执行专用栈 `-Purge`。
 
 ## 4. 停止与清除
 
@@ -318,6 +330,21 @@ docker compose `
 
 因此，恢复仍需要源项目运行目录中的 Secret，或由受控 Secret Manager 提供等价值。仅复制备份目录并不能绕过凭据恢复责任。
 
+### 5.1 备份新鲜度与完整性巡检
+
+下列只读检查要求至少两份完整备份、最新备份不超过 24 小时，并报告超过 30 天的保留期候选；它会重算 PostgreSQL dump 与 MinIO 归档的 SHA-256 和字节数，拒绝不完整、篡改、越界、重复 ID、包含额外文件或宣称包含 Secret 的备份，但不会删除或改写任何文件：
+
+```powershell
+.\backend\.venv\Scripts\python.exe .\scripts\audit_local_backups.py `
+  --backup-root "$env:LOCALAPPDATA\FinAuditAgent\backups" `
+  --project-name 'finaudit-local' `
+  --max-age-hours 24 `
+  --minimum-complete 2 `
+  --retention-days 30
+```
+
+成功固定输出 `LOCAL_BACKUP_MUTATION=NONE` 与 `LOCAL_BACKUP_AUDIT=PASS`；失败返回非零退出码，适合由 Windows 任务计划程序或外部监控定期调用。仓库不自动注册宿主机任务，也不自动删除超期候选；调度身份、通知通道和删除审批仍由目标环境运维策略决定。
+
 ## 6. 隔离恢复
 
 恢复必须使用一个从未存在过、且不同于源项目的项目名；脚本拒绝原地覆盖：
@@ -326,7 +353,7 @@ docker compose `
 .\scripts\restore-local-stack.ps1 `
   -BackupDirectory 'C:\absolute\path\to\backup' `
   -TargetProjectName 'finaudit-restore-check' `
-  -HttpsPort 9443
+  -HttpPort 9443
 ```
 
 恢复流程会先核对 Compose 和备份文件摘要，再创建隔离卷、恢复 MinIO、恢复 PostgreSQL、逐表比较核心事实行数，最后重建 Redis/Qdrant、重新加载 ClamAV 定义并等待 dependency-ready。恢复目标继续使用源管理员当前密码；源初始密码文件不再被描述为有效登录密码。
@@ -335,8 +362,8 @@ docker compose `
 
 ## 7. 已知限制
 
-- 本地 TLS 是自签名证书，不证明域名、CA、HSTS 预加载、证书轮换或生产 TLS Policy。
+- 全局 HTTP Profile 不提供传输机密性或服务器身份认证；当前只允许 loopback Local MVP。局域网或公网发布前必须恢复受信任 TLS 或由受信任反向代理终止 TLS，并重新验收 Cookie、Origin、证书与 DAST。
 - Secret 是受管本地文件挂载，不证明生产 Secret Manager、轮换、吊销或最小主机 ACL。
 - Qdrant local Profile 仍固定在已验证的 `1.10.0`；直接把现有 1.10 数据卷跳到 1.18 已验证会因段格式不兼容而失败。升级必须采用显式快照/重建方案，不能由启动器静默删除派生数据。
 - OCR 仍为 `not_configured`；扫描图片和无文本 PDF 不会被伪装成 OCR 成功。
-- 真实 AI Provider、AI-001 到业务采用的完整持久审计链、正式参考环境的完整容量/性能目标、生产 Scanner Profile、异地备份、浏览器直接 CA 信任、正式 DAST、正式 AC/UAT 与发布仍为 `NOT_RUN`；AI-005 仅有第 3.6.1 节的 provider-neutral PostgreSQL primitive 证据，提示注入另有独立 PostgreSQL 服务级回归、Nginx/HTTP + 真实 Qdrant local 证据和中继辅助真实浏览器证据，均不得外推为正式环境、生产 TLS 或真实 Provider 结论。
+- 真实 AI Provider、AI-001 到业务采用的完整持久审计链、正式参考环境的完整容量/性能目标、生产 Scanner Profile、异地备份、正式 DAST、正式 AC/UAT 与发布仍为 `NOT_RUN`；AI-005 仅有第 3.6.1 节的 provider-neutral PostgreSQL primitive 证据，提示注入另有独立 PostgreSQL 服务级回归和 Nginx/HTTP + 真实 Qdrant/浏览器 local 证据，均不得外推为加密传输、正式环境或真实 Provider 结论。

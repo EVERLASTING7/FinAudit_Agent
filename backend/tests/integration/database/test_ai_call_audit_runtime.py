@@ -21,9 +21,12 @@ from app.ai.event_sink import (
 )
 from app.ai.events import (
     AiCallCompletedV1,
+    AiCallCompletedV2,
     AiCallLateCompletionV1,
     AiCallStartedV1,
+    AiCallStartedV2,
     parse_ai_call_event_v1,
+    validate_ai_call_event_v2,
 )
 from app.db.migration import create_migration_engine
 from app.db.session import create_session_factory
@@ -32,6 +35,7 @@ from app.models.auth import Organization
 from app.models.reliability import OutboxEvent
 from app.repositories.ai_call_audit import (
     AiCallAuditLimits,
+    AiCallAuditLimitsV2,
     AiCallAuditRepository,
     AiCallCompleteStatus,
     AiCallProjectionStatus,
@@ -70,6 +74,8 @@ _EVENT_12 = UUID("11111111-1111-4111-8111-111111111122")
 _EVENT_13 = UUID("11111111-1111-4111-8111-111111111123")
 _EVENT_14 = UUID("11111111-1111-4111-8111-111111111124")
 _EVENT_15 = UUID("11111111-1111-4111-8111-111111111125")
+_EVENT_16 = UUID("11111111-1111-4111-8111-111111111126")
+_EVENT_17 = UUID("11111111-1111-4111-8111-111111111127")
 _EVENT_IDS = (
     _EVENT_1,
     _EVENT_2,
@@ -86,6 +92,8 @@ _EVENT_IDS = (
     _EVENT_13,
     _EVENT_14,
     _EVENT_15,
+    _EVENT_16,
+    _EVENT_17,
 )
 
 
@@ -149,6 +157,100 @@ def _completed(
     )
     event = parse_ai_call_event_v1(json.dumps(payload, separators=(",", ":")))
     assert isinstance(event, AiCallCompletedV1)
+    return event
+
+
+def _started_v2(
+    event_id: UUID,
+    *,
+    operation_id: UUID,
+    started_at: datetime,
+    currency: str = "CNY",
+    reserved_cost_microunits: int = 10,
+) -> AiCallStartedV2:
+    event = validate_ai_call_event_v2(
+        {
+            "event_id": str(event_id),
+            "event_version": 2,
+            "event_sequence": 1,
+            "event_type": "ai.call.started",
+            "aggregate_type": "ai_call",
+            "aggregate_id": str(event_id),
+            "organization_id": str(_ORGANIZATION_ID),
+            "business_operation_id": str(operation_id),
+            "job_id": None,
+            "request_id": None,
+            "resource_type": "knowledge_index",
+            "resource_id": None,
+            "trace_id": "66666666-6666-4666-8666-666666666666",
+            "call_type": "embedding",
+            "logical_generation_no": 1,
+            "provider_attempt_no": 1,
+            "adapter_id": "openai_embeddings_v1",
+            "endpoint_id": "synthetic-endpoint-v2",
+            "model_id": "synthetic-embedding-v2",
+            "model_version": None,
+            "prompt_id": None,
+            "prompt_version": None,
+            "prompt_hash": None,
+            "schema_version": None,
+            "policy_version": 2,
+            "policy_hash": "a" * 64,
+            "pricing_version": "synthetic-cny-v2",
+            "input_hash": "b" * 64,
+            "reserved_input_tokens": 20,
+            "reserved_output_tokens": 0,
+            "cost_currency": currency,
+            "reserved_cost_microunits": reserved_cost_microunits,
+            "attempt_count": 1,
+            "is_fallback": False,
+            "breaker_state": "closed",
+            "status": "pending",
+            "started_at": _timestamp(started_at),
+        }
+    )
+    assert isinstance(event, AiCallStartedV2)
+    return event
+
+
+def _completed_v2(
+    event_id: UUID,
+    *,
+    operation_id: UUID,
+    completed_at: datetime,
+    actual_cost_microunits: int = 7,
+) -> AiCallCompletedV2:
+    event = validate_ai_call_event_v2(
+        {
+            "event_id": str(event_id),
+            "event_version": 2,
+            "event_sequence": 2,
+            "event_type": "ai.call.completed",
+            "aggregate_type": "ai_call",
+            "aggregate_id": str(event_id),
+            "organization_id": str(_ORGANIZATION_ID),
+            "business_operation_id": str(operation_id),
+            "job_id": None,
+            "request_id": None,
+            "trace_id": "66666666-6666-4666-8666-666666666666",
+            "policy_version": 2,
+            "policy_hash": "a" * 64,
+            "cost_currency": "CNY",
+            "actual_cost_microunits": actual_cost_microunits,
+            "status": "succeeded",
+            "completed_at": _timestamp(completed_at),
+            "duration_ms": 1000,
+            "output_hash": "c" * 64,
+            "input_tokens": 14,
+            "output_tokens": 0,
+            "vector_count": 2,
+            "http_status": 200,
+            "error_category": None,
+            "safe_error_code": None,
+            "citation_validation_status": None,
+        }
+    )
+    assert isinstance(event, AiCallCompletedV2)
     return event
 
 
@@ -513,7 +615,7 @@ def test_durable_reserve_complete_projection_query_and_reconcile(
         assert isinstance(malformed_payload, dict)
         malformed_payload.pop("model_id")
         with factory.begin() as session:
-            session.add(_outbox(unknown_version_started, event_version=2))
+            session.add(_outbox(unknown_version_started, event_version=3))
             session.add(
                 _outbox(
                     malformed_started,
@@ -676,6 +778,84 @@ def test_durable_reserve_complete_projection_query_and_reconcile(
             )
             is AiCallReserveStatus.DEADLINE_EXHAUSTED
         )
+    finally:
+        _clear_owned_test_facts(engine)
+        engine.dispose()
+
+
+def test_event_v2_cny_projection_and_operation_currency_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine, _, service = _setup(monkeypatch)
+    operation_id = UUID("33333333-3333-4333-8333-333333333343")
+    started_at = datetime.now(timezone.utc) - timedelta(seconds=2)
+    started = _started_v2(
+        _EVENT_16,
+        operation_id=operation_id,
+        started_at=started_at,
+    )
+    limits = AiCallAuditLimitsV2(
+        max_provider_attempts_per_business_operation=2,
+        max_input_tokens_per_request=100,
+        max_output_tokens_per_request=0,
+        max_total_tokens=100,
+        cost_currency="CNY",
+        max_cost_microunits=100,
+    )
+
+    try:
+        assert (
+            service.reserve_attempt(
+                started,
+                limits,
+                deadline_monotonic=monotonic() + 30,
+            )
+            is AiCallReserveStatus.RESERVED_NEW
+        )
+        assert service.project_once().status is AiCallProjectionStatus.PROJECTED
+
+        mixed_currency = _started_v2(
+            _EVENT_17,
+            operation_id=operation_id,
+            started_at=started_at + timedelta(microseconds=1),
+            currency="USD",
+        )
+        usd_limits = AiCallAuditLimitsV2(
+            max_provider_attempts_per_business_operation=2,
+            max_input_tokens_per_request=100,
+            max_output_tokens_per_request=0,
+            max_total_tokens=100,
+            cost_currency="USD",
+            max_cost_microunits=100,
+        )
+        assert (
+            service.reserve_attempt(
+                mixed_currency,
+                usd_limits,
+                deadline_monotonic=monotonic() + 30,
+            )
+            is AiCallReserveStatus.CONFLICT
+        )
+
+        completed = _completed_v2(
+            _EVENT_16,
+            operation_id=operation_id,
+            completed_at=started_at + timedelta(seconds=1),
+        )
+        assert service.complete_attempt(completed) is AiCallCompleteStatus.COMPLETED_NEW
+        assert service.project_once().status is AiCallProjectionStatus.PROJECTED
+
+        summary = service.get_operation_summary(_ORGANIZATION_ID, operation_id)
+        assert summary is not None
+        assert summary.attempt_count == 1
+        assert summary.reserved_cost_micro_usd is None
+        assert summary.cost_currency == "CNY"
+        assert summary.reserved_cost_microunits == 10
+        assert summary.actual_cost_microunits == 7
+        assert summary.attempts[0].event_version == 2
+        assert summary.attempts[0].reserved_cost_micro_usd is None
+        assert summary.attempts[0].cost_currency == "CNY"
+        assert summary.attempts[0].actual_cost_microunits == 7
     finally:
         _clear_owned_test_facts(engine)
         engine.dispose()

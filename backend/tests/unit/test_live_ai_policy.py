@@ -34,9 +34,11 @@ def _live_settings(policy_file: Path):  # type: ignore[no-untyped-def]
         llm_extraction_model="MiniMax-M3",
         llm_generation_model="MiniMax-M3",
         llm_fallback_model="MiniMax-M3",
-        embedding_base_url=None,
-        embedding_api_key=None,
-        embedding_model="deterministic-hash-v1",
+        embedding_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        embedding_api_key="test-live-embedding-key",
+        embedding_model="qwen3.7-text-embedding",
+        embedding_vector_size=1024,
+        embedding_batch_size=20,
     )
 
 

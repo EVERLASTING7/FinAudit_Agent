@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.ai.adapters.deterministic_hash import DETERMINISTIC_HASH_ADAPTER_ID
+from app.ai.contracts import ModelTarget
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.models.reliability import (
@@ -244,12 +245,27 @@ def _new_job(
 
 
 class KnowledgeIndexManagementService:
-    def __init__(self, session_factory: sessionmaker[Session], settings: Settings) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker[Session],
+        settings: Settings,
+        *,
+        embedding_target: ModelTarget | None = None,
+    ) -> None:
         self._session_factory = session_factory
         self._collection_name = settings.qdrant_collection
         self._vector_dimension = settings.qdrant_vector_size
         self._distance = settings.qdrant_distance
-        self._embedding_model_id = settings.embedding_model
+        if embedding_target is None:
+            if settings.ai_provider_calls_enabled:
+                raise ValueError("live embedding target must be explicit")
+            embedding_target = ModelTarget(
+                adapter_id=DETERMINISTIC_HASH_ADAPTER_ID,
+                model_id=settings.embedding_model,
+            )
+        if embedding_target.model_id != settings.embedding_model:
+            raise ValueError("embedding target does not match settings")
+        self._embedding_target = embedding_target
 
     def build_index(
         self,
@@ -296,8 +312,8 @@ class KnowledgeIndexManagementService:
                     version_no=repository.next_index_version_no(knowledge_base_id),
                     status="building",
                     collection_name=self._collection_name,
-                    embedding_adapter_id=DETERMINISTIC_HASH_ADAPTER_ID,
-                    embedding_model_id=self._embedding_model_id,
+                    embedding_adapter_id=self._embedding_target.adapter_id,
+                    embedding_model_id=self._embedding_target.model_id,
                     vector_dimension=self._vector_dimension,
                     distance=self._distance,
                     member_count=len(members),

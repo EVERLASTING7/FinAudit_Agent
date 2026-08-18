@@ -99,6 +99,9 @@ describe('真实登录页面', () => {
     await flushPromises()
 
     expect(wrapper?.get('#login-title').text()).toBe('修改初始密码')
+    expect(wrapper?.get('#new-password').attributes('minlength')).toBe('6')
+    expect(wrapper?.get('#confirm-password').attributes('minlength')).toBe('6')
+    expect(wrapper?.text()).toContain('密码至少 6 个字符')
     expect(localStorage).toHaveLength(0)
     expect(sessionStorage).toHaveLength(0)
 

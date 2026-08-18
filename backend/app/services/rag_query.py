@@ -8,6 +8,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from time import monotonic
 from typing import TYPE_CHECKING, Literal, Protocol
 from uuid import UUID, uuid4
 
@@ -15,9 +16,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.adapters.qdrant_vector import QdrantHit, QdrantVectorStoreError
-from app.ai.adapters.deterministic_hash import (
-    DETERMINISTIC_HASH_ADAPTER_ID,
-    DeterministicHashEmbeddingAdapter,
+from app.ai.embedding_runtime import (
+    AuditedEmbeddingAdoption,
+    EmbeddingCallIdentity,
+    EmbeddingInvocationError,
+    EmbeddingRuntime,
 )
 from app.ai.output_validation import (
     CitationValidationError,
@@ -88,6 +91,7 @@ class _PreparedRetrieval:
     hits: tuple[QdrantHit, ...]
     status: Literal["pending", "refused", "service_degraded"]
     reason_code: str | None
+    embedding_adoption: AuditedEmbeddingAdoption | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,7 +210,7 @@ class RagQueryService:
         self,
         session_factory: sessionmaker[Session],
         vector_store: VectorQuery,
-        embedding: DeterministicHashEmbeddingAdapter,
+        embedding: EmbeddingRuntime,
         settings: Settings,
         ai_answer: AiRagAnswerService | None = None,
     ) -> None:
@@ -239,8 +243,8 @@ class RagQueryService:
         )
         if replay is not None:
             return replay
-        prepared = self._prepare(actor, knowledge_base_id, payload)
         query_id = uuid4()
+        prepared = self._prepare(actor, knowledge_base_id, payload, trace_id, query_id)
         preflight_resolution: _RagResolution | None = None
         audited_answer: AuditedRagAnswer | None = None
         model_error_code: str | None = None
@@ -276,6 +280,11 @@ class RagQueryService:
                     session, actor, idempotency_key, "POST", path, digest
                 )
                 if claim.conflict:
+                    if prepared.embedding_adoption is not None:
+                        prepared.embedding_adoption.reject_in_transaction(
+                            session,
+                            safe_error_code="EMBEDDING_RESULT_NOT_ADOPTED",
+                        )
                     if audited_answer is not None:
                         audited_answer.adoption.reject_in_transaction(
                             session,
@@ -283,6 +292,11 @@ class RagQueryService:
                         )
                     idempotency_conflict = True
                 elif claim.is_replay:
+                    if prepared.embedding_adoption is not None:
+                        prepared.embedding_adoption.reject_in_transaction(
+                            session,
+                            safe_error_code="EMBEDDING_RESULT_NOT_ADOPTED",
+                        )
                     if audited_answer is not None:
                         audited_answer.adoption.reject_in_transaction(
                             session,
@@ -292,6 +306,11 @@ class RagQueryService:
                 elif (
                     repository.lock_knowledge_base(actor.organization_id, knowledge_base_id) is None
                 ):
+                    if prepared.embedding_adoption is not None:
+                        prepared.embedding_adoption.reject_in_transaction(
+                            session,
+                            safe_error_code="EMBEDDING_SOURCE_DRIFT",
+                        )
                     if audited_answer is not None:
                         audited_answer.adoption.reject_in_transaction(
                             session,
@@ -316,6 +335,8 @@ class RagQueryService:
                             model_error_code=model_error_code,
                         )
                     )
+                    if prepared.embedding_adoption is not None:
+                        prepared.embedding_adoption.adopt_in_transaction(session)
                 if not knowledge_base_missing and not idempotency_conflict:
                     query = QaQuery(
                         id=query_id,
@@ -468,6 +489,8 @@ class RagQueryService:
         actor: AuthenticatedActor,
         knowledge_base_id: UUID,
         payload: QaQueryRequest,
+        trace_id: UUID,
+        query_id: UUID,
     ) -> _PreparedRetrieval:
         if _contains_prompt_injection(payload.question):
             return _PreparedRetrieval(None, (), "refused", "PROMPT_INJECTION_DETECTED")
@@ -488,15 +511,51 @@ class RagQueryService:
             )
         if not allowed_ids:
             return _PreparedRetrieval(index.id, (), "refused", "NO_RELEVANT_EVIDENCE")
+        adoption: AuditedEmbeddingAdoption | None = None
         try:
+            if self._embedding.requires_audit:
+                embedded = self._embedding.embed_texts_audited(
+                    trace_id=str(trace_id),
+                    input_texts=(payload.question,),
+                    identity=EmbeddingCallIdentity(
+                        organization_id=actor.organization_id,
+                        business_operation_id=query_id,
+                        job_id=None,
+                        request_id=trace_id,
+                        resource_type="knowledge_base",
+                        resource_id=knowledge_base_id,
+                        trace_id=trace_id,
+                    ),
+                    deadline_monotonic=(
+                        monotonic() + self._embedding.transport_policy.total_timeout_seconds
+                    ),
+                )
+                vector = embedded.vectors[0]
+                adoption = embedded.adoption
+            else:
+                vector = self._embedding.embed_texts(
+                    trace_id=str(trace_id),
+                    input_texts=(payload.question,),
+                )[0]
             hits = self._vector_store.query_authorized(
-                self._embedding.embed_text(payload.question),
+                vector,
                 allowed_point_ids=allowed_ids,
                 limit=min(self._top_k, len(allowed_ids)),
             )
-        except QdrantVectorStoreError:
+        except EmbeddingInvocationError:
             return _PreparedRetrieval(index.id, (), "service_degraded", "RETRIEVAL_UNAVAILABLE")
-        return _PreparedRetrieval(index.id, hits, "pending", None)
+        except QdrantVectorStoreError:
+            if adoption is not None:
+                try:
+                    with self._session_factory.begin() as session:
+                        adoption.reject_in_transaction(
+                            session,
+                            safe_error_code="EMBEDDING_RESULT_NOT_ADOPTED",
+                        )
+                except EmbeddingInvocationError:
+                    pass
+            return _PreparedRetrieval(index.id, (), "service_degraded", "RETRIEVAL_UNAVAILABLE")
+        return _PreparedRetrieval(index.id, hits, "pending", None, adoption)
 
     def _finalize(
         self,
@@ -741,7 +800,7 @@ class RagQueryService:
     def _index_identity_matches(self, index: object) -> bool:
         return bool(
             getattr(index, "collection_name", None) == self._collection_name
-            and getattr(index, "embedding_adapter_id", None) == DETERMINISTIC_HASH_ADAPTER_ID
+            and getattr(index, "embedding_adapter_id", None) == self._embedding.target.adapter_id
             and getattr(index, "embedding_model_id", None) == self._embedding.target.model_id
             and getattr(index, "vector_dimension", None) == self._vector_dimension
             and getattr(index, "distance", None) == self._distance

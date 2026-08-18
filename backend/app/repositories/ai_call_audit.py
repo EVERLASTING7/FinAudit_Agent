@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from math import isfinite
-from typing import Final, cast
+from typing import Final, Literal, TypeAlias, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import select, text
@@ -16,11 +16,15 @@ from sqlalchemy.orm import Session
 
 from app.ai.events import (
     AiCallCompletedV1,
+    AiCallCompletedV2,
+    AiCallEvent,
     AiCallEventConflictError,
     AiCallLateCompletionV1,
+    AiCallLateCompletionV2,
     AiCallStartedV1,
-    validate_ai_call_event_chain,
-    validate_ai_call_event_v1,
+    AiCallStartedV2,
+    validate_ai_call_event,
+    validate_ai_call_event_chain_any,
 )
 from app.models.audit import AiCallLog
 from app.models.reliability import OutboxEvent
@@ -37,6 +41,10 @@ _CALL_TYPES: Final = (
     "rag_answer",
     "report_draft",
     "risk_explanation",
+)
+AiCallStarted: TypeAlias = AiCallStartedV1 | AiCallStartedV2
+AiCallCompletion: TypeAlias = (
+    AiCallCompletedV1 | AiCallCompletedV2 | AiCallLateCompletionV1 | AiCallLateCompletionV2
 )
 
 
@@ -107,6 +115,39 @@ class AiCallAuditLimits:
 
 
 @dataclass(frozen=True, slots=True)
+class AiCallAuditLimitsV2:
+    max_provider_attempts_per_business_operation: int
+    max_input_tokens_per_request: int
+    max_output_tokens_per_request: int
+    max_total_tokens: int
+    cost_currency: Literal["USD", "CNY"] | None
+    max_cost_microunits: int
+
+    def __post_init__(self) -> None:
+        attempts = _exact_non_negative_integer(
+            "max_provider_attempts_per_business_operation",
+            self.max_provider_attempts_per_business_operation,
+        )
+        _exact_non_negative_integer(
+            "max_input_tokens_per_request", self.max_input_tokens_per_request
+        )
+        _exact_non_negative_integer(
+            "max_output_tokens_per_request", self.max_output_tokens_per_request
+        )
+        total_tokens = _exact_non_negative_integer("max_total_tokens", self.max_total_tokens)
+        _exact_non_negative_integer("max_cost_microunits", self.max_cost_microunits)
+        if self.cost_currency not in {"USD", "CNY", None}:
+            raise ValueError("cost_currency must be USD, CNY, or None")
+        if self.cost_currency is None and self.max_cost_microunits != 0:
+            raise ValueError("internal unmetered max cost must be zero")
+        if attempts == 0 or total_tokens == 0:
+            raise ValueError("attempt and total-token limits must be positive")
+
+
+AiCallAuditLimit: TypeAlias = AiCallAuditLimits | AiCallAuditLimitsV2
+
+
+@dataclass(frozen=True, slots=True)
 class AiCallProjectionResult:
     status: AiCallProjectionStatus
     event_id: UUID | None = None
@@ -129,13 +170,17 @@ class AiCallAttemptAudit:
     status: str
     reserved_input_tokens: int
     reserved_output_tokens: int
-    reserved_cost_micro_usd: int
+    reserved_cost_micro_usd: int | None
     input_tokens: int | None
     output_tokens: int | None
     trace_id: UUID
     started_at: datetime
     completed_at: datetime | None
     safe_error_code: str | None
+    event_version: int = 1
+    cost_currency: Literal["USD", "CNY"] | None = None
+    reserved_cost_microunits: int | None = None
+    actual_cost_microunits: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,10 +190,13 @@ class AiCallOperationAuditSummary:
     attempt_count: int
     reserved_input_tokens: int
     reserved_output_tokens: int
-    reserved_cost_micro_usd: int
+    reserved_cost_micro_usd: int | None
     actual_input_tokens: int
     actual_output_tokens: int
     attempts: tuple[AiCallAttemptAudit, ...]
+    cost_currency: Literal["USD", "CNY"] | None = None
+    reserved_cost_microunits: int | None = None
+    actual_cost_microunits: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,7 +214,7 @@ class _ClaimedAiEvent:
 
 
 def _strict_event_payload(
-    event: AiCallStartedV1 | AiCallCompletedV1 | AiCallLateCompletionV1,
+    event: AiCallEvent,
 ) -> dict[str, object]:
     value = json.loads(event.canonical_payload())
     if type(value) is not dict or any(type(key) is not str for key in value):
@@ -213,16 +261,16 @@ class AiCallAuditRepository:
 
     def reserve_attempt(
         self,
-        event: AiCallStartedV1,
-        limits: AiCallAuditLimits,
+        event: AiCallStarted,
+        limits: AiCallAuditLimit,
         *,
         deadline_monotonic: float,
         monotonic: Callable[[], float],
         minimum_attempt_seconds: float = 0.0,
     ) -> AiCallReserveStatus:
         event = self._validated_started(event)
-        if not isinstance(limits, AiCallAuditLimits):
-            raise TypeError("limits must be AiCallAuditLimits")
+        if isinstance(event, AiCallStartedV1) != isinstance(limits, AiCallAuditLimits):
+            raise TypeError("event and audit limits versions must match")
         payload = _strict_event_payload(event)
         event_id = UUID(event.event_id)
 
@@ -250,23 +298,46 @@ class AiCallAuditRepository:
         for committed_event, status in committed:
             if status == "dead_letter":
                 return AiCallReserveStatus.UNKNOWN
-            if committed_event.call_type != event.call_type:
+            if (
+                committed_event.call_type != event.call_type
+                or committed_event.event_version != event.event_version
+            ):
                 return AiCallReserveStatus.CONFLICT
             provider_attempt_numbers.add(committed_event.provider_attempt_no)
             reserved_total_tokens += (
                 committed_event.reserved_input_tokens + committed_event.reserved_output_tokens
             )
-            reserved_cost += committed_event.reserved_cost_micro_usd
+            if isinstance(event, AiCallStartedV1):
+                if not isinstance(committed_event, AiCallStartedV1):
+                    return AiCallReserveStatus.CONFLICT
+                reserved_cost += committed_event.reserved_cost_micro_usd
+            else:
+                if (
+                    not isinstance(committed_event, AiCallStartedV2)
+                    or committed_event.cost_currency != event.cost_currency
+                ):
+                    return AiCallReserveStatus.CONFLICT
+                reserved_cost += committed_event.reserved_cost_microunits
 
         if event.provider_attempt_no in provider_attempt_numbers:
             return AiCallReserveStatus.CONFLICT
+        cost_exceeded = (
+            reserved_cost + event.reserved_cost_micro_usd > limits.max_cost_micro_usd
+            if isinstance(event, AiCallStartedV1) and isinstance(limits, AiCallAuditLimits)
+            else isinstance(event, AiCallStartedV2)
+            and isinstance(limits, AiCallAuditLimitsV2)
+            and (
+                event.cost_currency != limits.cost_currency
+                or reserved_cost + event.reserved_cost_microunits > limits.max_cost_microunits
+            )
+        )
         if (
             len(committed) + 1 > limits.max_provider_attempts_per_business_operation
             or event.reserved_input_tokens > limits.max_input_tokens_per_request
             or event.reserved_output_tokens > limits.max_output_tokens_per_request
             or reserved_total_tokens + event.reserved_input_tokens + event.reserved_output_tokens
             > limits.max_total_tokens
-            or reserved_cost + event.reserved_cost_micro_usd > limits.max_cost_micro_usd
+            or cost_exceeded
         ):
             return AiCallReserveStatus.BUDGET_EXHAUSTED
 
@@ -276,7 +347,7 @@ class AiCallAuditRepository:
 
     def append_completion(
         self,
-        event: AiCallCompletedV1 | AiCallLateCompletionV1,
+        event: AiCallCompletion,
     ) -> AiCallCompleteStatus:
         event = self._validated_completion(event)
         payload = _strict_event_payload(event)
@@ -289,7 +360,7 @@ class AiCallAuditRepository:
                 return AiCallCompleteStatus.CONFLICT
             if existing.status == "dead_letter":
                 return AiCallCompleteStatus.AUDIT_UNAVAILABLE
-            if isinstance(event, AiCallLateCompletionV1):
+            if isinstance(event, (AiCallLateCompletionV1, AiCallLateCompletionV2)):
                 return AiCallCompleteStatus.LATE_RECORDED
             return AiCallCompleteStatus.REPLAYED_SAME
 
@@ -297,25 +368,25 @@ class AiCallAuditRepository:
         if started_row is None or started_row.status == "dead_letter":
             return AiCallCompleteStatus.UNKNOWN
         started = self._event_from_payload(started_row.payload_json)
-        if not isinstance(started, AiCallStartedV1):
+        if not isinstance(started, (AiCallStartedV1, AiCallStartedV2)):
             return AiCallCompleteStatus.CONFLICT
 
         try:
-            if isinstance(event, AiCallCompletedV1):
+            if isinstance(event, (AiCallCompletedV1, AiCallCompletedV2)):
                 current_log = self._session.execute(
                     select(AiCallLog).where(AiCallLog.id == event_id)
                 ).scalar_one_or_none()
                 if current_log is not None and current_log.status == "outcome_unknown":
                     return AiCallCompleteStatus.CONFLICT
-                validate_ai_call_event_chain(started, event)
+                validate_ai_call_event_chain_any(started, event)
             else:
                 completed_row = self._event_row(event_id, _COMPLETED_EVENT, lock=True)
                 if completed_row is None or completed_row.status != "published":
                     return AiCallCompleteStatus.UNKNOWN
                 completed = self._event_from_payload(completed_row.payload_json)
-                if not isinstance(completed, AiCallCompletedV1):
+                if not isinstance(completed, (AiCallCompletedV1, AiCallCompletedV2)):
                     return AiCallCompleteStatus.CONFLICT
-                validate_ai_call_event_chain(started, completed, event)
+                validate_ai_call_event_chain_any(started, completed, event)
                 current_log = self._session.execute(
                     select(AiCallLog).where(AiCallLog.id == event_id)
                 ).scalar_one_or_none()
@@ -326,7 +397,7 @@ class AiCallAuditRepository:
 
         self._add_outbox(event, payload)
         self._session.flush()
-        if isinstance(event, AiCallLateCompletionV1):
+        if isinstance(event, (AiCallLateCompletionV1, AiCallLateCompletionV2)):
             return AiCallCompleteStatus.LATE_RECORDED
         return AiCallCompleteStatus.COMPLETED_NEW
 
@@ -462,38 +533,42 @@ class AiCallAuditRepository:
         if started_row is None or started_row.status != "published":
             return AiCallReconcileResult(AiCallReconcileStatus.BLOCKED, event_id)
         started = self._event_from_payload(started_row.payload_json)
-        if not isinstance(started, AiCallStartedV1):
+        if not isinstance(started, (AiCallStartedV1, AiCallStartedV2)):
             return AiCallReconcileResult(AiCallReconcileStatus.BLOCKED, event_id)
         duration_ms = max(0, int((database_now - log.started_at).total_seconds() * 1_000))
-        outcome_event = validate_ai_call_event_v1(
-            {
-                "event_id": started.event_id,
-                "event_version": 1,
-                "event_sequence": 2,
-                "event_type": _COMPLETED_EVENT,
-                "aggregate_type": "ai_call",
-                "aggregate_id": started.event_id,
-                "organization_id": started.organization_id,
-                "business_operation_id": started.business_operation_id,
-                "job_id": started.job_id,
-                "request_id": started.request_id,
-                "trace_id": started.trace_id,
-                "policy_version": started.policy_version,
-                "policy_hash": started.policy_hash,
-                "status": "outcome_unknown",
-                "completed_at": _format_timestamp(database_now),
-                "duration_ms": duration_ms,
-                "output_hash": None,
-                "input_tokens": None,
-                "output_tokens": None,
-                "vector_count": None,
-                "http_status": None,
-                "error_category": None,
-                "safe_error_code": "AI_OUTCOME_UNKNOWN",
-                "citation_validation_status": None,
-            }
-        )
-        if not isinstance(outcome_event, AiCallCompletedV1):
+        outcome_payload: dict[str, object] = {
+            "event_id": started.event_id,
+            "event_version": started.event_version,
+            "event_sequence": 2,
+            "event_type": _COMPLETED_EVENT,
+            "aggregate_type": "ai_call",
+            "aggregate_id": started.event_id,
+            "organization_id": started.organization_id,
+            "business_operation_id": started.business_operation_id,
+            "job_id": started.job_id,
+            "request_id": started.request_id,
+            "trace_id": started.trace_id,
+            "policy_version": started.policy_version,
+            "policy_hash": started.policy_hash,
+            "status": "outcome_unknown",
+            "completed_at": _format_timestamp(database_now),
+            "duration_ms": duration_ms,
+            "output_hash": None,
+            "input_tokens": None,
+            "output_tokens": None,
+            "vector_count": None,
+            "http_status": None,
+            "error_category": None,
+            "safe_error_code": "AI_OUTCOME_UNKNOWN",
+            "citation_validation_status": None,
+        }
+        if isinstance(started, AiCallStartedV2):
+            outcome_payload.update(
+                cost_currency=started.cost_currency,
+                actual_cost_microunits=None,
+            )
+        outcome_event = validate_ai_call_event(outcome_payload)
+        if not isinstance(outcome_event, (AiCallCompletedV1, AiCallCompletedV2)):
             raise RuntimeError("AI_OUTCOME_UNKNOWN_EVENT_INVALID")
         outbox = self._add_outbox(outcome_event, _strict_event_payload(outcome_event))
         self._session.flush()
@@ -539,8 +614,19 @@ class AiCallAuditRepository:
                 started_at=row.started_at,
                 completed_at=row.completed_at,
                 safe_error_code=row.safe_error_code,
+                event_version=row.event_version,
+                cost_currency=cast(Literal["USD", "CNY"] | None, row.cost_currency),
+                reserved_cost_microunits=row.reserved_cost_microunits,
+                actual_cost_microunits=row.actual_cost_microunits,
             )
             for row in rows
+        )
+        all_v1 = all(item.event_version == 1 for item in attempts)
+        all_v2 = all(item.event_version == 2 for item in attempts)
+        currencies = {item.cost_currency for item in attempts if item.event_version == 2}
+        currency = next(iter(currencies)) if all_v2 and len(currencies) == 1 else None
+        actual_costs_authoritative = all(
+            item.actual_cost_microunits is not None for item in attempts
         )
         return AiCallOperationAuditSummary(
             organization_id=organization_id,
@@ -548,25 +634,43 @@ class AiCallAuditRepository:
             attempt_count=len(attempts),
             reserved_input_tokens=sum(item.reserved_input_tokens for item in attempts),
             reserved_output_tokens=sum(item.reserved_output_tokens for item in attempts),
-            reserved_cost_micro_usd=sum(item.reserved_cost_micro_usd for item in attempts),
+            reserved_cost_micro_usd=(
+                sum(cast(int, item.reserved_cost_micro_usd) for item in attempts)
+                if all_v1
+                else None
+            ),
             actual_input_tokens=sum(item.input_tokens or 0 for item in attempts),
             actual_output_tokens=sum(item.output_tokens or 0 for item in attempts),
             attempts=attempts,
+            cost_currency=currency,
+            reserved_cost_microunits=(
+                sum(cast(int, item.reserved_cost_microunits) for item in attempts)
+                if all_v2 and len(currencies) == 1
+                else None
+            ),
+            actual_cost_microunits=(
+                sum(cast(int, item.actual_cost_microunits) for item in attempts)
+                if all_v2 and len(currencies) == 1 and actual_costs_authoritative
+                else None
+            ),
         )
 
     @staticmethod
-    def _validated_started(event: AiCallStartedV1) -> AiCallStartedV1:
-        validated = validate_ai_call_event_v1(event)
-        if not isinstance(validated, AiCallStartedV1):
-            raise TypeError("reserve_attempt requires AiCallStartedV1")
+    def _validated_started(event: AiCallStarted) -> AiCallStarted:
+        validated = validate_ai_call_event(event)
+        if not isinstance(validated, (AiCallStartedV1, AiCallStartedV2)):
+            raise TypeError("reserve_attempt requires a started event")
         return validated
 
     @staticmethod
     def _validated_completion(
-        event: AiCallCompletedV1 | AiCallLateCompletionV1,
-    ) -> AiCallCompletedV1 | AiCallLateCompletionV1:
-        validated = validate_ai_call_event_v1(event)
-        if not isinstance(validated, (AiCallCompletedV1, AiCallLateCompletionV1)):
+        event: AiCallCompletion,
+    ) -> AiCallCompletion:
+        validated = validate_ai_call_event(event)
+        if not isinstance(
+            validated,
+            (AiCallCompletedV1, AiCallCompletedV2, AiCallLateCompletionV1, AiCallLateCompletionV2),
+        ):
             raise TypeError("append_completion requires completed or late event")
         return validated
 
@@ -585,7 +689,7 @@ class AiCallAuditRepository:
     def _lock_event(self, event_id: UUID) -> None:
         self._advisory_lock(f"finaudit:ai-call:event:{event_id}")
 
-    def _lock_operation(self, event: AiCallStartedV1) -> None:
+    def _lock_operation(self, event: AiCallStarted) -> None:
         self._advisory_lock(
             "finaudit:ai-call:operation:"
             f"{event.organization_id}:{event.business_operation_id}:{event.policy_version}"
@@ -617,8 +721,8 @@ class AiCallAuditRepository:
 
     def _operation_started_events(
         self,
-        event: AiCallStartedV1,
-    ) -> tuple[tuple[AiCallStartedV1, str], ...]:
+        event: AiCallStarted,
+    ) -> tuple[tuple[AiCallStarted, str], ...]:
         rows = self._session.execute(
             text(
                 """
@@ -638,13 +742,13 @@ class AiCallAuditRepository:
                 "policy_version": str(event.policy_version),
             },
         ).mappings()
-        result: list[tuple[AiCallStartedV1, str]] = []
+        result: list[tuple[AiCallStarted, str]] = []
         for row in rows:
             payload = row["payload_json"]
             if type(payload) is not dict:
                 raise RuntimeError("AI_AUDIT_STORED_EVENT_INVALID")
             parsed = self._event_from_payload(cast(dict[str, object], payload))
-            if not isinstance(parsed, AiCallStartedV1):
+            if not isinstance(parsed, (AiCallStartedV1, AiCallStartedV2)):
                 raise RuntimeError("AI_AUDIT_STORED_EVENT_INVALID")
             result.append((parsed, cast(str, row["status"])))
         return tuple(result)
@@ -652,13 +756,13 @@ class AiCallAuditRepository:
     @staticmethod
     def _event_from_payload(
         payload: dict[str, object],
-    ) -> AiCallStartedV1 | AiCallCompletedV1 | AiCallLateCompletionV1:
-        return validate_ai_call_event_v1(payload)
+    ) -> AiCallEvent:
+        return validate_ai_call_event(payload)
 
     @staticmethod
     def _outbox_matches(
         row: OutboxEvent,
-        event: AiCallStartedV1 | AiCallCompletedV1 | AiCallLateCompletionV1,
+        event: AiCallEvent,
         payload: dict[str, object],
     ) -> bool:
         return (
@@ -674,7 +778,7 @@ class AiCallAuditRepository:
 
     def _add_outbox(
         self,
-        event: AiCallStartedV1 | AiCallCompletedV1 | AiCallLateCompletionV1,
+        event: AiCallEvent,
         payload: dict[str, object],
     ) -> OutboxEvent:
         row = OutboxEvent(
@@ -737,7 +841,7 @@ class AiCallAuditRepository:
         )
 
     def _project_claim(self, claim: _ClaimedAiEvent) -> AiCallProjectionResult:
-        if claim.event_version != 1:
+        if claim.event_version not in {1, 2}:
             self._dead_letter(claim, "UNSUPPORTED_EVENT_VERSION")
             return AiCallProjectionResult(
                 AiCallProjectionStatus.DEAD_LETTER, claim.event_id, claim.event_type
@@ -746,9 +850,9 @@ class AiCallAuditRepository:
             event = self._event_from_payload(claim.payload_json)
             if not self._claim_matches_event(claim, event):
                 raise ValueError("outbox identity mismatch")
-            if isinstance(event, AiCallStartedV1):
+            if isinstance(event, (AiCallStartedV1, AiCallStartedV2)):
                 status = self._project_started(event)
-            elif isinstance(event, AiCallCompletedV1):
+            elif isinstance(event, (AiCallCompletedV1, AiCallCompletedV2)):
                 status = self._project_completed(event)
             else:
                 status = self._project_late(event)
@@ -779,7 +883,7 @@ class AiCallAuditRepository:
     @staticmethod
     def _claim_matches_event(
         claim: _ClaimedAiEvent,
-        event: AiCallStartedV1 | AiCallCompletedV1 | AiCallLateCompletionV1,
+        event: AiCallEvent,
     ) -> bool:
         return (
             claim.aggregate_type == "ai_call" == event.aggregate_type
@@ -792,7 +896,7 @@ class AiCallAuditRepository:
             and claim.event_type in _AI_EVENT_TYPES
         )
 
-    def _project_started(self, event: AiCallStartedV1) -> AiCallProjectionStatus:
+    def _project_started(self, event: AiCallStarted) -> AiCallProjectionStatus:
         event_id = UUID(event.event_id)
         existing = self._session.execute(
             select(AiCallLog).where(AiCallLog.id == event_id).with_for_update(of=AiCallLog)
@@ -807,6 +911,7 @@ class AiCallAuditRepository:
                 **values,
                 event_sequence=1,
                 output_hash=None,
+                actual_cost_microunits=None,
                 input_tokens=None,
                 output_tokens=None,
                 vector_count=None,
@@ -821,15 +926,17 @@ class AiCallAuditRepository:
         )
         return AiCallProjectionStatus.PROJECTED
 
-    def _project_completed(self, event: AiCallCompletedV1) -> AiCallProjectionStatus:
+    def _project_completed(
+        self, event: AiCallCompletedV1 | AiCallCompletedV2
+    ) -> AiCallProjectionStatus:
         event_id = UUID(event.event_id)
         started_row = self._event_row(event_id, _STARTED_EVENT, lock=False)
         if started_row is None or started_row.status != "published":
             raise AiCallEventConflictError
         started = self._event_from_payload(started_row.payload_json)
-        if not isinstance(started, AiCallStartedV1):
+        if not isinstance(started, (AiCallStartedV1, AiCallStartedV2)):
             raise AiCallEventConflictError
-        validate_ai_call_event_chain(started, event)
+        validate_ai_call_event_chain_any(started, event)
 
         log = self._session.execute(
             select(AiCallLog).where(AiCallLog.id == event_id).with_for_update(of=AiCallLog)
@@ -845,7 +952,9 @@ class AiCallAuditRepository:
             setattr(log, name, value)
         return AiCallProjectionStatus.PROJECTED
 
-    def _project_late(self, event: AiCallLateCompletionV1) -> AiCallProjectionStatus:
+    def _project_late(
+        self, event: AiCallLateCompletionV1 | AiCallLateCompletionV2
+    ) -> AiCallProjectionStatus:
         event_id = UUID(event.event_id)
         started_row = self._event_row(event_id, _STARTED_EVENT, lock=False)
         completed_row = self._event_row(event_id, _COMPLETED_EVENT, lock=False)
@@ -858,9 +967,11 @@ class AiCallAuditRepository:
             raise AiCallEventConflictError
         started = self._event_from_payload(started_row.payload_json)
         completed = self._event_from_payload(completed_row.payload_json)
-        if not isinstance(started, AiCallStartedV1) or not isinstance(completed, AiCallCompletedV1):
+        if not isinstance(started, (AiCallStartedV1, AiCallStartedV2)) or not isinstance(
+            completed, (AiCallCompletedV1, AiCallCompletedV2)
+        ):
             raise AiCallEventConflictError
-        validate_ai_call_event_chain(started, completed, event)
+        validate_ai_call_event_chain_any(started, completed, event)
         log = self._session.execute(
             select(AiCallLog).where(AiCallLog.id == event_id).with_for_update(of=AiCallLog)
         ).scalar_one_or_none()
@@ -869,8 +980,8 @@ class AiCallAuditRepository:
         return AiCallProjectionStatus.LATE_RECORDED
 
     @staticmethod
-    def _started_values(event: AiCallStartedV1) -> dict[str, object]:
-        return {
+    def _started_values(event: AiCallStarted) -> dict[str, object]:
+        values: dict[str, object] = {
             "id": UUID(event.event_id),
             "event_version": event.event_version,
             "organization_id": UUID(event.organization_id),
@@ -897,16 +1008,28 @@ class AiCallAuditRepository:
             "input_hash": event.input_hash,
             "reserved_input_tokens": event.reserved_input_tokens,
             "reserved_output_tokens": event.reserved_output_tokens,
-            "reserved_cost_micro_usd": event.reserved_cost_micro_usd,
             "attempt_count": event.attempt_count,
             "is_fallback": event.is_fallback,
             "breaker_state": event.breaker_state,
             "started_at": _parse_timestamp(event.started_at),
         }
+        if isinstance(event, AiCallStartedV1):
+            values.update(
+                reserved_cost_micro_usd=event.reserved_cost_micro_usd,
+                cost_currency=None,
+                reserved_cost_microunits=None,
+            )
+        else:
+            values.update(
+                reserved_cost_micro_usd=None,
+                cost_currency=event.cost_currency,
+                reserved_cost_microunits=event.reserved_cost_microunits,
+            )
+        return values
 
     @staticmethod
-    def _completed_values(event: AiCallCompletedV1) -> dict[str, object]:
-        return {
+    def _completed_values(event: AiCallCompletedV1 | AiCallCompletedV2) -> dict[str, object]:
+        values: dict[str, object] = {
             "event_sequence": 2,
             "output_hash": event.output_hash,
             "input_tokens": event.input_tokens,
@@ -920,6 +1043,9 @@ class AiCallAuditRepository:
             "completed_at": _parse_timestamp(event.completed_at),
             "duration_ms": event.duration_ms,
         }
+        if isinstance(event, AiCallCompletedV2):
+            values["actual_cost_microunits"] = event.actual_cost_microunits
+        return values
 
     @staticmethod
     def _log_started_matches(log: AiCallLog, values: Mapping[str, object]) -> bool:

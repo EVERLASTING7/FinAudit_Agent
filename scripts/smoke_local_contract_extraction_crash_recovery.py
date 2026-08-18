@@ -12,7 +12,12 @@ from pathlib import Path
 from uuid import UUID
 
 import httpx
-from smoke_local_file_upload import SmokeError, _login, _read_password, _require_envelope
+from smoke_local_file_upload import (
+    SmokeError,
+    _login,
+    _read_password,
+    _require_envelope,
+)
 from smoke_local_worker_crash_recovery import (
     _CONTRACT_FIELD_CODES,
     _CONTRACT_NAME,
@@ -124,7 +129,7 @@ def _client_profile() -> tuple[str, str, str, str]:
     username = _required_environment("BOOTSTRAP_ADMIN_USERNAME")
     run_id = _required_environment("FINAUDIT_CRASH_RUN_ID")
     _validate_run_id(run_id)
-    if base_url != "https://frontend:8443" or not origin.startswith("https://localhost:"):
+    if base_url != "http://frontend:8443" or not origin.startswith("http://localhost:"):
         raise ContractCrashRecoveryError("CLIENT_PROFILE_INVALID")
     return base_url, origin, username, run_id
 
@@ -140,7 +145,7 @@ def _client(base_url: str, origin: str) -> httpx.Client:
         base_url=base_url,
         verify=False,
         timeout=httpx.Timeout(15),
-        headers={"Origin": origin, "Host": origin.removeprefix("https://")},
+        headers={"Origin": origin, "Host": origin.removeprefix("http://")},
     )
 
 
@@ -210,7 +215,9 @@ def run_prepare_client() -> None:
         )
         accepted_data = _require_envelope(accepted, 202)
         file_id = _canonical_uuid(accepted_data.get("file_id"), "FILE_ID_INVALID")
-        file_job_id = _canonical_uuid(accepted_data.get("job_id"), "FILE_JOB_ID_INVALID")
+        file_job_id = _canonical_uuid(
+            accepted_data.get("job_id"), "FILE_JOB_ID_INVALID"
+        )
         final = _wait_for_file(
             client,
             access_token=access_token,
@@ -242,7 +249,9 @@ def _database_profile() -> tuple[str, UUID, UUID | None]:
     extraction_job_id = (
         None
         if raw_extraction_job_id is None
-        else _canonical_uuid(raw_extraction_job_id, "DATABASE_EXTRACTION_JOB_ID_INVALID")
+        else _canonical_uuid(
+            raw_extraction_job_id, "DATABASE_EXTRACTION_JOB_ID_INVALID"
+        )
     )
     return run_id, file_id, extraction_job_id
 
@@ -289,11 +298,16 @@ def run_wait_for_extraction() -> None:
                         )
                     )
                     if job.status in {"succeeded", "failed", "cancelled"}:
-                        raise ContractCrashRecoveryError("EXTRACTION_FINISHED_BEFORE_CRASH")
+                        raise ContractCrashRecoveryError(
+                            "EXTRACTION_FINISHED_BEFORE_CRASH"
+                        )
                     if (
                         job.status == "running"
                         and job.attempt_no == 1
-                        and [(step.attempt_no, step.step_code, step.status) for step in steps]
+                        and [
+                            (step.attempt_no, step.step_code, step.status)
+                            for step in steps
+                        ]
                         == [(1, "extract", "running")]
                         and binding_count == 0
                         and log_count == 0
@@ -332,14 +346,18 @@ def run_before_recovery_verification() -> None:
         with factory() as session:
             file_record, jobs = _load_job_cluster(session, file_id)
             file_jobs = tuple(job for job in jobs if job.job_type == "file_process")
-            extraction_jobs = tuple(job for job in jobs if job.job_type == "contract_extract")
+            extraction_jobs = tuple(
+                job for job in jobs if job.job_type == "contract_extract"
+            )
             extraction_job = extraction_jobs[0] if len(extraction_jobs) == 1 else None
             extraction_steps = (
                 ()
                 if extraction_job is None
                 else tuple(
                     session.scalars(
-                        select(AsyncJobStep).where(AsyncJobStep.job_id == extraction_job.id)
+                        select(AsyncJobStep).where(
+                            AsyncJobStep.job_id == extraction_job.id
+                        )
                     ).all()
                 )
             )
@@ -482,7 +500,9 @@ def run_final_database_verification() -> None:
         with factory() as session:
             file_record, jobs = _load_job_cluster(session, file_id)
             file_jobs = tuple(job for job in jobs if job.job_type == "file_process")
-            extraction_jobs = tuple(job for job in jobs if job.job_type == "contract_extract")
+            extraction_jobs = tuple(
+                job for job in jobs if job.job_type == "contract_extract"
+            )
             file_job = file_jobs[0] if len(file_jobs) == 1 else None
             extraction_job = extraction_jobs[0] if len(extraction_jobs) == 1 else None
             file_steps = (
@@ -508,7 +528,9 @@ def run_final_database_verification() -> None:
                 )
             )
             contracts = tuple(
-                session.scalars(select(Contract).where(Contract.contract_no == contract_no)).all()
+                session.scalars(
+                    select(Contract).where(Contract.contract_no == contract_no)
+                ).all()
             )
             contract = contracts[0] if len(contracts) == 1 else None
             bindings = tuple(
@@ -524,7 +546,9 @@ def run_final_database_verification() -> None:
                 if contract is None
                 else tuple(
                     session.scalars(
-                        select(ContractField).where(ContractField.contract_id == contract.id)
+                        select(ContractField).where(
+                            ContractField.contract_id == contract.id
+                        )
                     ).all()
                 )
             )
@@ -557,14 +581,18 @@ def run_final_database_verification() -> None:
         or extraction_job.attempt_no != 2
     ):
         raise ContractCrashRecoveryError("FINAL_DATABASE_JOB_STATE_INVALID")
-    if [(step.attempt_no, step.step_code, step.status, step.error_code) for step in file_steps] != [
+    if [
+        (step.attempt_no, step.step_code, step.status, step.error_code)
+        for step in file_steps
+    ] != [
         (1, "scan", "succeeded", None),
         (1, "parse", "succeeded", None),
         (1, "markdown", "succeeded", None),
     ]:
         raise ContractCrashRecoveryError("FINAL_FILE_STEP_HISTORY_INVALID")
     if [
-        (step.attempt_no, step.step_code, step.status, step.error_code) for step in extraction_steps
+        (step.attempt_no, step.step_code, step.status, step.error_code)
+        for step in extraction_steps
     ] != [
         (1, "extract", "failed", "LEASE_EXPIRED"),
         (2, "extract", "succeeded", None),
@@ -626,7 +654,9 @@ def main() -> int:
         return 1
     except Exception as error:
         print("LOCAL_CONTRACT_EXTRACT_CRASH_RECOVERY=FAIL")
-        print(f"LOCAL_CONTRACT_EXTRACT_CRASH_REASON=UNEXPECTED_{type(error).__name__.upper()}")
+        print(
+            f"LOCAL_CONTRACT_EXTRACT_CRASH_REASON=UNEXPECTED_{type(error).__name__.upper()}"
+        )
         return 1
     return 0
 

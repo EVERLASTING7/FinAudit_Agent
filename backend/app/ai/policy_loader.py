@@ -23,6 +23,7 @@ else:  # pragma: no cover - exercised by the Linux container gate
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 
 from app.ai.live_policy import (
+    LIVE_EMBEDDING_POLICY,
     LIVE_LLM_POLICY,
     LIVE_POLICY_HASH,
     LIVE_POLICY_ID,
@@ -110,7 +111,7 @@ _RESERVED_DOS_NAMES = frozenset(
 class ValidatedPolicySnapshot:
     """应用可采用的最小只读 Policy identity。"""
 
-    policy_version: Literal[1]
+    policy_version: Literal[1, 2]
     policy_hash: str
     raw_sha256: str
     provider_calls_enabled: bool = False
@@ -771,6 +772,19 @@ def load_validated_policy(settings: Settings) -> ValidatedPolicySnapshot:
             or settings.llm_extraction_model != LIVE_LLM_POLICY.model_id
             or settings.llm_generation_model != LIVE_LLM_POLICY.model_id
             or settings.llm_fallback_model not in {None, LIVE_LLM_POLICY.model_id}
+            or settings.embedding_base_url != LIVE_EMBEDDING_POLICY.base_url
+            or settings.embedding_api_key is None
+            or settings.embedding_model != LIVE_EMBEDDING_POLICY.model_id
+            or settings.embedding_vector_size != LIVE_EMBEDDING_POLICY.embedding_dimension
+            or settings.qdrant_vector_size != LIVE_EMBEDDING_POLICY.embedding_dimension
+            or settings.embedding_batch_size != LIVE_EMBEDDING_POLICY.operation.max_batch_size
+            or settings.ai_embedding_deadline_seconds
+            != LIVE_EMBEDDING_POLICY.operation.deadline_seconds
+            or settings.ai_max_request_bytes != LIVE_EMBEDDING_POLICY.max_request_bytes
+            or settings.ai_max_response_header_bytes
+            != LIVE_EMBEDDING_POLICY.max_response_header_bytes
+            or settings.ai_max_embedding_decompressed_bytes
+            != LIVE_EMBEDDING_POLICY.max_response_body_bytes
         ):
             _fail(
                 category="binding",
@@ -778,7 +792,7 @@ def load_validated_policy(settings: Settings) -> ValidatedPolicySnapshot:
                 code="AI_POLICY_SETTINGS_MISMATCH",
             )
         return ValidatedPolicySnapshot(
-            policy_version=1,
+            policy_version=2,
             policy_hash=LIVE_POLICY_HASH,
             raw_sha256=raw_sha256,
             provider_calls_enabled=True,

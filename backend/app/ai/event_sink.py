@@ -13,12 +13,15 @@ from typing import Final, Literal, NoReturn, Protocol, SupportsIndex, runtime_ch
 
 from app.ai.events import (
     AiCallCompletedV1,
+    AiCallCompletedV2,
+    AiCallEvent,
     AiCallEventConflictError,
-    AiCallEventV1,
     AiCallLateCompletionV1,
+    AiCallLateCompletionV2,
     AiCallStartedV1,
-    parse_ai_call_event_v1,
-    validate_ai_call_event_chain,
+    AiCallStartedV2,
+    parse_ai_call_event,
+    validate_ai_call_event_chain_any,
 )
 
 EventType = Literal[
@@ -38,22 +41,29 @@ _SCOPE_FACTORY: Final = object()
 class SinkEvent:
     """仅由严格 Event DTO 或经严格解析的 JSON 构造的 Sink 投影。"""
 
-    _event: AiCallEventV1
+    _event: AiCallEvent
     _payload_jcs: bytes
 
-    def __init__(self, event: AiCallEventV1) -> None:
+    def __init__(self, event: AiCallEvent) -> None:
         if not isinstance(
             event,
-            (AiCallStartedV1, AiCallCompletedV1, AiCallLateCompletionV1),
+            (
+                AiCallStartedV1,
+                AiCallCompletedV1,
+                AiCallLateCompletionV1,
+                AiCallStartedV2,
+                AiCallCompletedV2,
+                AiCallLateCompletionV2,
+            ),
         ):
-            raise TypeError("SINK_EVENT_REQUIRES_AI_CALL_EVENT_V1")
-        validated = parse_ai_call_event_v1(event.canonical_payload())
+            raise TypeError("SINK_EVENT_REQUIRES_AI_CALL_EVENT")
+        validated = parse_ai_call_event(event.canonical_payload())
         object.__setattr__(self, "_event", validated)
         object.__setattr__(self, "_payload_jcs", validated.canonical_payload())
 
     @classmethod
     def from_json(cls, payload: str | bytes | bytearray) -> SinkEvent:
-        return cls(parse_ai_call_event_v1(payload))
+        return cls(parse_ai_call_event(payload))
 
     @property
     def event_id(self) -> str:
@@ -65,7 +75,7 @@ class SinkEvent:
 
     @property
     def event_status(self) -> str:
-        if isinstance(self._event, AiCallLateCompletionV1):
+        if isinstance(self._event, (AiCallLateCompletionV1, AiCallLateCompletionV2)):
             return self._event.observed_status
         return self._event.status
 
@@ -395,21 +405,21 @@ class InMemoryAiCallEventSink:
         started_payload = self._records.get((event.event_id, _STARTED_EVENT))
         if started_payload is None:
             return False
-        started_event = parse_ai_call_event_v1(started_payload)
-        if not isinstance(started_event, AiCallStartedV1):
+        started_event = parse_ai_call_event(started_payload)
+        if not isinstance(started_event, (AiCallStartedV1, AiCallStartedV2)):
             return False
 
         try:
-            if isinstance(event._event, AiCallCompletedV1):
-                validate_ai_call_event_chain(started_event, event._event)
-            elif isinstance(event._event, AiCallLateCompletionV1):
+            if isinstance(event._event, (AiCallCompletedV1, AiCallCompletedV2)):
+                validate_ai_call_event_chain_any(started_event, event._event)
+            elif isinstance(event._event, (AiCallLateCompletionV1, AiCallLateCompletionV2)):
                 completed_payload = self._records.get((event.event_id, _COMPLETED_EVENT))
                 if completed_payload is None:
                     return False
-                completed_event = parse_ai_call_event_v1(completed_payload)
-                if not isinstance(completed_event, AiCallCompletedV1):
+                completed_event = parse_ai_call_event(completed_payload)
+                if not isinstance(completed_event, (AiCallCompletedV1, AiCallCompletedV2)):
                     return False
-                validate_ai_call_event_chain(started_event, completed_event, event._event)
+                validate_ai_call_event_chain_any(started_event, completed_event, event._event)
             else:
                 return False
         except AiCallEventConflictError:

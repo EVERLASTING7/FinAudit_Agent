@@ -1,21 +1,24 @@
-"""auth-password-v1 输入规范化与本地弱密码拒绝。"""
+"""auth-password-v2 输入规范化与全局弱密码拒绝。"""
 
 import hashlib
 import unicodedata
 
-PASSWORD_POLICY_VERSION = "auth-password-v1"
-PASSWORD_MIN_CODE_POINTS = 15
+PASSWORD_POLICY_VERSION = "auth-password-v2"
+PASSWORD_MIN_CODE_POINTS = 6
 PASSWORD_MAX_CODE_POINTS = 128
 PASSWORD_MAX_UTF8_BYTES = 512
-PASSWORD_BLOCKLIST_SHA256 = "d38b66348d40b91a43d706d3ff42bab41284305c79306c2c4deb2009d8e2a358"
+PASSWORD_BLOCKLIST_SHA256 = "424781b69c35c92cc888c4b9b330f5aa56e022b7f6436466e8082caa00b75229"
 
 _PUBLIC_WEAK_PASSWORDS = (
+    "123456",
     "123456789012345",
     "admin123456789",
     "finaudit-agent",
+    "letmein",
     "letmein123456789",
     "password",
     "password123456",
+    "qwerty",
     "qwertyuiop12345",
 )
 _BLOCKLIST_CANONICAL_BYTES = ("\n".join(_PUBLIC_WEAK_PASSWORDS) + "\n").encode("utf-8")

@@ -16,14 +16,20 @@ from app.ai.adapters.openai_compatible import (
     OpenAiChatCompletionsAdapter,
     OpenAiCompatibleProfile,
 )
-from app.ai.contracts import LlmRequest
-from app.ai.events import AiCallCompletedV1, AiCallLateCompletionV1, AiCallStartedV1
+from app.ai.contracts import LlmRequest, ModelTarget
+from app.ai.events import AiCallCompletedV2, AiCallLateCompletionV2, AiCallStartedV2
 from app.ai.gateway import AiGateway
 from app.ai.live_policy import LIVE_LLM_POLICY, LIVE_POLICY_HASH, LIVE_POLICY_ID
 from app.ai.network_policy import OutboundNetworkPolicy
 from app.ai.policy_loader import ValidatedPolicySnapshot
+from app.ai.redis_runtime_control import (
+    AiRuntimeControlError,
+    AiRuntimeController,
+    RuntimeOutcome,
+)
+from app.ai.routing import P0RateLimitPool
 from app.repositories.ai_call_audit import (
-    AiCallAuditLimits,
+    AiCallAuditLimitsV2,
     AiCallCompleteStatus,
     AiCallReserveStatus,
 )
@@ -54,13 +60,13 @@ class _StaticByteStream(httpx.SyncByteStream):
 
 class _AuditWriter:
     def __init__(self) -> None:
-        self.started: list[AiCallStartedV1] = []
-        self.completed: list[AiCallCompletedV1] = []
+        self.started: list[AiCallStartedV2] = []
+        self.completed: list[AiCallCompletedV2] = []
 
     def reserve_attempt(
         self,
-        event: AiCallStartedV1,
-        limits: AiCallAuditLimits,
+        event: AiCallStartedV2,
+        limits: AiCallAuditLimitsV2,
         *,
         deadline_monotonic: float,
         minimum_attempt_seconds: float = 0.0,
@@ -71,11 +77,53 @@ class _AuditWriter:
 
     def complete_attempt(
         self,
-        event: AiCallCompletedV1 | AiCallLateCompletionV1,
+        event: AiCallCompletedV2 | AiCallLateCompletionV2,
     ) -> AiCallCompleteStatus:
-        assert isinstance(event, AiCallCompletedV1)
+        assert isinstance(event, AiCallCompletedV2)
         self.completed.append(event)
         return AiCallCompleteStatus.COMPLETED_NEW
+
+
+class _RuntimePermit:
+    def __init__(
+        self,
+        *,
+        breaker_state: str = "closed",
+        fail_on_finish: bool = False,
+    ) -> None:
+        self.breaker_state = breaker_state
+        self.fail_on_finish = fail_on_finish
+        self.outcomes: list[RuntimeOutcome] = []
+
+    def finish(self, outcome: RuntimeOutcome) -> None:
+        self.outcomes.append(outcome)
+        if self.fail_on_finish:
+            raise AiRuntimeControlError("AI_RUNTIME_CONTROL_UNAVAILABLE")
+
+
+class _RuntimeControl:
+    def __init__(
+        self,
+        *,
+        permit: _RuntimePermit | None = None,
+        error: AiRuntimeControlError | None = None,
+    ) -> None:
+        self.permit = permit or _RuntimePermit()
+        self.error = error
+        self.acquisitions: list[tuple[P0RateLimitPool, ModelTarget, int, float]] = []
+
+    def acquire(
+        self,
+        *,
+        pool: P0RateLimitPool,
+        target: ModelTarget,
+        estimated_tokens: int,
+        lease_seconds: float,
+    ) -> _RuntimePermit:
+        self.acquisitions.append((pool, target, estimated_tokens, lease_seconds))
+        if self.error is not None:
+            raise self.error
+        return self.permit
 
 
 def _response(
@@ -114,6 +162,7 @@ def _invoker(
     writer: _AuditWriter,
     *,
     register_adapter: bool = True,
+    runtime_control: _RuntimeControl | None = None,
 ) -> tuple[AuditedLlmInvoker, OpenAiChatCompletionsAdapter]:
     policy = OutboundNetworkPolicy(
         endpoint_id=LIVE_LLM_POLICY.endpoint_id,
@@ -151,7 +200,7 @@ def _invoker(
         gateway=gateway,
         adapter=adapter,
         policy_snapshot=ValidatedPolicySnapshot(
-            policy_version=1,
+            policy_version=2,
             policy_hash=LIVE_POLICY_HASH,
             raw_sha256="a" * 64,
             provider_calls_enabled=True,
@@ -159,6 +208,9 @@ def _invoker(
         ),
         llm_policy=LIVE_LLM_POLICY,
         audit_writer=writer,
+        runtime_control=(
+            None if runtime_control is None else cast(AiRuntimeController, runtime_control)
+        ),
     )
     return invoker, adapter
 
@@ -284,3 +336,86 @@ def test_gateway_contract_failure_completes_the_reserved_audit_attempt() -> None
     assert len(writer.completed) == 1
     assert writer.completed[0].status == "failed"
     assert writer.completed[0].safe_error_code == "AI_GATEWAY_FAILURE"
+
+
+def test_runtime_control_denial_happens_before_durable_reserve_or_send() -> None:
+    writer = _AuditWriter()
+    control = _RuntimeControl(error=AiRuntimeControlError("AI_RATE_LIMITED"))
+    invoker, adapter = _invoker(
+        _response('{"ok":true}'),
+        writer,
+        runtime_control=control,
+    )
+    try:
+        with pytest.raises(AuditedLlmInvocationError) as exc_info:
+            _invoke(invoker)
+    finally:
+        adapter.close()
+
+    assert exc_info.value.code == "AI_RATE_LIMITED"
+    assert len(control.acquisitions) == 1
+    assert control.acquisitions[0][0] is P0RateLimitPool.ASYNC_GENERATION
+    assert control.acquisitions[0][2] > 0
+    assert writer.started == []
+    assert writer.completed == []
+
+
+def test_runtime_control_success_is_finished_and_breaker_state_is_audited() -> None:
+    writer = _AuditWriter()
+    permit = _RuntimePermit(breaker_state="half_open")
+    control = _RuntimeControl(permit=permit)
+    invoker, adapter = _invoker(
+        _response('{"ok":true}'),
+        writer,
+        runtime_control=control,
+    )
+    try:
+        result = _invoke(invoker)
+    finally:
+        adapter.close()
+
+    assert result.value == {"ok": True}
+    assert permit.outcomes == ["success"]
+    assert writer.started[0].breaker_state == "half_open"
+
+
+def test_runtime_control_records_transient_provider_failure() -> None:
+    writer = _AuditWriter()
+    permit = _RuntimePermit()
+    control = _RuntimeControl(permit=permit)
+    response = httpx.Response(
+        503,
+        headers={"content-type": "application/json"},
+        stream=_StaticByteStream(b"{}"),
+    )
+    invoker, adapter = _invoker(response, writer, runtime_control=control)
+    try:
+        with pytest.raises(AuditedLlmInvocationError) as exc_info:
+            _invoke(invoker)
+    finally:
+        adapter.close()
+
+    assert exc_info.value.code == "AI_PROVIDER_SERVER_ERROR"
+    assert permit.outcomes == ["transient_failure"]
+    assert writer.completed[0].safe_error_code == "AI_PROVIDER_SERVER_ERROR"
+
+
+def test_runtime_control_finish_failure_discards_provider_success_and_is_audited() -> None:
+    writer = _AuditWriter()
+    permit = _RuntimePermit(fail_on_finish=True)
+    control = _RuntimeControl(permit=permit)
+    invoker, adapter = _invoker(
+        _response('{"ok":true}'),
+        writer,
+        runtime_control=control,
+    )
+    try:
+        with pytest.raises(AuditedLlmInvocationError) as exc_info:
+            _invoke(invoker)
+    finally:
+        adapter.close()
+
+    assert exc_info.value.code == "AI_RUNTIME_CONTROL_UNAVAILABLE"
+    assert permit.outcomes == ["success"]
+    assert writer.completed[0].status == "failed"
+    assert writer.completed[0].safe_error_code == "AI_RUNTIME_CONTROL_UNAVAILABLE"

@@ -625,14 +625,35 @@ class AuditReport(Base):
 class AiCallLog(Base):
     __tablename__ = "ai_call_logs"
     __table_args__ = (
-        CheckConstraint("event_version=1", name="event_version_one"),
+        CheckConstraint("event_version IN (1,2)", name="event_version_allowed"),
         CheckConstraint("event_sequence IN (1,2)", name="event_sequence_allowed"),
         CheckConstraint("logical_generation_no>0", name="generation_positive"),
         CheckConstraint("provider_attempt_no>0", name="provider_attempt_positive"),
         CheckConstraint("attempt_count>0", name="attempt_count_positive"),
         CheckConstraint(
-            "reserved_input_tokens>=0 AND reserved_output_tokens>=0 AND reserved_cost_micro_usd>=0",
+            "reserved_input_tokens>=0 AND reserved_output_tokens>=0 "
+            "AND (reserved_cost_micro_usd IS NULL OR reserved_cost_micro_usd>=0) "
+            "AND (reserved_cost_microunits IS NULL OR reserved_cost_microunits>=0) "
+            "AND (actual_cost_microunits IS NULL OR actual_cost_microunits>=0)",
             name="reservation_nonnegative",
+        ),
+        CheckConstraint(
+            "(event_version=1 AND reserved_cost_micro_usd IS NOT NULL "
+            "AND cost_currency IS NULL AND reserved_cost_microunits IS NULL "
+            "AND actual_cost_microunits IS NULL) OR "
+            "(event_version=2 AND reserved_cost_micro_usd IS NULL "
+            "AND reserved_cost_microunits IS NOT NULL "
+            "AND (cost_currency IN ('USD','CNY') OR "
+            "(cost_currency IS NULL AND reserved_cost_microunits=0 "
+            "AND (actual_cost_microunits IS NULL OR actual_cost_microunits=0))))",
+            name="cost_version_matrix",
+        ),
+        CheckConstraint(
+            "event_version=1 OR "
+            "(status IN ('pending','outcome_unknown') AND actual_cost_microunits IS NULL) OR "
+            "(status='succeeded' AND actual_cost_microunits IS NOT NULL) OR "
+            "status IN ('failed','degraded','rejected')",
+            name="actual_cost_matrix",
         ),
         CheckConstraint(
             "status IN ('pending','succeeded','failed','degraded','rejected','outcome_unknown')",
@@ -683,7 +704,10 @@ class AiCallLog(Base):
     output_hash: Mapped[str | None] = mapped_column(CHAR(64))
     reserved_input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     reserved_output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
-    reserved_cost_micro_usd: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    reserved_cost_micro_usd: Mapped[int | None] = mapped_column(BigInteger)
+    cost_currency: Mapped[str | None] = mapped_column(String(3))
+    reserved_cost_microunits: Mapped[int | None] = mapped_column(BigInteger)
+    actual_cost_microunits: Mapped[int | None] = mapped_column(BigInteger)
     input_tokens: Mapped[int | None] = mapped_column(Integer)
     output_tokens: Mapped[int | None] = mapped_column(Integer)
     vector_count: Mapped[int | None] = mapped_column(Integer)

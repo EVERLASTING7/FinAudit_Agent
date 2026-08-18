@@ -5,6 +5,8 @@ param(
 
     [switch]$FileUpload,
 
+    [switch]$OperationsReadiness,
+
     [switch]$WorkerCrashRecovery,
 
     [switch]$ContractExtractionCrashRecovery,
@@ -103,7 +105,7 @@ function Read-DependencyHealth([int]$Port) {
     $client.Timeout = [TimeSpan]::FromSeconds(10)
     try {
         $response = $client.GetAsync(
-            "https://localhost:$Port/health/dependencies"
+            "http://localhost:$Port/health/dependencies"
         ).GetAwaiter().GetResult()
         if (-not $response.IsSuccessStatusCode) {
             throw 'Dependency readiness returned a non-success status.'
@@ -137,6 +139,92 @@ function Read-DependencyHealth([int]$Port) {
     }
 }
 
+function Wait-DependencyHealth([int]$Port, [int]$TimeoutSeconds = 120) {
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTimeOffset]::UtcNow -lt $deadline) {
+        try {
+            Read-DependencyHealth $Port
+            return
+        }
+        catch {
+            Start-Sleep -Seconds 2
+        }
+    }
+    throw 'The local stack did not recover dependency readiness in time.'
+}
+
+function Assert-MetricsRuntime([int]$Port, [string]$TokenPath) {
+    if (-not (Test-Path -LiteralPath $TokenPath -PathType Leaf)) {
+        throw 'The managed metrics credential file is missing.'
+    }
+    $token = [IO.File]::ReadAllText($TokenPath).Trim()
+    if ([string]::IsNullOrWhiteSpace($token)) {
+        throw 'The managed metrics credential is empty.'
+    }
+
+    $client = [Net.Http.HttpClient]::new()
+    $client.Timeout = [TimeSpan]::FromSeconds(10)
+    $unauthorized = $null
+    $authorized = $null
+    $request = $null
+    try {
+        $uri = "http://localhost:$Port/metrics"
+        $unauthorized = $client.GetAsync($uri).GetAwaiter().GetResult()
+        if ([int]$unauthorized.StatusCode -ne 401) {
+            throw 'The runtime metrics endpoint did not reject a missing credential.'
+        }
+
+        $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get, $uri)
+        $request.Headers.Authorization = [Net.Http.Headers.AuthenticationHeaderValue]::new(
+            'Bearer',
+            $token
+        )
+        $authorized = $client.SendAsync($request).GetAwaiter().GetResult()
+        if (-not $authorized.IsSuccessStatusCode) {
+            throw 'The runtime metrics endpoint rejected its managed credential.'
+        }
+        if (
+            $authorized.Headers.CacheControl.NoStore -ne $true -or
+            $authorized.Content.Headers.ContentType.MediaType -cne 'text/plain'
+        ) {
+            throw 'The runtime metrics response headers are unsafe.'
+        }
+        $nosniff = @($authorized.Headers.GetValues('X-Content-Type-Options'))
+        if ($nosniff.Count -ne 1 -or $nosniff[0] -cne 'nosniff') {
+            throw 'The runtime metrics response is missing its nosniff boundary.'
+        }
+
+        $body = $authorized.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        if ($body.Length -gt 1MB) {
+            throw 'The runtime metrics response exceeded the local safety bound.'
+        }
+        foreach ($metric in @(
+            'finaudit_build_info',
+            'finaudit_process_uptime_seconds',
+            'finaudit_http_requests_in_flight',
+            'finaudit_http_requests_total',
+            'finaudit_http_request_duration_seconds_bucket'
+        )) {
+            if (-not $body.Contains($metric, [StringComparison]::Ordinal)) {
+                throw "The runtime metrics response is missing $metric."
+            }
+        }
+    }
+    finally {
+        if ($null -ne $authorized) {
+            $authorized.Dispose()
+        }
+        if ($null -ne $request) {
+            $request.Dispose()
+        }
+        if ($null -ne $unauthorized) {
+            $unauthorized.Dispose()
+        }
+        $client.Dispose()
+        $token = $null
+    }
+}
+
 function Read-ComposeContainer([string]$Project, [string]$Service) {
     $identities = @(
         (Invoke-Docker @(
@@ -163,6 +251,32 @@ function Read-ComposeContainer([string]$Project, [string]$Service) {
         throw "The $Service container ownership is invalid."
     }
     return $container[0]
+}
+
+function Assert-ContainerContinuity([string]$Project) {
+    foreach ($service in @(
+        'postgresql',
+        'redis',
+        'minio',
+        'qdrant',
+        'clamav',
+        'backend',
+        'worker',
+        'dispatcher',
+        'maintenance',
+        'frontend'
+    )) {
+        $container = Read-ComposeContainer $Project $service
+        if (
+            $container.State.Status -cne 'running' -or
+            $container.HostConfig.RestartPolicy.Name -cne 'unless-stopped' -or
+            $container.HostConfig.LogConfig.Type -cne 'local' -or
+            $container.HostConfig.LogConfig.Config.'max-size' -cne '10m' -or
+            $container.HostConfig.LogConfig.Config.'max-file' -cne '5'
+        ) {
+            throw "The $service container does not match the bounded continuity policy."
+        }
+    }
 }
 
 function Read-PostgresScalar([string]$ContainerId, [string]$Query) {
@@ -243,19 +357,28 @@ foreach ($line in (Get-Content -LiteralPath $composeEnvPath)) {
         $composeEnv[$Matches[1]] = $Matches[2]
     }
 }
-$httpsPort = 0
+$httpPort = 0
 $imageRevision = [string]$composeEnv['FINAUDIT_IMAGE_REVISION']
 if (
-    -not [int]::TryParse([string]$composeEnv['FINAUDIT_HTTPS_PORT'], [ref]$httpsPort) -or
-    $httpsPort -lt 1024 -or
-    $httpsPort -gt 65535 -or
+    -not [int]::TryParse([string]$composeEnv['FINAUDIT_HTTP_PORT'], [ref]$httpPort) -or
+    $httpPort -lt 1024 -or
+    $httpPort -gt 65535 -or
     [string]::IsNullOrWhiteSpace($imageRevision)
 ) {
     throw 'The managed Compose environment is invalid.'
 }
 
-Read-DependencyHealth $httpsPort
+Read-DependencyHealth $httpPort
 Write-Output 'LOCAL_STACK_DEPENDENCY_GATE=PASS'
+
+if ($OperationsReadiness) {
+    Assert-ContainerContinuity $ProjectName
+    Assert-MetricsRuntime $httpPort (Join-Path $runtimeDirectory 'metrics_internal_token')
+    Write-Output 'LOCAL_OPERATIONS_BOUNDED_LOGGING_GATE=PASS'
+    Write-Output 'LOCAL_OPERATIONS_RESTART_POLICY_GATE=PASS'
+    Write-Output 'LOCAL_OPERATIONS_METRICS_RUNTIME_GATE=PASS'
+    Write-Output 'LOCAL_OPERATIONS_READINESS=PASS'
+}
 
 if ($FileUpload) {
     $network = @(
@@ -279,13 +402,13 @@ if ($FileUpload) {
         '--tmpfs', '/tmp:size=32m,mode=1777', '--cap-drop', 'ALL',
         '--security-opt', 'no-new-privileges:true',
         '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-        '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-        '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+        '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+        '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
         '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
         '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
         "finaudit-backend-local:$imageRevision",
         'python', '/app/scripts/smoke_local_file_upload.py'
-    ) 'The local TLS multipart/ClamAV/Worker smoke failed.'
+    ) 'The local HTTP multipart/ClamAV/Worker smoke failed.'
     if ($output -notmatch '(?m)^LOCAL_FILE_UPLOAD_SMOKE=PASS\r?$') {
         throw 'The local file smoke did not return its PASS gate.'
     }
@@ -357,8 +480,8 @@ if ($WorkerCrashRecovery) {
             '--name', $helperName,
             '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
             '--mount', "type=bind,src=$stateMount,dst=/state",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
             '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
             '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
@@ -488,7 +611,7 @@ if ($WorkerCrashRecovery) {
             throw 'The Maintenance process did not record the expected recovery outcome.'
         }
 
-        Read-DependencyHealth $httpsPort
+        Read-DependencyHealth $httpPort
         Write-Output 'LOCAL_WORKER_SIGKILL_GATE=PASS'
         Write-Output 'LOCAL_WORKER_MANAGED_RESTART_GATE=PASS'
         Write-Output 'LOCAL_WORKER_LEASE_RECOVERY_GATE=PASS'
@@ -670,8 +793,8 @@ if ($ContractExtractionCrashRecovery -or $InvoiceExtractionCrashRecovery) {
             '--label', "com.finaudit.run-id=$runId",
             '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
             '--mount', "type=bind,src=$stateMount,dst=/state",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
             '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
             '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
@@ -803,8 +926,8 @@ if ($ContractExtractionCrashRecovery -or $InvoiceExtractionCrashRecovery) {
             '--label', "com.finaudit.test-purpose=$extractionPurpose",
             '--label', "com.finaudit.run-id=$runId",
             '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
             '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
             '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
@@ -846,7 +969,7 @@ if ($ContractExtractionCrashRecovery -or $InvoiceExtractionCrashRecovery) {
             throw "Maintenance did not record the expected $extractionLabel recovery outcome."
         }
 
-        Read-DependencyHealth $httpsPort
+        Read-DependencyHealth $httpPort
         Write-Output $sigkillGate
         Write-Output $restartGate
         Write-Output $leaseGate
@@ -1020,8 +1143,8 @@ if ($AuditExecutionCrashRecovery) {
             '--label', 'com.finaudit.test-purpose=local-audit-execute-crash-recovery',
             '--label', "com.finaudit.run-id=$runId",
             '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
             '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
             '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
@@ -1196,8 +1319,8 @@ if ($AuditExecutionCrashRecovery) {
             '--label', 'com.finaudit.test-purpose=local-audit-execute-crash-recovery',
             '--label', "com.finaudit.run-id=$runId",
             '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
             '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
             '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
@@ -1241,7 +1364,7 @@ if ($AuditExecutionCrashRecovery) {
             throw 'Maintenance did not record the expected audit execution recovery outcome.'
         }
 
-        Read-DependencyHealth $httpsPort
+        Read-DependencyHealth $httpPort
         Write-Output 'LOCAL_AUDIT_EXECUTE_BODY_LOCK_GATE=PASS'
         Write-Output 'LOCAL_AUDIT_EXECUTE_SIGKILL_GATE=PASS'
         Write-Output 'LOCAL_AUDIT_EXECUTE_MANAGED_RESTART_GATE=PASS'
@@ -1382,8 +1505,8 @@ if ($ReportGenerationCrashRecovery) {
             '--label', 'com.finaudit.test-purpose=local-report-generate-crash-recovery',
             '--label', "com.finaudit.run-id=$runId",
             '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
             '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
             '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
@@ -1456,8 +1579,8 @@ if ($ReportGenerationCrashRecovery) {
             '--label', 'com.finaudit.test-purpose=local-report-generate-crash-recovery',
             '--label', "com.finaudit.run-id=$runId",
             '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
             '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
             '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
@@ -1730,8 +1853,8 @@ if ($ReportGenerationCrashRecovery) {
             '--label', 'com.finaudit.test-purpose=local-report-generate-crash-recovery',
             '--label', "com.finaudit.run-id=$runId",
             '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
             '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
             '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
@@ -1778,7 +1901,7 @@ if ($ReportGenerationCrashRecovery) {
             throw 'Maintenance did not record the expected report generation recovery outcome.'
         }
 
-        Read-DependencyHealth $httpsPort
+        Read-DependencyHealth $httpPort
         Write-Output 'LOCAL_REPORT_GENERATE_BODY_LOCK_GATE=PASS'
         Write-Output 'LOCAL_REPORT_GENERATE_SIGKILL_GATE=PASS'
         Write-Output 'LOCAL_REPORT_GENERATE_MANAGED_RESTART_GATE=PASS'
@@ -1938,8 +2061,8 @@ if ($KnowledgeIndexCrashRecovery) {
             '--label', 'com.finaudit.test-purpose=local-knowledge-index-crash-recovery',
             '--label', "com.finaudit.run-id=$runId",
             '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
             '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
             '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
@@ -1981,8 +2104,8 @@ if ($KnowledgeIndexCrashRecovery) {
             '--label', 'com.finaudit.test-purpose=local-knowledge-index-crash-recovery',
             '--label', "com.finaudit.run-id=$runId",
             '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
             '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
             '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
@@ -2244,8 +2367,8 @@ if ($KnowledgeIndexCrashRecovery) {
             '--label', 'com.finaudit.test-purpose=local-knowledge-index-crash-recovery',
             '--label', "com.finaudit.run-id=$runId",
             '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
             '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
             '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
@@ -2297,7 +2420,7 @@ if ($KnowledgeIndexCrashRecovery) {
             throw 'Maintenance did not record the expected knowledge index recovery outcome.'
         }
 
-        Read-DependencyHealth $httpsPort
+        Read-DependencyHealth $httpPort
         Write-Output 'LOCAL_KNOWLEDGE_INDEX_BODY_LOCK_GATE=PASS'
         Write-Output 'LOCAL_KNOWLEDGE_INDEX_SIGKILL_GATE=PASS'
         Write-Output 'LOCAL_KNOWLEDGE_INDEX_MANAGED_RESTART_GATE=PASS'
@@ -2613,7 +2736,7 @@ if ($AiAuditCrashRecovery) {
             throw 'The AI audit owned-fact cleanup did not return PASS.'
         }
         $ownedFactsNeedCleanup = $false
-        Read-DependencyHealth $httpsPort
+        Read-DependencyHealth $httpPort
         Write-Output 'LOCAL_AI_AUDIT_BODY_LOCK_GATE=PASS'
         Write-Output 'LOCAL_AI_AUDIT_MAINTENANCE_SIGKILL_GATE=PASS'
         Write-Output 'LOCAL_AI_AUDIT_TRANSACTION_ROLLBACK_GATE=PASS'
@@ -2741,8 +2864,8 @@ if ($PerformanceBaseline) {
         '--label', 'com.finaudit.test-purpose=local-performance-baseline',
         '--label', "com.finaudit.run-id=$runId",
         '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-        '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-        '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+        '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+        '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
         '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
         '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
         '--env', "FINAUDIT_PERFORMANCE_RUN_ID=$runId",
@@ -2804,7 +2927,7 @@ if ($PerformanceBaseline) {
     Write-Output 'LOCAL_PERFORMANCE_AI_PROVIDER=DISABLED'
     Write-Output 'LOCAL_PERFORMANCE_OCR=NOT_RUN'
     Write-Output 'LOCAL_PERFORMANCE_PRODUCTION=NOT_RUN'
-    Read-DependencyHealth $httpsPort
+    Read-DependencyHealth $httpPort
     Write-Output 'LOCAL_PERFORMANCE_STACK_RESTORED=PASS'
     Write-Output 'LOCAL_PERFORMANCE_BASELINE=PASS'
 }
@@ -2871,6 +2994,11 @@ if ($SecurityBaseline) {
         }
     }
 
+    Assert-ContainerContinuity $ProjectName
+
+    Assert-MetricsRuntime $httpPort (Join-Path $runtimeDirectory 'metrics_internal_token')
+    Write-Output 'LOCAL_SECURITY_METRICS_RUNTIME_GATE=PASS'
+
     $projectContainerIds = @(
         (Invoke-Docker @(
             'ps', '--all', '--no-trunc',
@@ -2903,7 +3031,7 @@ if ($SecurityBaseline) {
         $publishedBindings[0].Service -cne 'frontend' -or
         $publishedBindings[0].ContainerPort -cne '8443/tcp' -or
         $publishedBindings[0].HostIp -cne '127.0.0.1' -or
-        $publishedBindings[0].HostPort -cne "$httpsPort"
+        $publishedBindings[0].HostPort -cne "$httpPort"
     ) {
         throw 'The local host port exposure does not match the loopback-only contract.'
     }
@@ -2931,8 +3059,8 @@ if ($SecurityBaseline) {
         '--label', 'com.finaudit.test-purpose=local-security-baseline',
         '--label', "com.finaudit.run-id=$runId",
         '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-        '--env', 'FINAUDIT_SMOKE_BASE_URL=https://frontend:8443',
-        '--env', "AUTH_PUBLIC_ORIGIN=https://localhost:$httpsPort",
+        '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+        '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
         '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
         '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
         '--env', "FINAUDIT_SECURITY_RUN_ID=$runId",
@@ -3056,14 +3184,48 @@ if ($SecurityBaseline) {
     }
     Write-Output 'LOCAL_SECURITY_PROMPT_INJECTION_LOG_GATE=PASS'
 
-    Read-DependencyHealth $httpsPort
+    $workerBeforeRestart = Read-ComposeContainer $ProjectName 'worker'
+    $workerRestartCount = [int64]$workerBeforeRestart.RestartCount
+    $null = Invoke-Docker @(
+        'exec', $workerBeforeRestart.Id,
+        'python', '-c',
+        'import os, signal; os.kill(1, signal.SIGTERM)'
+    ) 'Unable to trigger the owned Worker automatic-restart probe.'
+    $workerAutomaticallyRecovered = $false
+    $workerRestartDeadline = [DateTimeOffset]::UtcNow.AddSeconds(120)
+    while ([DateTimeOffset]::UtcNow -lt $workerRestartDeadline) {
+        $currentWorker = Read-ComposeContainer $ProjectName 'worker'
+        if ($currentWorker.Id -cne $workerBeforeRestart.Id) {
+            throw 'The Worker identity changed during the automatic-restart probe.'
+        }
+        if (
+            [int64]$currentWorker.RestartCount -gt $workerRestartCount -and
+            $currentWorker.State.Status -ceq 'running'
+        ) {
+            $workerAutomaticallyRecovered = $true
+            break
+        }
+        Start-Sleep -Seconds 1
+    }
+    if (-not $workerAutomaticallyRecovered) {
+        $currentWorker = Read-ComposeContainer $ProjectName 'worker'
+        if ($currentWorker.State.Status -cne 'running') {
+            $null = Invoke-Docker @('start', $currentWorker.Id) `
+                'Unable to restore the Worker after the automatic-restart probe failed.'
+        }
+        throw 'The Worker did not recover through its Docker restart policy.'
+    }
+
+    Wait-DependencyHealth $httpPort
     Write-Output 'LOCAL_SECURITY_SCHEMA=finaudit-local-security-v1'
     Write-Output 'LOCAL_SECURITY_CONTAINER_HARDENING_GATE=PASS'
+    Write-Output 'LOCAL_SECURITY_BOUNDED_LOGGING_GATE=PASS'
+    Write-Output 'LOCAL_SECURITY_AUTOMATIC_RESTART_GATE=PASS'
     Write-Output 'LOCAL_SECURITY_HOST_EXPOSURE_GATE=PASS'
     Write-Output 'LOCAL_SECURITY_AI_PROVIDER=DISABLED'
     Write-Output 'LOCAL_SECURITY_PROMPT_INJECTION_HTTP_QDRANT=PASS'
     Write-Output 'LOCAL_SECURITY_PROMPT_INJECTION_BROWSER=NOT_RUN'
-    Write-Output "LOCAL_SECURITY_PROMPT_INJECTION_BROWSER_ORIGIN=https://localhost:$httpsPort"
+    Write-Output "LOCAL_SECURITY_PROMPT_INJECTION_BROWSER_ORIGIN=http://localhost:$httpPort"
     Write-Output "LOCAL_SECURITY_PROMPT_INJECTION_BROWSER_USERNAME=sec-pi-browser-$($runId.Substring(0, 10))"
     Write-Output "LOCAL_SECURITY_PROMPT_INJECTION_BROWSER_RUN_ID=$runId"
     Write-Output 'LOCAL_SECURITY_PROMPT_INJECTION_BROWSER_READY=PASS'

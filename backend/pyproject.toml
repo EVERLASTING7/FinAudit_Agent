@@ -46,6 +46,7 @@ include = ["app*"]
 
 [tool.setuptools.package-data]
 "app.ai.artifacts.cr011_v1" = ["*.json"]
+"app.ai.artifacts.minimax_m3_bailian_qwen37_local_v2" = ["*.json"]
 "app.workers.artifacts.file_v1" = ["*.json"]
 "app.workers.artifacts.invoice_v1" = ["*.json"]
 "app.workers.artifacts.invoice_v2" = ["*.json"]

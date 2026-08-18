@@ -293,7 +293,7 @@ SSOT 使用规则：
 ### 7.0 `first-org-admin-bootstrap-v1`
 
 - 首次初始化只允许受信任操作者运行一次性离线 CLI `finaudit-bootstrap-admin`；不得提供匿名 HTTP 初始化接口，也不得在镜像、迁移、仓库或日志中预置公开账号和密码。
-- CLI 不接受命令行参数。企业名称、统一社会信用代码、税号、管理员 username/display_name 由显式环境变量注入；初始密码只从绝对路径 `BOOTSTRAP_ADMIN_PASSWORD_FILE` 读取，目标必须是有界、不可写、非 symlink/reparse 的常规 UTF-8 文件，并继续执行 `auth-password-v1` 门禁。输出只含固定 PASS/FAIL 与脱敏原因码，不回显配置、路径、标识符或凭据。
+- CLI 不接受命令行参数。企业名称、统一社会信用代码、税号、管理员 username/display_name 由显式环境变量注入；初始密码只从绝对路径 `BOOTSTRAP_ADMIN_PASSWORD_FILE` 读取，目标必须是有界、不可写、非 symlink/reparse 的常规 UTF-8 文件，并继续执行 `auth-password-v2` 门禁。输出只含固定 PASS/FAIL 与脱敏原因码，不回显配置、路径、标识符或凭据。
 - CLI 在 PostgreSQL 单事务内取得固定 advisory transaction lock；仅当 organizations/users 为空且迁移已提供 enabled `system_admin` 时，创建唯一 active 企业、active 首管理员、`force_change_on_login=true` 的 Argon2id 密码事实、`assignment_source=bootstrap` 角色历史和 `system.bootstrap.completed` 操作日志。任一步失败必须整体回滚。
 - 精确相同的企业和管理员 Profile 已存在且仍有未撤销的 bootstrap `system_admin` 分配时，重放只返回 `ALREADY_INITIALIZED` 且不得重置密码、角色或 row-version；其他既有、部分或冲突状态全部失败关闭。首管理员仍必须按 7.2 完成受限换密并重新登录后，才能取得普通业务会话。
 
@@ -301,7 +301,7 @@ SSOT 使用规则：
 
 - `username` 只接受 ASCII lowercase，grammar 固定为 `^[a-z0-9][a-z0-9._-]{0,99}$`；服务端不做大小写折叠。
 - `password` 必须先按 JSON string 严格解码，拒绝 NUL，再做 Unicode NFC；不得 trim、casefold、折叠空白或进行其他隐式转换。
-- NFC 后密码长度必须为 15～128 个 code point，UTF-8 长度不超过 512 bytes；允许空格和 Unicode，不要求大写、小写、数字或符号组合。
+- `auth-password-v2` 在所有环境统一生效：NFC 后密码长度必须为 6～128 个 code point，UTF-8 长度不超过 512 bytes；允许空格和 Unicode，不要求大写、小写、数字或符号组合；`123456`、`letmein`、`qwerty` 等版本化弱密码继续失败关闭。
 - 创建用户和管理员重置密码都必须校验本地、版本化、可哈希追踪的弱密码 blocklist；blocklist 不联网获取，更新按独立版本审查，不静默改变既有 Profile。
 - 密码哈希固定为 Argon2id v19：`m=65536 KiB`、`t=3`、`p=1`、16-byte 随机 salt、32-byte hash，按 PHC string 持久化。成功校验发现旧参数时可在同一受控事务按需 rehash；不得手写密码学实现。
 - 对 unknown 或 deleted 用户执行同一 Argon2id dummy verify；disabled、manual locked、timed locked、unknown 和密码错误对匿名调用者均返回同一通用 401，不暴露账号是否存在。
@@ -321,7 +321,7 @@ SSOT 使用规则：
 
 ### 7.3 Refresh Cookie 与五个 Auth API
 
-- Refresh Cookie 名为 `finaudit_refresh`，固定 `HttpOnly`、`SameSite=Strict`、`Path=/api/v1/auth`、无 `Domain`；production 必须 `Secure=true`，仅 local Profile 的 loopback HTTP 可为 `false`。`Max-Age` 使用当前会话剩余绝对 TTL。
+- Refresh Cookie 名为 `finaudit_refresh`，固定 `HttpOnly`、`SameSite=Strict`、`Path=/api/v1/auth`、无 `Domain`；`Secure` 严格由规范化后的 `AUTH_PUBLIC_ORIGIN` scheme 决定，HTTP 为 false、HTTPS 为 true。`Max-Age` 使用当前会话剩余绝对 TTL。
 - 登录、刷新、退出及任何写入或清除该 Cookie 的浏览器动作都必须验证 `Origin` 与 Backend 对外同源；production 必须显式配置无路径的 HTTPS `AUTH_PUBLIC_ORIGIN`，不信任 `Forwarded` 或 `X-Forwarded-*`。local/test 未配置时才使用 ASGI 直连 origin。不接受 Cookie 且缺少 Origin 的浏览器式请求。无 Origin 的非浏览器测试只允许走显式 test transport，必须无 Cookie，不能形成 production HTTP 旁路。
 - `POST /api/v1/auth/login` 的 JSON body 固定为 `username`、`password`、`remember_me`。成功返回 200 `SuccessResponse[SessionDTO]` 并写 Refresh Cookie；命中强制换密返回 403 `AUTH_PASSWORD_CHANGE_REQUIRED`，安全 `data` 仅含 `password_change_token` 与 `expires_in=300`，不创建 TokenSession。
 - `POST /api/v1/auth/refresh` 从 Refresh Cookie 读取 credential；成功返回 200 `SuccessResponse[SessionDTO]` 并旋转 Cookie。
@@ -401,10 +401,11 @@ SSOT 使用规则：
 
 ### 9.1 当前物理数据库
 
-- 当前 accepted Alembic head 为 `20260816_023`，ORM 与运行时 catalog 覆盖 57/57 张核心物理表。
+- 当前 accepted Alembic head 为 `20260817_024`，ORM 与运行时 catalog 覆盖 57/57 张核心物理表。
 - `20260815_021` 不新增表；它在升级时检查既有活动索引、已批准评测集和已结束评测运行的完整性，并用 PostgreSQL `BEFORE INSERT` 触发器强制索引、评测集和评测运行分别从 `building`、`draft`、`running` 创建，防止绕过正式评测与发布状态机。
 - `20260816_022` 允许未确认发票的 currency 为空、移除无证据 CNY 默认，并由数据库继续强制 confirmed 发票 currency 非空。
 - `20260816_023` 为风险解释和报告草稿增加 `disabled|succeeded|degraded`、严格 JSON 与 SHA-256 事实，并只放行受控 AI 采用转换；既有报告状态机与 ready 制品不可变规则保持有效。
+- `20260817_024` 保留 Event v1 与非空 legacy USD 历史，增加 Event v2 的 USD/CNY 通用 microunit 费用列和版本/货币一致性约束；pending 审计事实阻断升级，任何 v2 事实阻断 downgrade，禁止隐式 FX。
 - accepted 线性迁移是当前物理 Schema 的唯一来源。
 - 当前 head 覆盖扩展、身份、幂等、财务主数据与关系、可靠性、特权授权、追加式操作日志、文件/文档处理、Markdown/分块、知识检索/评测、审核执行和正式报告。
 - 旧数据库设计与历史迁移候选仍不参与解释当前 Schema；物理事实只来自 accepted 线性 head 和 PostgreSQL catalog 验证。
@@ -517,7 +518,7 @@ SSOT 使用规则：
 
 - PostgreSQL 保存知识库成员、制度状态、有效期、活动索引和权限事实。
 - Qdrant 只做候选召回；命中必须回到 PostgreSQL 复核权限、状态、有效期、成员和内容摘要。
-- 当前 Qdrant 1.10 Adapter 不枚举或自动创建 Collection，使用配置显式注入的环境+模型+维度身份，校验健康、维度和 distance，并提供 waited upsert/delete 与 `has_id` must-filter 查询。知识运行时已实现 PostgreSQL 成员/活动版本、确定性 Hash Embedding、索引构建/激活/重建、5 条 smoke 评测、PG 终审、RAG 引用白名单/拒答和反馈 API；授权的 `local/test` Profile 可在终审后调用真实 MiniMax-M3 生成受引用约束的答案，并在同一事务采用完成审计与 Query 事实。单元、隔离 PostgreSQL、真实 Qdrant round trip、Nginx/HTTP 提示注入双路径拒答及受限真实 LLM smoke 已通过。安全专用 100 条 `no_answer` 合成集不等于代表性 50/100 条业务审批集；真实 Embedding、正式容量、production 与 AC-008～011/016 仍未运行。
+- 当前 Qdrant 1.10 Adapter 不枚举或自动创建 Collection，使用配置显式注入的环境+Adapter+模型+维度身份，校验健康、维度和 distance，并提供 waited upsert/delete 与 `has_id` must-filter 查询。知识运行时已实现 PostgreSQL 成员/活动版本、索引构建/激活/重建、5 条 smoke 评测、PG 终审、RAG 引用白名单/拒答和反馈 API；calls-disabled 使用确定性 Hash，`minimax-m3-bailian-qwen37-local-v2` 启用时由 Backend/Worker 通过 Gateway 使用 1024 维百炼 `qwen3.7-text-embedding`，旧 Hash 索引因身份不匹配不能查询或原地覆盖。真实 Embedding 先以 Event v2/CNY durable reserve，completion 与 Query、索引批次或评测结果在同一 PostgreSQL 事务采用。授权的 `local/test` Profile 还可在终审后调用真实 MiniMax-M3 生成受引用约束的答案。单元、隔离 PostgreSQL、真实 Qdrant round trip、Nginx/HTTP 提示注入双路径拒答、受限真实 LLM smoke 和唯一一次受限付费百炼 smoke 已通过。安全专用 100 条 `no_answer` 合成集不等于代表性 50/100 条业务审批集；完整百炼索引重建、正式容量、production 与 AC-008～011/016 仍未运行。
 - RAG 引用只能来自本次授权检索结果。
 - 引用必须能追溯到制度版本、Markdown、分块、页面和索引版本。
 - 无足够依据时返回无答案或降级结果，禁止模型补造制度依据。
@@ -590,18 +591,21 @@ SSOT 使用规则：
 
 - Backend 和 Worker 在对象构造前加载并校验本地 AI Policy。
 - `Settings` 与 Policy 的版本、模型、端点、deadline、retry、预算和限流投影必须一致。
-- `AI_PROVIDER_CALLS_ENABLED=false` 仍是默认值；`local/test` 可显式启用 `minimax-m3-local-v1`，production 继续启动失败。环境值、Policy 原始字节与 canonical hash 任一漂移都失败关闭。
-- OpenAI-compatible Chat Adapter、`AiGateway`、`AuditedLlmInvoker`、结构清理/修复、共享预算、出站网络策略和持久 EventSink 已接入合同/发票提取、RAG 回答、风险解释与报告草稿。
+- `AI_PROVIDER_CALLS_ENABLED=false` 仍是默认值；`local/test` 可显式启用 `minimax-m3-bailian-qwen37-local-v2`，production 继续启动失败。环境值、Policy 原始字节与 canonical hash 任一漂移都失败关闭。
+- OpenAI-compatible Chat/Embedding Adapter 与 `AiGateway` 已接线。Chat 的 `AuditedLlmInvoker`、结构清理/修复、共享预算和持久 EventSink 接入合同/发票提取、RAG 回答、风险解释与报告草稿；Embedding 接入 Backend RAG 查询、Worker 索引构建和检索评测。
+- `RedisAiRuntimeControl` 已接入所有真实 Chat/Embedding 调用，使用 Redis server time 与 Lua 原子维护 `rag/async_generation/embedding` 三个独立并发、RPM、TPM、burst 池，以及按 Adapter+模型不可逆哈希隔离的滚动失败窗口、open deadline 和单 half-open probe；Redis 不可用时真实 Provider 调用失败关闭。
 - Provider 调用发生在数据库事务外；采用前重新锁定和校验业务输入，完成事件再与业务事实同事务提交。结构、权限、引用、状态或 payload hash 漂移时拒绝采用。
 - `GET /api/v1/ai-call-logs` 已按 `operations.read`、当前组织和 `private, no-store` 暴露 OPS-005 安全摘要；不返回 Prompt、响应正文、Header、密钥或 Provider URL。
-- 知识索引仍使用 `deterministic-hash-v1`，当前没有已批准真实 Embedding Provider。启用真实 LLM 时配置 Embedding URL、密钥或其他模型名会启动失败，避免把 Hash 向量误标为真实 Embedding。
+- `CR-021` 固定百炼北京共享 OpenAI-compatible endpoint、`qwen3.7-text-embedding`、1024 维、20 条批次、30 秒 deadline、`EMBEDDING_API_KEY` 和 CNY 价格快照；`CR-022 / option-A / event-policy-v2 / USD-CNY-only / no-fx` 继续固定币种中立事件、预算、数据库与 OPS-005 合同。Settings 与 Policy 不一致时启动失败；模型/维度切换必须新建索引版本。
+- Event v1 和 legacy `reserved_cost_micro_usd` 继续用于历史回放。Event v2 使用 `cost_currency=USD|CNY|null`、`reserved_cost_microunits` 和 `actual_cost_microunits`；`null` 仅表示内部不计费且金额为零。禁止汇率换算、跨币种相加、把未知实际费用记为零或在 v2 同时填写 legacy 字段。
 
 ### 12.2 调用规则
 
 - 调用必须通过 Provider-neutral Gateway 和注册 Adapter，业务代码不得直接请求模型 URL。
-- 每次调用必须携带 purpose、显式目标、Trace 和共享预算上下文。
-- retry、fallback 和结构修复共用总请求、Token、费用和 deadline 门禁。
-- 发送前按最坏情况预留预算；失败后不释放预留以避免重放超支。
+- 每次调用必须携带显式目标和 Trace；Chat 还必须携带 purpose 与共享预算上下文。
+- Chat 的 retry、fallback 和结构修复共用总请求、Token、费用和 deadline 门禁；Embedding 固定单次 Adapter 调用、批次/deadline/字节限制，transient failure 只进入既有 Worker Job recovery。
+- Chat 与 Embedding 都在发送前按最坏情况预留预算；失败后不释放预留以避免重放超支。Chat 固定 `USD`，百炼 Embedding 固定 `CNY`，只使用对应币种的整数 microunit，不进行 FX。
+- 运行门禁顺序固定为：纯预算/deadline preflight → Redis 并发/速率/熔断许可 → durable Event v2 reserve → 最终 monotonic deadline → 单次 HTTP → Redis 完成 → durable complete/业务采用。Redis 拒绝不写 started、不消耗 `SendPermit`；Provider 成功但 Redis 完成失败时必须写安全失败 completion，输出不可采用。Embedding 使用 UTF-8 字节数作为不低估 Provider token 的保守上界，权威 usage 对账失败或 completion 不能与业务事实同事务提交时不得采用向量。
 - 结构化输出先做本地确定性 JSON 与 Pydantic 校验。
 - 重复键、非有限数字、多对象歧义和超出 Schema 的不可信结构失败关闭。
 - 修复请求只携带安全 JSON Pointer 和错误类别，不携带原始敏感值。
@@ -614,19 +618,20 @@ SSOT 使用规则：
 - 外部 Provider 必须使用 HTTPS、域名 allowlist、DNS/IP 校验、peer 复核、超时和响应大小限制。
 - 禁止继承系统代理、自动重定向、任意 URL、内网探测和任意工具调用。
 - Provider 错误只映射为受控类别，不向用户暴露响应正文或 Header。
-- `local/test` 真实 HTTP、DNS、TLS、peer、持久事件和业务采用已有受限 smoke；生产 Policy、生产网络、Secret Manager、quota/canary 和真实 Embedding 仍为 `BLOCKED`。
+- `local/test` Chat 的真实 HTTP、DNS、TLS、peer、持久事件和业务采用已有受限 smoke；Redis 运行门禁已在两个独立客户端上以锁定 Redis 7.4.9 digest 验证共享并发、RPM/TPM、滚动熔断、并发旧成功不误关新熔断和单 half-open 恢复。百炼 Embedding 的唯一一次受限付费 smoke 也已验证真实 HTTPS/peer、43 input tokens、2×1024 维输出和 Event v2/CNY `22` microunits 持久审计；该授权已消耗，不代表代表性检索、生产 Policy、生产网络、Secret Manager、quota/canary 或正式 AC。
 
-### 12.4 `ai-call-audit-runtime-v1`
+### 12.4 `ai-call-audit-runtime-v1-v2`
 
-- `AiCallAuditRepository.reserve_attempt()` 在 `(organization_id,business_operation_id,policy_version)` 的 PostgreSQL transaction advisory lock 下汇总已提交 `ai.call.started`，同时守住物理尝试数、单请求输入/输出 Token、业务总 Token、最坏费用和 monotonic deadline；相同 `event_id`/内容重放，内容漂移冲突，提交结果不可确认时 Service 只返回 `unknown`。
+- `AiCallAuditRepository.reserve_attempt()` 在 `(organization_id,business_operation_id,policy_version)` 的 PostgreSQL transaction advisory lock 下汇总已提交 `ai.call.started`，同时守住事件版本、同一币种、物理尝试数、单请求输入/输出 Token、业务总 Token、最坏费用和 monotonic deadline；相同 `event_id`/内容重放，内容漂移或同一业务操作混币种冲突，提交结果不可确认时 Service 只返回 `unknown`。
 - `append_completion()` 先验证已提交的同 ID reserve；`TransactionalAiAdoption` 只允许调用方在当前业务事务中写 completion，并与合同、发票、RAG Query、风险解释或报告草稿事实原子提交。回滚时二者都不可见。
 - `backend/app/services/ai_call_event_sink.py` 把持久状态映射为一次性 `SendPermit`/`AdoptPermit`：只有 `reserved_new` 或同一调用域安全恢复可发送；新实例 replay、外来 scope、冲突、预算/deadline 耗尽、`outcome_unknown` 和 `late_completion` 均无采用许可。
-- `AuditedLlmInvoker` 通过共享 writer/UoW 消费许可；合同/发票 Executor、RAG Service、风险解释和报告草稿均在采用前重验输入并在同一 Session 落完成审计。聚焦单元、隔离 PostgreSQL AI/Audit/Retrieval scopes 和真实 MiniMax smoke 覆盖成功、修复、拒绝、回滚与降级；production 仍未运行。
-- Maintenance 在所有既有 Job 恢复工作空闲后消费 `ai.call.*` Outbox。claim、`ai_call_logs` 投影和 published 标记在同一 PostgreSQL 事务；sequence 2 先到时等待 sequence 1。未知版本、冲突或坏载荷进入 dead-letter，`late_completion`、dead-letter、`outcome_unknown` 和补偿阻塞只记录不含 ID/载荷的 WARNING。
+- `AuditedLlmInvoker` 以 Event v2/USD 通过共享 writer/UoW 消费许可；合同/发票 Executor、RAG Service、风险解释和报告草稿均在采用前重验输入并在同一 Session 落完成审计。`EmbeddingRuntime` 对真实百炼调用以 Event v2/CNY 先 reserve，Backend RAG、Worker 索引批次与评测 case 再把 completion 和采用事实同事务提交；离线 Hash Runtime 不产生付费审计。聚焦单元、隔离 PostgreSQL scopes、真实 MiniMax 与唯一一次百炼 smoke 覆盖成功、拒绝、回滚与降级；production 仍未运行。
+- Redis 许可先于 durable reserve；许可中的 `breaker_state=closed|half_open` 写入 started。调用前审计预留失败或 deadline 耗尽时只中性释放 Redis 租约；仅规范化 transient Provider 失败计入熔断，永久/配置/业务输出失败不误伤目标。正常 closed 调用成功不会清除另一个并发调用刚打开的熔断，只有当前 half-open owner 的成功或中性结果可以关闭 open 状态。
+- Maintenance 在所有既有 Job 恢复工作空闲后消费 `ai.call.*` Outbox。claim、`ai_call_logs` 投影和 published 标记在同一 PostgreSQL 事务；sequence 2 先到时等待 sequence 1。消费者显式分派 v1/v2；未知版本、混版本、冲突或坏载荷进入 dead-letter，`late_completion`、dead-letter、`outcome_unknown` 和补偿阻塞只记录不含 ID/载荷的 WARNING。
 - Reconciler 在对应调用 deadline 加 30 秒后持有同一 aggregate 锁，先检查权威 completion；确实不存在时才追加并投影 `outcome_unknown`。终态后的真实结果只能作为 sequence 3 `late_completion` 证据，不能把未知终态改写为成功。
-- `get_operation_summary()` 只返回业务操作、尝试顺序、模型身份、预留预算、实际 Token、安全错误码、Trace 和时间等已批准安全字段；OPS-005 Router 使用 `operations.read` 和 Actor organization 强制范围，跨组织不存在性不泄露。
-- 隔离 PostgreSQL 16.14 `-Scope AI` 门禁已覆盖 current-head 往返、同 ID 重放/冲突、事务回滚、提交结果未知映射、并发预算、各 Token/费用/deadline 边界、乱序、消费者事务中断后新实例恢复、未知版本/坏载荷隔离、`outcome_unknown/late_completion` 与安全查询；该专项中的消费者中断仍使用事务级合成异常。
-- 独立 `local-ai-audit-crash-recovery-v1` local Compose 门禁已在 Provider 关闭时播种同一调用的 started/completed Outbox，以 `ai_call_logs` 排他锁确认 Maintenance 进入真实投影事务，再对精确容器执行 SIGKILL 并确认退出码 137。门禁释放本次专用锁后等待唯一数据库会话消失，核对两条 Outbox 仍为 pending/attempt 0 且无审计日志，再启动同一容器并确认两条事件各投影一次、唯一 succeeded 日志、脱敏结构化日志、零测试事实残留和依赖恢复 ready。该证据不包含真实 Provider、AI-001/业务采用、Redis 限流/熔断、公开 OPS-005、Docker 自动重启、主机断电、production 或正式 AC，以上仍为 `NOT_RUN/BLOCKED`。
+- `get_operation_summary()` 只返回业务操作、尝试顺序、模型身份、预留预算、实际 Token、安全错误码、Trace 和时间等已批准安全字段；v1 只返回 legacy USD，v2 只返回 `cost_currency`、generic 预留和权威实际费用，不能跨币种汇总。OPS-005 Router 使用 `operations.read` 和 Actor organization 强制范围，跨组织不存在性不泄露。
+- Alembic `20260817_024` 保留非空 v1 历史字节/行，增加 v2 generic 费用列；pending AI log 或未发布 AI Outbox 阻断升级，含任意 v2 Event/log 时阻断 downgrade。隔离 PostgreSQL 16.14 AI 门禁覆盖 v1 保留、字段混用、CNY v2 投影与 OPS 汇总、同 ID 重放/冲突、事务回滚、提交结果未知映射、并发预算、各 Token/费用/deadline 边界、乱序、消费者中断恢复、未知版本/坏载荷隔离和 `outcome_unknown/late_completion`；完整数据库目录又连续两轮通过。
+- 独立 `local-ai-audit-crash-recovery-v1` local Compose 门禁已在 Provider 关闭时播种同一调用的 started/completed Outbox，以 `ai_call_logs` 排他锁确认 Maintenance 进入真实投影事务，再对精确容器执行 SIGKILL 并确认退出码 137。门禁释放本次专用锁后等待唯一数据库会话消失，核对两条 Outbox 仍为 pending/attempt 0 且无审计日志，再启动同一容器并确认两条事件各投影一次、唯一 succeeded 日志、脱敏结构化日志、零测试事实残留和依赖恢复 ready。Redis/Celery 与 runtime-control 的当前隔离门禁共 4 项通过；真实百炼 smoke 已有一次 local/test 证据，但 Docker 自动重启、主机断电、production 或正式 AC 仍保持 `NOT_RUN/BLOCKED`。
 
 ### 12.5 `ai-extraction-prompt-v1`
 
@@ -696,7 +701,7 @@ SSOT 使用规则：
 - Redis/Celery 只接受 `redis` 或 `rediss` URL。
 - HTTP 服务 URL 禁止 userinfo、query、fragment、控制字符和歧义主机；MinIO endpoint 还必须是无 path 的 HTTP(S) origin，`MINIO_SECURE` 与 scheme 一致，production 强制 HTTPS。
 - Qdrant 向量维度必须等于 Embedding 维度。
-- 当前 live LLM Profile 只允许 `EMBEDDING_MODEL=deterministic-hash-v1` 且 Embedding endpoint/key 为空；真实 Embedding 未获批准时不得配置看似真实的模型身份。
+- 当前 live Profile 只允许百炼 `https://dashscope.aliyuncs.com/compatible-mode/v1`、`qwen3.7-text-embedding`、1024 维、批次 20 和独立 `EMBEDDING_API_KEY`；calls-disabled 则使用确定性 Hash。两种 Adapter 身份不得混写同一索引。
 - Celery 软超时必须小于硬超时。
 - Celery 队列名组内唯一；MinIO Bucket 必须同时满足 S3 兼容命名规则并组内唯一。
 - OCR 引擎仍是产品选型 TBD；当前可执行 Profile 仅为 `not_configured` 或 `tesseract_cli`。`tesseract_cli` 必须同时固定 executable 和 version，使用无 shell、有超时的 TSV Adapter；未配置时图片/扫描 PDF 失败关闭，不得产生空文本成功版本。`OCR_BASE_URL/OCR_API_KEY` 暂不构成已安装 HTTP Provider 协议。
@@ -728,12 +733,12 @@ SSOT 使用规则：
 
 - `infra/compose/compose.local.yml`、Backend/Frontend Dockerfile、`infra/env/.env.example` 与 `docs/runbooks/local-stack.md` 共同构成本地完整栈运行事实源。栈包含 PostgreSQL、Redis、MinIO、Qdrant、ClamAV、迁移、Bucket/Collection/admin 初始化、Backend、Worker、Dispatcher、Maintenance、Frontend/Nginx；AI Provider 固定关闭，OCR 固定为 `not_configured`。
 - PostgreSQL、Redis、MinIO、Qdrant、ClamAV、Python、Node 和 Nginx 基础镜像都必须使用 tag+manifest digest；不得使用 `latest`。Qdrant local 继续固定 `1.10.0`：现有 1.10 派生卷直接启动 1.18 已实际因 segment 格式不兼容失败，因此升级必须采用显式快照或从 PostgreSQL 事实重建，不得静默删除卷。
-- 只有 Nginx TLS 入口映射到主机 `127.0.0.1:${FINAUDIT_HTTPS_PORT}`；Backend、数据库、缓存、对象存储、向量库和 Scanner 不发布主机端口。业务容器使用只读根文件系统和 `no-new-privileges`；Backend、Worker、Dispatcher、Maintenance 丢弃全部 capabilities，Frontend/Nginx 也先 `cap_drop: ALL`，只补回官方镜像启动所需的 `CHOWN/SETGID/SETUID`。`app`/`data` 网络为 internal；仅 ClamAV 同时加入 `scanner_updates` 网络以更新本地病毒库。该宽出口只允许 local，production 必须使用域名出口控制、代理、告警和定义版本审计。
-- `scripts/start-local-stack.ps1` 在 `%LOCALAPPDATA%/FinAuditAgent/runtime/<project>` 创建带归属标记的运行时 Secret、Ed25519 keyring 与短期自签名 TLS 证书，并通过只读 Secret mount 注入容器；不创建或读取仓库 `.env`。启动器执行当前 accepted head `20260816_023` 迁移、七 Bucket、Qdrant Collection 和 first-org/admin 幂等 bootstrap，初始密码只输出文件路径且首次登录强制换密。
-- `scripts/verify-local-stack.ps1` 分开验证依赖就绪、可选文件业务 smoke、Worker、合同/发票提取、审核执行、报告生成与知识索引崩溃恢复、local 性能子集和 local 安全基线。文件 smoke 通过 Nginx/TLS 真实 multipart，使用独立 `finance_reviewer` 账号验证职责边界，并等待 ClamAV INSTREAM → Celery Worker → PostgreSQL `stored/clean/succeeded`，最后校验 MinIO 原件预览字节与 ETag；system admin 不被授予 `files.upload`。Worker 崩溃门禁暂停精确归属 ClamAV，使 `file_process` 的 scan step 保持 running，再真实 SIGKILL 精确归属 Worker、确认 137 并显式启动同一容器；Maintenance 必须以 attempt 2 完成 `scan → parse → markdown`，正常 Worker 随后完成唯一 `contract_extract`。合同/发票/审核门禁分别持有目标业务表锁，使 attempt 1 在业务事务内阻塞后强杀同一 Worker，核对零部分事实，再由 Maintenance attempt 2 收敛唯一事实。报告门禁在确定性 PDF/XLSX 已写 MinIO、最终数据库事务未提交时强杀，核对孤儿对象保留并由 attempt 2 收敛相同字节；知识门禁在真实 Qdrant 点和 PostgreSQL 成员 Hash 已提交、最终 ready 事务未提交时强杀，核对相同 Point ID 幂等重放与跨恢复不变摘要。各门禁均核对 `LEASE_EXPIRED` 历史、客户端终态、唯一日志/Outbox 和依赖恢复。安全门禁只允许专用 `finaudit-security-*` 项目，并核对 TLS/CSRF/锁定/防枚举/角色拒绝/存在性隐藏/篡改 Token/Trace 审计/审计失败回滚/操作日志不可变/日志哨兵、容器权限与 loopback 暴露；同一门禁还上传含 canary 的提示注入 PDF，经 ClamAV/Worker、制度双人审批、安全专用 100 条 `no_answer` 合成集、float32 向量摘要一致性、真实 Qdrant 索引激活后，验证 HTTP 直接问题预检和授权检索后 PostgreSQL 终审均安全拒答，并扫描业务容器日志无 canary。`scripts/local_tls_browser_relay.py` 仅为显式门禁开启的一次性 loopback 测试中继：浏览器使用 HTTP 同源页面，中继把固定 Host/Origin/Referer 改写为本地 TLS Origin 并以禁证书校验的 TLS 客户端转发到原 Nginx；它不移除上游 Secure Cookie 属性、不开放任意上游、不进入 production。真实浏览器已通过该中继完成登录、工作台到问答页导航、直接注入提交和可见拒答，随后 PostgreSQL 独立核对唯一 Query、问题 Hash、Trace 与追加式操作日志。
+- 只有 Nginx HTTP 入口映射到主机 `127.0.0.1:${FINAUDIT_HTTP_PORT}`；Backend、数据库、缓存、对象存储、向量库和 Scanner 不发布主机端口。业务容器使用只读根文件系统和 `no-new-privileges`；Backend、Worker、Dispatcher、Maintenance 丢弃全部 capabilities，Frontend/Nginx 也先 `cap_drop: ALL`，只补回官方镜像启动所需的 `CHOWN/SETGID/SETUID`。`app`/`data` 网络为 internal；仅 ClamAV 同时加入 `scanner_updates` 网络以更新本地病毒库。该宽出口只允许 local，production 必须使用域名出口控制、代理、告警和定义版本审计。
+- `scripts/start-local-stack.ps1` 在 `%LOCALAPPDATA%/FinAuditAgent/runtime/<project>` 创建带归属标记的运行时 Secret 与 Ed25519 keyring，并通过只读 Secret mount 注入容器；`CR-024` 后不再生成或挂载 TLS 证书/私钥，也不创建或读取仓库 `.env`。启动器执行当前 accepted head `20260817_024` 迁移、七 Bucket、Qdrant Collection 和 first-org/admin 幂等 bootstrap，初始密码只输出文件路径且首次登录强制换密。
+- `scripts/verify-local-stack.ps1` 分开验证依赖、HTTP/Nginx 文件链、六类 Worker 崩溃恢复、性能和安全基线。文件 smoke 使用独立 `finance_reviewer` 并等待 ClamAV → Celery Worker → PostgreSQL `stored/clean/succeeded`，最后核对 MinIO 原件；各恢复门禁继续核对 `LEASE_EXPIRED`、attempt 2、唯一事实、日志/Outbox 与依赖恢复。安全门禁核对 HTTP/CSRF/锁定/防枚举/授权拒绝/Trace/审计回滚/日志不可变、容器权限和 loopback 暴露；浏览器直接访问门禁输出的 HTTP origin 完成登录、问答与拒答后，再由 PostgreSQL 终审 Query、Hash、Trace 和操作日志。HTTP 结果不提供传输加密证据。
 - 性能门禁只允许专用 `finaudit-perf-*` 项目；每个 run 连续三轮测量审核列表、单文件受理、默认最大 20 件批量及其同键重放，并运行 207 部分失败和 21 件超限 413，最后按 run-scoped 文件名核对 61 组文件/Job/attempt-1 scan step/published Outbox 与超限零副作用。该门禁可在同一隔离栈以新 run 重复执行，但小型合成 PDF 和 local 硬件结果不得外推为正式参考环境完整容量。
 - `scripts/backup-local-stack.ps1` 先静默业务写入，再生成 PostgreSQL custom dump 与 MinIO 停机一致整卷归档；manifest 保存 SHA-256、核心表行数和 MinIO 内容摘要，不包含 Secret。`scripts/restore-local-stack.ps1` 只允许新项目隔离恢复，逐表/逐摘要核对后重建 Redis/Qdrant/ClamAV 派生状态并等待 dependency-ready；恢复仍需要源 Secret 或等价受控注入。
-- `scripts/stop-local-stack.ps1` 默认保留卷与 Secret；只有显式 `-Purge` 且归属标记、项目名和受管绝对路径全部匹配时才删除。当前本地启动、冷重启、必需依赖 503 故障注入、文件 smoke、权威备份、隔离恢复、恢复后冷启动、性能 v2 全新栈三轮及同栈新 run 三轮重跑、local 安全基线已有实际通过证据；上传提示注入已同时具有 PostgreSQL 服务级回归、Nginx/HTTP + 真实 Qdrant 本地运行证据，以及经一次性 loopback 测试中继的真实浏览器可见拒答与数据库审计证据。跨组织 IDOR、浏览器直接信任自签名或 production CA、完整审计链、正式 DAST、production CA/TLS、Secret Manager、正式 Scanner/OCR、正式参考环境完整容量性能、异地备份、RPO/RTO、UAT 和 AC 仍为 `NOT_RUN`。
+- `scripts/stop-local-stack.ps1` 默认保留卷与 Secret；只有显式 `-Purge` 且归属标记、项目名和受管绝对路径全部匹配时才删除。`CR-024` 前的本地启动、文件、恢复、性能和安全证据保留为历史；HTTP Profile 必须重新验证入口、Cookie、文件和浏览器链。跨组织 IDOR、传输加密、完整审计链、正式 DAST、Secret Manager、正式 Scanner/OCR、正式参考环境完整容量性能、异地备份、RPO/RTO、UAT 和 AC 仍为 `NOT_RUN`。
 
 ## 15. BLOCKED：不得猜测的合同
 
@@ -742,7 +747,7 @@ SSOT 使用规则：
 - `BLOCKED-JOB-HTTP`：重试/取消动作的 `row_version` 来源、响应投影和冲突错误必须由新 OpenAPI 统一，不能拼接旧文档结论。
 - `BLOCKED-DOCUMENT-CORRECTION`：纠错结果版本回填与追加写不可变要求冲突。
 - `BLOCKED-SCANNER`：local Profile 已使用官方 ClamAV INSTREAM 并有真实 clean-path 证据，但不能冒充 production Scanner；生产产品、病毒库更新/回滚、出口、资源、告警和验证载体仍未闭合。
-- `BLOCKED-AI-PROVIDER`：真实端点、模型、网络 allowlist、持久 reserve/complete 和生产采用未验证或未授权。
+- `BLOCKED-AI-PROVIDER`：local Chat/Embedding 的端点、模型、网络 allowlist、Event/Policy v2 USD/CNY/no-FX 审计、持久 reserve/complete、Redis 运行门禁和业务采用已验证；完整百炼索引重建、代表性质量，以及 production Profile/Secret/quota/canary 仍未授权或未运行。
 
 `CR-018-R1/recommended-forward-v1` 已关闭供应商、正常单文档 Markdown/asset、P0 知识权限、Qdrant Collection、检索顺序、评测分级、规则目录、审核执行/high gate 和正式报告状态的实现歧义；对应 Schema、Router 和本地运行时现已实现。该实现仍不表示外部 Provider、完整部署、production 或任何 AC 已完成。
 

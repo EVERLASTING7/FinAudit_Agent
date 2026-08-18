@@ -19,12 +19,16 @@
 ```powershell
 $headers = @{ Authorization = "Bearer $env:METRICS_INTERNAL_TOKEN" }
 Invoke-WebRequest `
-  -Uri 'https://127.0.0.1:8443/metrics' `
+  -Uri 'http://127.0.0.1:8443/metrics' `
   -Headers $headers `
   -UseBasicParsing
 ```
 
 不得把真实 token 直接写进命令文本、脚本、截图或测试证据。401 表示缺少/拒绝独立凭据；404 表示 metrics 未启用或未注册。成功响应必须带 `Cache-Control: no-store` 和 `X-Content-Type-Options: nosniff`。
+
+`scripts/verify-local-stack.ps1 -SecurityBaseline` 会在可丢弃的本地安全栈中使用运行时受管凭据执行 401/200 双路径检查，并验证固定低基数指标、响应头和 1 MiB 响应上限；脚本只输出 PASS 标记，不输出凭据或指标正文。该门禁证明本地采集入口可用，不等于已有长期采集器、通知通道或 SLO。
+
+对现有受管栈做非破坏性巡检时，使用 `scripts/verify-local-stack.ps1 -ProjectName finaudit-local -OperationsReadiness`；它还会同步核对长期容器的日志轮转和 restart policy。
 
 ## 指标边界
 

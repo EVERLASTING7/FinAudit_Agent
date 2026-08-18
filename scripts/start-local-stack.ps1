@@ -23,8 +23,9 @@ param(
     [ValidatePattern('^[a-z0-9][a-z0-9_-]{2,39}$')]
     [string]$ProjectName = 'finaudit-local',
 
+    [Alias('HttpsPort')]
     [ValidateRange(1024, 65535)]
-    [int]$HttpsPort = 8443,
+    [int]$HttpPort = 8443,
 
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,39}$')]
     [string]$ImageRevision = 'dev'
@@ -52,9 +53,7 @@ $secretNames = @(
     'metrics_internal_token',
     'auth_jwt_private_key',
     'auth_jwt_public_keyring',
-    'bootstrap_admin_password',
-    'tls_certificate',
-    'tls_private_key'
+    'bootstrap_admin_password'
 )
 
 function Assert-SafeDotEnvValue([string]$Name, [string]$Value, [int]$MaximumLength) {
@@ -110,9 +109,9 @@ function Wait-LocalReadiness([int]$Port) {
     try {
         for ($attempt = 0; $attempt -lt 90; $attempt++) {
             try {
-                $healthResponse = $client.GetAsync("https://localhost:$Port/health").GetAwaiter().GetResult()
+                $healthResponse = $client.GetAsync("http://localhost:$Port/health").GetAwaiter().GetResult()
                 $readyResponse = $client.GetAsync(
-                    "https://localhost:$Port/health/dependencies"
+                    "http://localhost:$Port/health/dependencies"
                 ).GetAwaiter().GetResult()
                 if ($healthResponse.IsSuccessStatusCode -and $readyResponse.IsSuccessStatusCode) {
                     $payload = $readyResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult() |
@@ -268,7 +267,7 @@ try {
     $runtimeForCompose = $runtimeDirectory.Replace('\', '/')
     Write-Utf8File $temporaryEnvPath @(
         "FINAUDIT_RUNTIME_DIR=$runtimeForCompose",
-        "FINAUDIT_HTTPS_PORT=$HttpsPort",
+        "FINAUDIT_HTTP_PORT=$HttpPort",
         "FINAUDIT_IMAGE_REVISION=$ImageRevision",
         "BOOTSTRAP_ORGANIZATION_NAME=$OrganizationName",
         "BOOTSTRAP_ORGANIZATION_USCC=$OrganizationUscc",
@@ -297,7 +296,7 @@ try {
     ) 'Unable to reset the local one-shot initialization containers.'
     $null = Invoke-Docker ($composeArguments + @('up', '--detach', '--build')) `
         'The local Compose stack failed to start.'
-    Wait-LocalReadiness $HttpsPort
+    Wait-LocalReadiness $HttpPort
 }
 catch {
     if ($null -ne $stagingDirectory -and (Test-Path -LiteralPath $stagingDirectory)) {
@@ -318,7 +317,7 @@ catch {
 }
 
 Write-Output 'LOCAL_STACK_START=PASS'
-Write-Output "LOCAL_STACK_URL=https://localhost:$HttpsPort"
+Write-Output "LOCAL_STACK_URL=http://localhost:$HttpPort"
 Write-Output "LOCAL_STACK_ADMIN_USERNAME=$AdminUsername"
 Write-Output "LOCAL_STACK_RUNTIME_DIR=$runtimeDirectory"
 $restoredProperty = $marker.PSObject.Properties['restoredFromBackupId']

@@ -775,12 +775,6 @@ class Settings(BaseSettings):
             raise ValueError("production 必须配置完整 Auth JWT key Profile")
         if self.app_env is AppEnvironment.PROD and self.auth_public_origin is None:
             raise ValueError("production 必须配置 AUTH_PUBLIC_ORIGIN")
-        if (
-            self.app_env is AppEnvironment.PROD
-            and self.auth_public_origin is not None
-            and not self.auth_public_origin.startswith("https://")
-        ):
-            raise ValueError("production AUTH_PUBLIC_ORIGIN 必须使用 HTTPS")
         minio_scheme = urlsplit(self.minio_endpoint).scheme.lower()
         if self.minio_secure != (minio_scheme == "https"):
             raise ValueError("MINIO_SECURE 必须与 MINIO_ENDPOINT scheme 一致")
@@ -818,13 +812,13 @@ class Settings(BaseSettings):
             ):
                 raise ValueError("AI Provider settings do not match the approved live profile")
             if (
-                self.embedding_base_url is not None
-                or self.embedding_api_key is not None
-                or self.embedding_model != "deterministic-hash-v1"
+                self.embedding_base_url != "https://dashscope.aliyuncs.com/compatible-mode/v1"
+                or self.embedding_api_key is None
+                or self.embedding_model != "qwen3.7-text-embedding"
+                or self.embedding_vector_size != 1_024
+                or self.embedding_batch_size != 20
             ):
-                raise ValueError(
-                    "approved live AI profile only supports deterministic-hash-v1 embeddings"
-                )
+                raise ValueError("AI Embedding settings do not match the approved live profile")
         if self.ai_retry_jitter_ratio != 0.2:
             raise ValueError("AI retry jitter ratio must equal the approved Policy v1 value")
         legacy_chunking_configured = any(

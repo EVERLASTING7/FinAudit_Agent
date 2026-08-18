@@ -1,0 +1,79 @@
+{
+  "schema_version": "synthetic-benchmark-runtime-evidence-v1",
+  "recorded_on": "2026-08-17",
+  "environment_scope": [
+    "local",
+    "test"
+  ],
+  "source_binding": {
+    "review_asset": "tests/evaluation/synthetic-benchmark-owner-delegated-review-v1.json",
+    "review_asset_sha256": "87F5627F0306AA4D5B89E148EB0B4C8D970E80956CFAE624F0783BB66B3DA70F",
+    "corpus_asset": "tests/evaluation/synthetic-policy-corpus-v1.json",
+    "corpus_asset_sha256": "2CE2BE5118ADAC7D185D239AFD4713D3F637BDF9D12D314D7690732A8DFAD9E3"
+  },
+  "authorization": {
+    "authority_ref": "BOSS-LOCAL-TEST-DELEGATION-20260817",
+    "provider_request_cap": 152,
+    "input_token_cap": 50000,
+    "cost_cap_microunits": 1000000,
+    "cost_currency": "CNY",
+    "no_fx": true,
+    "single_paid_run": true,
+    "automatic_scope_expansion": false,
+    "production": false
+  },
+  "attempts": [
+    {
+      "attempt_id": "pre-provider-wiring-check-001",
+      "status": "failed_before_provider",
+      "failure_code": "SYNTHETIC_POLICY_PROCESSING_FAILED",
+      "root_cause": "The initial runner used a PDF-only clean scanner for synthetic DOCX policy assets.",
+      "remediation": "The runner now reuses the repository clean multi-format document scanner.",
+      "provider_stage_entered": false,
+      "provider_request_count": 0,
+      "actual_input_tokens": 0,
+      "actual_cost_microunits": 0,
+      "cleanup_remaining_container_count": 0
+    },
+    {
+      "attempt_id": "paid-single-run-001",
+      "status": "failed_quality_gate",
+      "failure_code": "MVP-UAT-050_EVALUATION_FAILED",
+      "answer_score_threshold": "0.650000",
+      "known_completed_stages": [
+        "36 synthetic policy clauses processed and independently approved in the disposable database",
+        "36-member index built in two embedding batches",
+        "index reached ready before evaluation",
+        "50-case mvp_uat evaluation entered"
+      ],
+      "not_run_stages": [
+        "100-case formal_release evaluation",
+        "index activation"
+      ],
+      "provider_request_count_exact": null,
+      "actual_input_tokens_exact": null,
+      "actual_cost_microunits_exact": null,
+      "missing_exact_telemetry_reason": "Failure telemetry was not emitted or retained before the disposable database was cleaned. The runner was hardened after this run, but that change is not retroactive evidence.",
+      "safe_bounds": {
+        "provider_request_count_max_before_stop": 52,
+        "input_token_hard_cap": 50000,
+        "cost_hard_cap_microunits": 1000000,
+        "cost_currency": "CNY"
+      },
+      "metric_breakdown_status": "unknown_not_persisted",
+      "retry_performed": false,
+      "index_status_before_cleanup": "ready",
+      "index_persisted_after_cleanup": false,
+      "qdrant_collection_deleted": true,
+      "cleanup_remaining_container_count": 0
+    }
+  ],
+  "acceptance_boundary": {
+    "is_business_representative_dataset": false,
+    "is_human_uat": false,
+    "is_formal_ac_acceptance": false,
+    "may_mark_ac_accepted": false,
+    "formal_release_passed": false,
+    "index_activated": false
+  }
+}

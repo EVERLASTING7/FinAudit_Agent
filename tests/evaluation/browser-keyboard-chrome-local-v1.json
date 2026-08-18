@@ -1,0 +1,52 @@
+{
+  "schema_version": "browser-keyboard-chrome-local-v1",
+  "recorded_on": "2026-08-17",
+  "environment_scope": [
+    "local",
+    "test"
+  ],
+  "test_data_classification": "synthetic_non_sensitive",
+  "runtime": {
+    "application_gate": "report-browser-gate-v1",
+    "application_gate_status": "passed",
+    "browser_family": "Chrome",
+    "browser_version": "151.0.7922.138",
+    "browser_control": "connected_external_browser",
+    "console_warning_error_count": 0
+  },
+  "observations": {
+    "login_native_tab_order": [
+      "username",
+      "password",
+      "remember_me_checkbox",
+      "login_button"
+    ],
+    "login_submit_with_enter": true,
+    "dashboard_native_tab_order": [
+      "skip_to_main",
+      "logout_button",
+      "dashboard_link",
+      "users_link",
+      "operation_logs_link",
+      "knowledge_bases_link",
+      "qa_link",
+      "body"
+    ],
+    "skip_link_result": {
+      "location_hash": "#main-content",
+      "active_element_tag": "MAIN",
+      "active_element_id": "main-content",
+      "main_heading": "工作台"
+    }
+  },
+  "not_run": {
+    "edge_native_keyboard": "Edge 151.0.4129.86 is installed, but no controllable Edge browser connection was available.",
+    "screen_reader": "Requires an assisted-technology acceptance session.",
+    "all_p0_route_keyboard_matrix": "This evidence covers the login page and authenticated application shell/dashboard only."
+  },
+  "acceptance_boundary": {
+    "is_formal_accessibility_acceptance": false,
+    "may_mark_ac_accepted": false,
+    "affected_tasks_remain_partial": true
+  }
+}

@@ -105,7 +105,8 @@ TABLES_AT_020 = TABLES_AT_019 | set(AUDIT_REPORT_RUNTIME_TABLES)
 TABLES_AT_021 = TABLES_AT_020
 TABLES_AT_022 = TABLES_AT_021
 TABLES_AT_023 = TABLES_AT_022
-CURRENT_HEAD_TABLES = TABLES_AT_023
+TABLES_AT_024 = TABLES_AT_023
+CURRENT_HEAD_TABLES = TABLES_AT_024
 EXPECTED_ROLE_CODES = {
     "system_admin",
     "finance_reviewer",
@@ -140,7 +141,8 @@ AUDIT_REPORT_RUNTIME_REVISION = "20260814_020"
 RETRIEVAL_INITIAL_STATE_REVISION = "20260815_021"
 INVOICE_NULL_CURRENCY_REVISION = "20260816_022"
 AI_GENERATED_FACTS_REVISION = "20260816_023"
-CURRENT_REVISION = AI_GENERATED_FACTS_REVISION
+CURRENCY_NEUTRAL_AI_COST_REVISION = "20260817_024"
+CURRENT_REVISION = CURRENCY_NEUTRAL_AI_COST_REVISION
 PRIVILEGED_AUTH_FUNCTIONS = {
     "enforce_break_glass_requests_state_v1",
     "enforce_user_roles_state_v1",
@@ -2393,6 +2395,205 @@ def test_ai_generated_fact_columns_and_constraints_round_trip(
     assert current_revision(database_url) == AI_GENERATED_FACTS_REVISION
     for table_name, prefix in expected_prefixes.items():
         assert len(contract(table_name, prefix)[0]) == 3
+
+
+def test_currency_neutral_ai_cost_migration_preserves_v1_and_guards_v2(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url, alembic_config = configure_disposable_database(monkeypatch)
+    reset_disposable_database_to_head(database_url, alembic_config)
+    organization_id = "6a73eb80-fde4-4be2-9679-37168dbe8f01"
+    operation_id = "4b625e5c-eef9-4e65-a9d0-6ed64870e766"
+    trace_id = "cd1d35d7-e014-43b8-b267-36268e1092dd"
+    v1_event_id = "876c4f10-50d8-4c1c-aeb4-6b6ba9799f01"
+    pending_event_id = "876c4f10-50d8-4c1c-aeb4-6b6ba9799f02"
+    v2_event_id = "876c4f10-50d8-4c1c-aeb4-6b6ba9799f03"
+    mixed_event_id = "876c4f10-50d8-4c1c-aeb4-6b6ba9799f04"
+
+    command.downgrade(alembic_config, AI_GENERATED_FACTS_REVISION)
+    execute_database_statement(
+        database_url,
+        """
+        INSERT INTO organizations (
+            id, name, unified_social_credit_code, tax_number, status
+        ) VALUES (
+            :organization_id, 'currency migration test',
+            'SYNTH-CURRENCY-MIGRATION-USCC', 'SYNTH-CURRENCY-MIGRATION-TAX', 'active'
+        )
+        """,
+        {"organization_id": organization_id},
+    )
+
+    def insert_ai_call(
+        event_id: str,
+        *,
+        event_version: int,
+        status: str,
+        legacy_cost: int | None,
+        currency: str | None = None,
+        reserved_cost: int | None = None,
+        actual_cost: int | None = None,
+    ) -> None:
+        columns = ""
+        values = ""
+        parameters: dict[str, object] = {
+            "event_id": event_id,
+            "event_version": event_version,
+            "organization_id": organization_id,
+            "operation_id": operation_id,
+            "trace_id": trace_id,
+            "status": status,
+            "event_sequence": 1 if status == "pending" else 2,
+            "legacy_cost": legacy_cost,
+        }
+        if event_version == 2:
+            columns = ", cost_currency, reserved_cost_microunits, actual_cost_microunits"
+            values = ", :currency, :reserved_cost, :actual_cost"
+            parameters.update(
+                {
+                    "currency": currency,
+                    "reserved_cost": reserved_cost,
+                    "actual_cost": actual_cost,
+                }
+            )
+        execute_database_statement(
+            database_url,
+            f"""
+            INSERT INTO ai_call_logs (
+                id, event_version, event_sequence, organization_id,
+                business_operation_id, trace_id, call_type, logical_generation_no,
+                provider_attempt_no, adapter_id, endpoint_id, model_id,
+                policy_version, policy_hash, pricing_version, input_hash,
+                output_hash, reserved_input_tokens, reserved_output_tokens,
+                reserved_cost_micro_usd, input_tokens, output_tokens, vector_count,
+                attempt_count, is_fallback, status, started_at, completed_at, duration_ms
+                {columns}
+            ) VALUES (
+                :event_id, :event_version, :event_sequence, :organization_id,
+                :operation_id, :trace_id, 'embedding', 1,
+                1, 'openai_embeddings_v1', 'synthetic-endpoint', 'synthetic-model',
+                '2', repeat('a',64), 'synthetic-pricing-v2', repeat('b',64),
+                CASE WHEN :status='pending' THEN NULL ELSE repeat('c',64) END,
+                10, 0, :legacy_cost,
+                CASE WHEN :status='pending' THEN NULL ELSE 7 END,
+                CASE WHEN :status='pending' THEN NULL ELSE 0 END,
+                CASE WHEN :status='pending' THEN NULL ELSE 1 END,
+                1, false, :status, clock_timestamp() - interval '1 second',
+                CASE WHEN :status='pending' THEN NULL ELSE clock_timestamp() END,
+                CASE WHEN :status='pending' THEN NULL ELSE 1000 END
+                {values}
+            )
+            """,
+            parameters,
+        )
+
+    def delete_ai_call(event_id: str) -> None:
+        engine = create_migration_engine(database_url)
+        try:
+            with engine.begin() as connection:
+                connection.exec_driver_sql("ALTER TABLE ai_call_logs DISABLE TRIGGER USER")
+                connection.execute(
+                    text("DELETE FROM ai_call_logs WHERE id=:event_id"),
+                    {"event_id": event_id},
+                )
+                connection.exec_driver_sql("ALTER TABLE ai_call_logs ENABLE TRIGGER USER")
+        finally:
+            engine.dispose()
+
+    insert_ai_call(
+        v1_event_id,
+        event_version=1,
+        status="succeeded",
+        legacy_cost=23,
+    )
+    command.upgrade(alembic_config, CURRENCY_NEUTRAL_AI_COST_REVISION)
+    engine = create_migration_engine(database_url)
+    try:
+        with engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    "SELECT event_version, reserved_cost_micro_usd, cost_currency, "
+                    "reserved_cost_microunits, actual_cost_microunits "
+                    "FROM ai_call_logs WHERE id=:event_id"
+                ),
+                {"event_id": v1_event_id},
+            ).one()
+            assert tuple(row) == (1, 23, None, None, None)
+    finally:
+        engine.dispose()
+
+    command.downgrade(alembic_config, AI_GENERATED_FACTS_REVISION)
+    delete_ai_call(v1_event_id)
+    insert_ai_call(
+        pending_event_id,
+        event_version=1,
+        status="pending",
+        legacy_cost=0,
+    )
+    assert (
+        call_expect_database_error(
+            lambda: command.upgrade(alembic_config, CURRENCY_NEUTRAL_AI_COST_REVISION)
+        )[0]
+        == "55000"
+    )
+    assert current_revision(database_url) == AI_GENERATED_FACTS_REVISION
+    delete_ai_call(pending_event_id)
+
+    command.upgrade(alembic_config, CURRENCY_NEUTRAL_AI_COST_REVISION)
+    insert_ai_call(
+        v2_event_id,
+        event_version=2,
+        status="succeeded",
+        legacy_cost=None,
+        currency="CNY",
+        reserved_cost=5,
+        actual_cost=4,
+    )
+    assert execute_expect_database_error(
+        database_url,
+        """
+        INSERT INTO ai_call_logs (
+            id, event_version, event_sequence, organization_id,
+            business_operation_id, trace_id, call_type, logical_generation_no,
+            provider_attempt_no, adapter_id, endpoint_id, model_id,
+            policy_version, policy_hash, pricing_version, input_hash,
+            output_hash, reserved_input_tokens, reserved_output_tokens,
+            reserved_cost_micro_usd, cost_currency, reserved_cost_microunits,
+            actual_cost_microunits, input_tokens, output_tokens, vector_count,
+            attempt_count, is_fallback, status, started_at, completed_at, duration_ms
+        ) VALUES (
+            :event_id, 2, 2, :organization_id, :operation_id, :trace_id,
+            'embedding', 1, 1, 'openai_embeddings_v1', 'synthetic-endpoint',
+            'synthetic-model', '2', repeat('a',64), 'synthetic-pricing-v2',
+            repeat('b',64), repeat('c',64), 10, 0, 1, 'CNY', 5, 4,
+            7, 0, 1, 1, false, 'succeeded', clock_timestamp() - interval '1 second',
+            clock_timestamp(), 1000
+        )
+        """,
+        {
+            "event_id": mixed_event_id,
+            "organization_id": organization_id,
+            "operation_id": operation_id,
+            "trace_id": trace_id,
+        },
+    ) == ("23514", "ck_ai_call_logs_cost_version_matrix")
+    assert (
+        call_expect_database_error(
+            lambda: command.downgrade(alembic_config, AI_GENERATED_FACTS_REVISION)
+        )[0]
+        == "55000"
+    )
+    assert current_revision(database_url) == CURRENCY_NEUTRAL_AI_COST_REVISION
+
+    delete_ai_call(v2_event_id)
+    execute_database_statement(
+        database_url,
+        "DELETE FROM organizations WHERE id=:organization_id",
+        {"organization_id": organization_id},
+    )
+    command.downgrade(alembic_config, AI_GENERATED_FACTS_REVISION)
+    command.upgrade(alembic_config, CURRENCY_NEUTRAL_AI_COST_REVISION)
+    assert current_revision(database_url) == CURRENCY_NEUTRAL_AI_COST_REVISION
 
 
 def test_financial_master_postgresql_catalog_is_exact_and_empty(

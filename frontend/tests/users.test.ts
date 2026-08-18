@@ -319,6 +319,8 @@ describe('UserManagementView', () => {
     expect(page.text()).not.toContain('BG-2026-0018')
     expect(page.find('#user-keyword').exists()).toBe(false)
     expect(page.find('#create-password').attributes('autocomplete')).toBe('new-password')
+    expect(page.find('#create-password').attributes('minlength')).toBe('6')
+    expect(page.text()).toContain('密码至少 6 个字符')
   })
 
   it('使用当前字符串版本提交状态变更，并以服务端返回版本更新页面', async () => {

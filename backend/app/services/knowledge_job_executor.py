@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+from time import monotonic
 from typing import Literal, Protocol, cast
-from uuid import UUID
+from uuid import UUID, uuid5
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -16,7 +17,12 @@ from app.adapters.qdrant_vector import (
     QdrantStoredPoint,
     QdrantVectorStoreError,
 )
-from app.ai.adapters.deterministic_hash import DeterministicHashEmbeddingAdapter
+from app.ai.embedding_runtime import (
+    AuditedEmbeddingAdoption,
+    EmbeddingCallIdentity,
+    EmbeddingInvocationError,
+    EmbeddingRuntime,
+)
 from app.evaluation.retrieval_metrics import (
     EvidenceIdentity,
     RankedRetrievalHit,
@@ -88,16 +94,20 @@ class KnowledgeJobExecutor:
         self,
         session_factory: sessionmaker[Session],
         vector_store: VectorStore,
-        embedding: DeterministicHashEmbeddingAdapter,
+        embedding: EmbeddingRuntime,
         *,
         embedding_batch_size: int,
+        evaluation_embedding_batch_size: int = 1,
     ) -> None:
         if not 1 <= embedding_batch_size <= 256:
             raise ValueError("embedding batch size is invalid")
+        if not 1 <= evaluation_embedding_batch_size <= embedding_batch_size:
+            raise ValueError("evaluation embedding batch size is invalid")
         self._session_factory = session_factory
         self._vector_store = vector_store
         self._embedding = embedding
         self._batch_size = embedding_batch_size
+        self._evaluation_batch_size = evaluation_embedding_batch_size
 
     def execute(
         self,
@@ -170,7 +180,13 @@ class KnowledgeJobExecutor:
         try:
             for offset in range(0, len(items), self._batch_size):
                 batch = items[offset : offset + self._batch_size]
-                vectors = tuple(self._embedding.embed_text(item.content_text) for item in batch)
+                vectors, adoption = self._embed_for_job(
+                    claim,
+                    operation_key=f"index:{offset}",
+                    resource_type="document_index_version",
+                    resource_id=index.id,
+                    input_texts=tuple(item.content_text for item in batch),
+                )
                 points = tuple(
                     QdrantPoint(
                         id=item.point_id,
@@ -192,6 +208,8 @@ class KnowledgeJobExecutor:
                             payload_sha256(upsert_point.payload),
                         ):
                             raise KnowledgeJobExecutionError("INDEX_MEMBER_DRIFT")
+                    if adoption is not None:
+                        adoption.adopt_in_transaction(session)
                     heartbeat = JobRuntimeRepository(session).heartbeat(current_claim)
                     if heartbeat is None:
                         raise KnowledgeJobExecutionError("JOB_FENCING_REJECTED")
@@ -211,7 +229,13 @@ class KnowledgeJobExecutor:
                     current_claim = heartbeat
             if set(observed) != set(expected):
                 raise KnowledgeJobExecutionError("INDEX_MEMBER_DRIFT")
-            materialized = self._materialized_hashes(index.id, items)
+            with self._session_factory() as session:
+                materialized_items = RetrievalRuntimeRepository(session).materialization_items(
+                    index.id
+                )
+            materialized = self._materialized_hashes(index.id, materialized_items)
+            if set(materialized) != set(expected):
+                raise KnowledgeJobExecutionError("INDEX_MEMBER_DRIFT")
             for point_id, stored in observed.items():
                 vector_hash, payload_hash = materialized[point_id]
                 if (
@@ -221,6 +245,12 @@ class KnowledgeJobExecutor:
                     raise KnowledgeJobExecutionError("INDEX_MEMBER_DRIFT")
         except QdrantVectorStoreError:
             return self._fail_index(current_claim, "DEPENDENCY_UNAVAILABLE", retryable=True)
+        except EmbeddingInvocationError as error:
+            return self._fail_index(
+                current_claim,
+                error.code,
+                retryable=error.retryable,
+            )
         except KnowledgeJobExecutionError as error:
             if error.code == "JOB_FENCING_REJECTED":
                 raise
@@ -300,53 +330,89 @@ class KnowledgeJobExecutor:
 
         current_claim = claim
         outcomes: list[_CaseOutcome] = []
+        embedding_adoptions: list[AuditedEmbeddingAdoption] = []
         threshold = dataset.answer_score_threshold
         try:
-            for case in cases:
-                with self._session_factory() as session:
-                    repository = RetrievalRuntimeRepository(session)
-                    allowed_ids = repository.eval_allowed_point_ids(
-                        index_version_id=index.id,
-                        baseline_date=case.baseline_date,
-                        allowed_policy_ids=tuple(case.allowed_policy_ids),
-                    )
-                    expected_identity = repository.index_chunk_identity(
-                        index.id, tuple(case.expected_chunk_ids)
-                    )
-                vector = self._embedding.embed_text(case.query_text)
-                hits = (
-                    ()
-                    if not allowed_ids
-                    else self._vector_store.query_authorized(
-                        vector,
-                        allowed_point_ids=allowed_ids,
-                        limit=min(5, len(allowed_ids)),
-                    )
-                )
-                with self._session_factory.begin() as session:
-                    repository = RetrievalRuntimeRepository(session)
-                    identities = repository.eval_hit_identity(
-                        index.id, tuple(hit.id for hit in hits)
-                    )
-                    if len(identities) != len(hits) or set(expected_identity) != set(
-                        case.expected_chunk_ids
-                    ):
-                        outcome = self._member_drift_outcome(case)
-                    else:
-                        outcome = self._case_outcome(
-                            case,
-                            hits,
-                            identities,
-                            expected_identity,
-                            threshold,
+            for offset in range(0, len(cases), self._evaluation_batch_size):
+                batch = cases[offset : offset + self._evaluation_batch_size]
+                batch_contexts: list[
+                    tuple[
+                        RetrievalEvalCase,
+                        tuple[UUID, ...],
+                        dict[UUID, tuple[UUID, str]],
+                    ]
+                ] = []
+                for case in batch:
+                    with self._session_factory() as session:
+                        repository = RetrievalRuntimeRepository(session)
+                        allowed_ids = repository.eval_allowed_point_ids(
+                            index_version_id=index.id,
+                            baseline_date=case.baseline_date,
+                            allowed_policy_ids=tuple(case.allowed_policy_ids),
                         )
-                    heartbeat = JobRuntimeRepository(session).heartbeat(current_claim)
-                    if heartbeat is None:
-                        raise KnowledgeJobExecutionError("JOB_FENCING_REJECTED")
-                    current_claim = heartbeat
-                outcomes.append(outcome)
+                        expected_identity = repository.index_chunk_identity(
+                            index.id, tuple(case.expected_chunk_ids)
+                        )
+                    batch_contexts.append((case, allowed_ids, expected_identity))
+
+                operation_key = (
+                    f"eval:{batch[0].id}"
+                    if len(batch) == 1
+                    else f"eval-batch:{offset}:{len(batch)}"
+                )
+                vectors, adoption = self._embed_for_job(
+                    claim,
+                    operation_key=operation_key,
+                    resource_type="retrieval_eval_run",
+                    resource_id=run.id,
+                    input_texts=tuple(case.query_text for case in batch),
+                )
+                if adoption is not None:
+                    embedding_adoptions.append(adoption)
+
+                for (case, allowed_ids, expected_identity), vector in zip(
+                    batch_contexts, vectors, strict=True
+                ):
+                    hits = (
+                        ()
+                        if not allowed_ids
+                        else self._vector_store.query_authorized(
+                            vector,
+                            allowed_point_ids=allowed_ids,
+                            limit=min(5, len(allowed_ids)),
+                        )
+                    )
+                    with self._session_factory.begin() as session:
+                        repository = RetrievalRuntimeRepository(session)
+                        identities = repository.eval_hit_identity(
+                            index.id, tuple(hit.id for hit in hits)
+                        )
+                        if len(identities) != len(hits) or set(expected_identity) != set(
+                            case.expected_chunk_ids
+                        ):
+                            outcome = self._member_drift_outcome(case)
+                        else:
+                            outcome = self._case_outcome(
+                                case,
+                                hits,
+                                identities,
+                                expected_identity,
+                                threshold,
+                            )
+                        heartbeat = JobRuntimeRepository(session).heartbeat(current_claim)
+                        if heartbeat is None:
+                            raise KnowledgeJobExecutionError("JOB_FENCING_REJECTED")
+                        current_claim = heartbeat
+                    outcomes.append(outcome)
         except QdrantVectorStoreError:
             return self._fail_evaluation(current_claim, run.id, "DEPENDENCY_UNAVAILABLE", True)
+        except EmbeddingInvocationError as error:
+            return self._fail_evaluation(
+                current_claim,
+                run.id,
+                error.code,
+                error.retryable,
+            )
 
         metrics = self._metrics(outcomes, threshold)
         passed = all(outcome.passed for outcome in outcomes)
@@ -362,6 +428,8 @@ class KnowledgeJobExecutor:
             )
             if existing_result is not None:
                 raise KnowledgeJobExecutionError("JOB_FENCING_REJECTED")
+            for adoption in embedding_adoptions:
+                adoption.adopt_in_transaction(session)
             repository.add_all(
                 tuple(
                     RetrievalEvalResult(
@@ -402,6 +470,42 @@ class KnowledgeJobExecutor:
             ):
                 raise KnowledgeJobExecutionError("JOB_FENCING_REJECTED")
         return KnowledgeJobExecutionResult("succeeded", claim.job.id)
+
+    def _embed_for_job(
+        self,
+        claim: ClaimedJob,
+        *,
+        operation_key: str,
+        resource_type: str,
+        resource_id: UUID,
+        input_texts: tuple[str, ...],
+    ) -> tuple[tuple[tuple[float, ...], ...], AuditedEmbeddingAdoption | None]:
+        trace_id = str(claim.job.trace_id)
+        if not self._embedding.requires_audit:
+            return (
+                self._embedding.embed_texts(trace_id=trace_id, input_texts=input_texts),
+                None,
+            )
+        result = self._embedding.embed_texts_audited(
+            trace_id=trace_id,
+            input_texts=input_texts,
+            identity=EmbeddingCallIdentity(
+                organization_id=claim.job.organization_id,
+                business_operation_id=uuid5(
+                    claim.job.id,
+                    f"attempt:{claim.job.attempt_no}:{operation_key}",
+                ),
+                job_id=claim.job.id,
+                request_id=None,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                trace_id=claim.job.trace_id,
+            ),
+            deadline_monotonic=(
+                monotonic() + self._embedding.transport_policy.total_timeout_seconds
+            ),
+        )
+        return result.vectors, result.adoption
 
     def _fail_index(
         self, claim: ClaimedJob, error_code: str, *, retryable: bool
@@ -470,16 +574,19 @@ class KnowledgeJobExecutor:
             and snapshot.current_attempt_start_step_code == handler.handler.steps[0].step_code
         )
 
+    @staticmethod
     def _materialized_hashes(
-        self, index_version_id: UUID, items: tuple[MaterializationItem, ...]
+        index_version_id: UUID, items: tuple[MaterializationItem, ...]
     ) -> dict[UUID, tuple[str, str]]:
-        return {
-            item.point_id: (
-                vector_sha256(self._embedding.embed_text(item.content_text)),
-                payload_sha256(point_payload(index_version_id, item.content_sha256)),
+        materialized: dict[UUID, tuple[str, str]] = {}
+        for item in items:
+            expected_payload_sha256 = payload_sha256(
+                point_payload(index_version_id, item.content_sha256)
             )
-            for item in items
-        }
+            if item.vector_sha256 is None or item.payload_sha256 != expected_payload_sha256:
+                raise KnowledgeJobExecutionError("INDEX_MEMBER_DRIFT")
+            materialized[item.point_id] = (item.vector_sha256, item.payload_sha256)
+        return materialized
 
     @staticmethod
     def _case_outcome(

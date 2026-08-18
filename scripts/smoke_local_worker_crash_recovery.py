@@ -181,8 +181,8 @@ def _client_profile() -> tuple[str, str, str, str, Path]:
     username = _required_environment("BOOTSTRAP_ADMIN_USERNAME")
     run_id = _required_environment("FINAUDIT_CRASH_RUN_ID")
     if (
-        base_url != "https://frontend:8443"
-        or not origin.startswith("https://localhost:")
+        base_url != "http://frontend:8443"
+        or not origin.startswith("http://localhost:")
         or _RUN_ID_PATTERN.fullmatch(run_id) is None
     ):
         raise CrashRecoveryError("CLIENT_PROFILE_INVALID")
@@ -194,7 +194,7 @@ def run_client() -> None:
     password = _read_password(os.environ.get("BOOTSTRAP_ADMIN_PASSWORD_FILE"))
     payload = _crash_contract_docx(run_id)
     contract_no = _contract_no(run_id)
-    host = origin.removeprefix("https://")
+    host = origin.removeprefix("http://")
 
     with httpx.Client(
         base_url=base_url,
@@ -254,7 +254,9 @@ def run_client() -> None:
                 raise CrashRecoveryError("JOB_ID_DRIFT")
             status = data.get("job_status")
             if status == "running" and not running_observed:
-                _write_state(state_path, phase="running", file_id=file_id, job_id=job_id)
+                _write_state(
+                    state_path, phase="running", file_id=file_id, job_id=job_id
+                )
                 running_observed = True
                 recovery_deadline = time.monotonic() + _RECOVERY_TIMEOUT_SECONDS
             if status in {"succeeded", "failed", "cancelled"}:
@@ -365,7 +367,9 @@ def run_database_verification() -> None:
                 .order_by(AsyncJobStep.attempt_no, AsyncJobStep.step_seq)
             ).all()
             extraction_jobs = tuple(
-                candidate for candidate in jobs if candidate.job_type == "contract_extract"
+                candidate
+                for candidate in jobs
+                if candidate.job_type == "contract_extract"
             )
             extraction_job = extraction_jobs[0] if len(extraction_jobs) == 1 else None
             extraction_steps = (
@@ -392,7 +396,9 @@ def run_database_verification() -> None:
                 []
                 if contract is None
                 else session.scalars(
-                    select(ContractField).where(ContractField.contract_id == contract.id)
+                    select(ContractField).where(
+                        ContractField.contract_id == contract.id
+                    )
                 ).all()
             )
             extraction_logs = (
@@ -426,7 +432,8 @@ def run_database_verification() -> None:
     ):
         raise CrashRecoveryError("DATABASE_JOB_STATE_INVALID")
     observed_file_steps = [
-        (step.attempt_no, step.step_code, step.status, step.error_code) for step in file_steps
+        (step.attempt_no, step.step_code, step.status, step.error_code)
+        for step in file_steps
     ]
     if observed_file_steps != [
         (1, "scan", "failed", "LEASE_EXPIRED"),
@@ -436,7 +443,8 @@ def run_database_verification() -> None:
     ]:
         raise CrashRecoveryError("DATABASE_STEP_HISTORY_INVALID")
     observed_extraction_steps = [
-        (step.attempt_no, step.step_code, step.status, step.error_code) for step in extraction_steps
+        (step.attempt_no, step.step_code, step.status, step.error_code)
+        for step in extraction_steps
     ]
     if observed_extraction_steps != [(1, "extract", "succeeded", None)]:
         raise CrashRecoveryError("DATABASE_EXTRACTION_STEP_HISTORY_INVALID")

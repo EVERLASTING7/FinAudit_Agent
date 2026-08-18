@@ -48,6 +48,8 @@ _INTEGER_FIELD_NAMES: Final = frozenset(
         "reserved_input_tokens",
         "reserved_output_tokens",
         "reserved_cost_micro_usd",
+        "reserved_cost_microunits",
+        "actual_cost_microunits",
         "attempt_count",
         "duration_ms",
         "input_tokens",
@@ -225,6 +227,7 @@ SafeNonNegativeInteger = Annotated[int, BeforeValidator(_normalize_mathematical_
 SafePositiveInteger = Annotated[int, BeforeValidator(_normalize_positive_integer)]
 HttpStatus = Annotated[int, BeforeValidator(_normalize_http_status)]
 EventVersionOne = Annotated[Literal[1], BeforeValidator(_normalize_positive_integer)]
+EventVersionTwo = Annotated[Literal[2], BeforeValidator(_normalize_positive_integer)]
 EventSequenceOne = Annotated[Literal[1], BeforeValidator(_normalize_positive_integer)]
 EventSequenceTwo = Annotated[Literal[2], BeforeValidator(_normalize_positive_integer)]
 EventSequenceThree = Annotated[Literal[3], BeforeValidator(_normalize_positive_integer)]
@@ -297,6 +300,7 @@ ErrorCategory: TypeAlias = Literal[
     "server_error",
     "transient",
 ]
+CostCurrency: TypeAlias = Literal["USD", "CNY"]
 
 
 class _StrictFrozenEventV1(BaseModel):
@@ -309,7 +313,7 @@ class _StrictFrozenEventV1(BaseModel):
     )
 
     event_id: UuidText
-    event_version: EventVersionOne
+    event_version: SafePositiveInteger
     event_sequence: SafePositiveInteger
     event_type: Literal["ai.call.started", "ai.call.completed", "ai.call.late_completion"]
     aggregate_type: Literal["ai_call"]
@@ -534,6 +538,7 @@ class _StrictFrozenEventV1(BaseModel):
 
 
 class AiCallStartedV1(_StrictFrozenEventV1):
+    event_version: EventVersionOne
     event_sequence: EventSequenceOne
     event_type: Literal["ai.call.started"]
     organization_id: UuidText
@@ -590,6 +595,7 @@ class AiCallStartedV1(_StrictFrozenEventV1):
 
 
 class AiCallCompletedV1(_StrictFrozenEventV1):
+    event_version: EventVersionOne
     event_sequence: EventSequenceTwo
     event_type: Literal["ai.call.completed"]
     organization_id: UuidText
@@ -648,6 +654,7 @@ class AiCallCompletedV1(_StrictFrozenEventV1):
 
 
 class AiCallLateCompletionV1(_StrictFrozenEventV1):
+    event_version: EventVersionOne
     event_sequence: EventSequenceThree
     event_type: Literal["ai.call.late_completion"]
     organization_id: UuidText
@@ -669,7 +676,169 @@ class AiCallLateCompletionV1(_StrictFrozenEventV1):
     safe_error_code: SafeErrorCode | None = None
 
 
+class AiCallStartedV2(_StrictFrozenEventV1):
+    event_version: EventVersionTwo
+    event_sequence: EventSequenceOne
+    event_type: Literal["ai.call.started"]
+    organization_id: UuidText
+    business_operation_id: UuidText
+    job_id: UuidText | None
+    request_id: UuidText | None
+    resource_type: ResourceType | None
+    resource_id: UuidText | None
+    trace_id: UuidText
+    call_type: CallType
+    logical_generation_no: SafePositiveInteger
+    provider_attempt_no: SafePositiveInteger
+    adapter_id: Literal["openai_chat_completions_v1", "openai_embeddings_v1"]
+    endpoint_id: EndpointId
+    model_id: ModelId
+    model_version: SafeText | None
+    prompt_id: SafeText | None
+    prompt_version: SafeText | None
+    prompt_hash: Sha256Text | None
+    schema_version: SafeText | None
+    policy_version: SafePositiveInteger
+    policy_hash: Sha256Text
+    pricing_version: PricingVersion
+    input_hash: Sha256Text
+    reserved_input_tokens: SafeNonNegativeInteger
+    reserved_output_tokens: SafeNonNegativeInteger
+    cost_currency: CostCurrency | None
+    reserved_cost_microunits: SafeNonNegativeInteger
+    attempt_count: SafePositiveInteger
+    is_fallback: bool
+    breaker_state: Literal["closed", "half_open", "open"] | None
+    status: Literal["pending"]
+    started_at: TimestampUtcMicroseconds
+
+    @model_validator(mode="after")
+    def validate_started_contract(self) -> Self:
+        if self.attempt_count != self.provider_attempt_no:
+            raise ValueError("attempt_count must equal provider_attempt_no")
+        if self.cost_currency is None and self.reserved_cost_microunits != 0:
+            raise ValueError("internal unmetered reservation must be zero")
+        if self.call_type == "embedding":
+            if self.adapter_id != "openai_embeddings_v1" or any(
+                value is not None
+                for value in (
+                    self.prompt_id,
+                    self.prompt_version,
+                    self.prompt_hash,
+                    self.schema_version,
+                )
+            ):
+                raise ValueError("embedding started fields do not match Event v2")
+        elif self.adapter_id != "openai_chat_completions_v1" or any(
+            value is None for value in (self.prompt_id, self.prompt_version, self.prompt_hash)
+        ):
+            raise ValueError("LLM started fields do not match Event v2")
+        return self
+
+
+class AiCallCompletedV2(_StrictFrozenEventV1):
+    event_version: EventVersionTwo
+    event_sequence: EventSequenceTwo
+    event_type: Literal["ai.call.completed"]
+    organization_id: UuidText
+    business_operation_id: UuidText
+    job_id: UuidText | None
+    request_id: UuidText | None
+    trace_id: UuidText
+    policy_version: SafePositiveInteger
+    policy_hash: Sha256Text
+    cost_currency: CostCurrency | None
+    actual_cost_microunits: SafeNonNegativeInteger | None
+    status: Literal["succeeded", "failed", "degraded", "rejected", "outcome_unknown"]
+    completed_at: TimestampUtcMicroseconds
+    duration_ms: SafeNonNegativeInteger
+    output_hash: Sha256Text | None
+    input_tokens: SafeNonNegativeInteger | None
+    output_tokens: SafeNonNegativeInteger | None
+    vector_count: SafeNonNegativeInteger | None
+    http_status: HttpStatus | None
+    error_category: ErrorCategory | None
+    safe_error_code: SafeErrorCode | None
+    citation_validation_status: CitationValidationStatus | None
+
+    @model_validator(mode="after")
+    def validate_status_matrix(self) -> Self:
+        if self.cost_currency is None and self.actual_cost_microunits not in (None, 0):
+            raise ValueError("internal unmetered actual cost must be zero or null")
+        if self.status == "succeeded":
+            if (
+                self.output_hash is None
+                or self.input_tokens is None
+                or self.output_tokens is None
+                or self.http_status != 200
+                or self.error_category is not None
+                or self.safe_error_code is not None
+                or self.actual_cost_microunits is None
+            ):
+                raise ValueError("succeeded fields do not match Event v2")
+            if self.cost_currency is None and self.actual_cost_microunits != 0:
+                raise ValueError("internal unmetered success cost must be zero")
+        elif self.status == "outcome_unknown":
+            if (
+                any(
+                    value is not None
+                    for value in (
+                        self.output_hash,
+                        self.input_tokens,
+                        self.output_tokens,
+                        self.vector_count,
+                        self.http_status,
+                        self.error_category,
+                        self.citation_validation_status,
+                        self.actual_cost_microunits,
+                    )
+                )
+                or self.safe_error_code != "AI_OUTCOME_UNKNOWN"
+            ):
+                raise ValueError("outcome_unknown fields do not match Event v2")
+        elif self.error_category is None or self.safe_error_code is None:
+            raise ValueError("terminal error fields do not match Event v2")
+        elif self.status == "failed" and self.citation_validation_status is not None:
+            raise ValueError("failed citation status must be null")
+        return self
+
+
+class AiCallLateCompletionV2(_StrictFrozenEventV1):
+    event_version: EventVersionTwo
+    event_sequence: EventSequenceThree
+    event_type: Literal["ai.call.late_completion"]
+    organization_id: UuidText
+    business_operation_id: UuidText
+    job_id: UuidText | None
+    request_id: UuidText | None
+    trace_id: UuidText
+    policy_version: SafePositiveInteger
+    policy_hash: Sha256Text
+    cost_currency: CostCurrency | None
+    actual_cost_microunits: SafeNonNegativeInteger | None = None
+    observed_status: Literal["succeeded", "failed", "degraded", "rejected"]
+    provider_completed_at: TimestampUtcMicroseconds
+    duration_ms: SafeNonNegativeInteger | None = None
+    output_hash: Sha256Text | None = None
+    input_tokens: SafeNonNegativeInteger | None = None
+    output_tokens: SafeNonNegativeInteger | None = None
+    vector_count: SafeNonNegativeInteger | None = None
+    http_status: HttpStatus | None = None
+    error_category: ErrorCategory | None = None
+    safe_error_code: SafeErrorCode | None = None
+
+    @model_validator(mode="after")
+    def validate_cost_matrix(self) -> Self:
+        if self.cost_currency is None and self.actual_cost_microunits not in (None, 0):
+            raise ValueError("internal unmetered actual cost must be zero or null")
+        if self.observed_status == "succeeded" and self.actual_cost_microunits is None:
+            raise ValueError("late success requires authoritative actual cost")
+        return self
+
+
 AiCallEventV1: TypeAlias = AiCallStartedV1 | AiCallCompletedV1 | AiCallLateCompletionV1
+AiCallEventV2: TypeAlias = AiCallStartedV2 | AiCallCompletedV2 | AiCallLateCompletionV2
+AiCallEvent: TypeAlias = AiCallEventV1 | AiCallEventV2
 _DiscriminatedAiCallEventV1: TypeAlias = Annotated[
     AiCallEventV1,
     Field(discriminator="event_type"),
@@ -677,14 +846,27 @@ _DiscriminatedAiCallEventV1: TypeAlias = Annotated[
 _AI_CALL_EVENT_ADAPTER: TypeAdapter[_DiscriminatedAiCallEventV1] = TypeAdapter(
     _DiscriminatedAiCallEventV1
 )
-_CONCRETE_EVENT_TYPES: Final = (
+_DiscriminatedAiCallEventV2: TypeAlias = Annotated[
+    AiCallEventV2,
+    Field(discriminator="event_type"),
+]
+_AI_CALL_EVENT_V2_ADAPTER: TypeAdapter[_DiscriminatedAiCallEventV2] = TypeAdapter(
+    _DiscriminatedAiCallEventV2
+)
+_CONCRETE_EVENT_TYPES_V1: Final = (
     AiCallStartedV1,
     AiCallCompletedV1,
     AiCallLateCompletionV1,
 )
+_CONCRETE_EVENT_TYPES_V2: Final = (
+    AiCallStartedV2,
+    AiCallCompletedV2,
+    AiCallLateCompletionV2,
+)
+_CONCRETE_EVENT_TYPES: Final = _CONCRETE_EVENT_TYPES_V1 + _CONCRETE_EVENT_TYPES_V2
 
 
-def _strict_event_view(value: object) -> tuple[AiCallEventV1, bytes]:
+def _strict_event_view(value: object) -> tuple[AiCallEvent, bytes]:
     """从封闭字段和不可变 fields-set 重建并严格验证可信 Event 投影。"""
 
     try:
@@ -750,8 +932,8 @@ def validate_ai_call_event_v1(value: object) -> AiCallEventV1:
     """验证已解析对象，且不允许调用方放松 strict/closed 规则。"""
 
     try:
-        if type(value) in _CONCRETE_EVENT_TYPES:
-            return _strict_event_view(value)[0]
+        if type(value) in _CONCRETE_EVENT_TYPES_V1:
+            return cast(AiCallEventV1, _strict_event_view(value)[0])
         validated = _AI_CALL_EVENT_ADAPTER.validate_python(
             value,
             strict=True,
@@ -759,7 +941,7 @@ def validate_ai_call_event_v1(value: object) -> AiCallEventV1:
             from_attributes=False,
             context=_VALIDATION_CONTEXT,
         )
-        return _strict_event_view(validated)[0]
+        return cast(AiCallEventV1, _strict_event_view(validated)[0])
     except ValidationError as error:
         raise _redact_event_validation_error(error) from None
 
@@ -768,6 +950,45 @@ def parse_ai_call_event_v1(json_data: str | bytes | bytearray) -> AiCallEventV1:
     """解析拒绝重复 key 的 Event v1 JSON，并移除错误中的原始输入。"""
 
     return validate_ai_call_event_v1(_load_event_json(json_data))
+
+
+def validate_ai_call_event_v2(value: object) -> AiCallEventV2:
+    """严格验证 Event v2；v1 payload 必须由 v1 入口处理。"""
+
+    try:
+        if type(value) in _CONCRETE_EVENT_TYPES_V2:
+            return cast(AiCallEventV2, _strict_event_view(value)[0])
+        validated = _AI_CALL_EVENT_V2_ADAPTER.validate_python(
+            value,
+            strict=True,
+            extra="forbid",
+            from_attributes=False,
+            context=_VALIDATION_CONTEXT,
+        )
+        return cast(AiCallEventV2, _strict_event_view(validated)[0])
+    except ValidationError as error:
+        raise _redact_event_validation_error(error) from None
+
+
+def parse_ai_call_event_v2(json_data: str | bytes | bytearray) -> AiCallEventV2:
+    return validate_ai_call_event_v2(_load_event_json(json_data))
+
+
+def validate_ai_call_event(value: object) -> AiCallEvent:
+    if type(value) in _CONCRETE_EVENT_TYPES:
+        return _strict_event_view(value)[0]
+    if type(value) is not dict:
+        raise _fixed_event_validation_error()
+    version = cast(dict[object, object], value).get("event_version")
+    if version == 1 and type(version) is int:
+        return validate_ai_call_event_v1(value)
+    if version == 2 and type(version) is int:
+        return validate_ai_call_event_v2(value)
+    raise _fixed_event_validation_error()
+
+
+def parse_ai_call_event(json_data: str | bytes | bytearray) -> AiCallEvent:
+    return validate_ai_call_event(_load_event_json(json_data))
 
 
 ReplayDisposition: TypeAlias = Literal["replayed_same", "conflict"]
@@ -845,3 +1066,81 @@ def validate_ai_call_event_chain(
         getattr(started, field) != getattr(late, field) for field in correlation_fields
     ):
         raise AiCallEventConflictError
+
+
+def validate_ai_call_event_chain_v2(
+    started: AiCallStartedV2,
+    completed: AiCallCompletedV2,
+    late: AiCallLateCompletionV2 | None = None,
+) -> None:
+    """验证 v2 相关性、币种、费用和 Embedding 结果矩阵。"""
+
+    try:
+        validated_started, _ = _strict_event_view(started)
+        validated_completed, _ = _strict_event_view(completed)
+        if (
+            type(validated_started) is not AiCallStartedV2
+            or type(validated_completed) is not AiCallCompletedV2
+        ):
+            raise TypeError(_VALIDATION_ERROR)
+        started = validated_started
+        completed = validated_completed
+        if late is not None:
+            validated_late, _ = _strict_event_view(late)
+            if type(validated_late) is not AiCallLateCompletionV2:
+                raise TypeError(_VALIDATION_ERROR)
+            late = validated_late
+    except (AttributeError, TypeError, ValueError):
+        raise AiCallEventConflictError from None
+
+    correlation_fields = (
+        "event_id",
+        "organization_id",
+        "business_operation_id",
+        "job_id",
+        "request_id",
+        "trace_id",
+        "policy_version",
+        "policy_hash",
+        "cost_currency",
+    )
+    if any(getattr(started, field) != getattr(completed, field) for field in correlation_fields):
+        raise AiCallEventConflictError
+    if completed.completed_at < started.started_at:
+        raise AiCallEventConflictError
+    if started.call_type == "embedding":
+        if completed.status == "succeeded" and (
+            completed.output_tokens != 0
+            or completed.vector_count is None
+            or completed.vector_count == 0
+        ):
+            raise AiCallEventConflictError
+    elif completed.vector_count is not None:
+        raise AiCallEventConflictError
+
+    if late is None:
+        return
+    if completed.status != "outcome_unknown" or any(
+        getattr(started, field) != getattr(late, field) for field in correlation_fields
+    ):
+        raise AiCallEventConflictError
+
+
+def validate_ai_call_event_chain_any(
+    started: AiCallStartedV1 | AiCallStartedV2,
+    completed: AiCallCompletedV1 | AiCallCompletedV2,
+    late: AiCallLateCompletionV1 | AiCallLateCompletionV2 | None = None,
+) -> None:
+    """显式按版本分派，禁止 v1/v2 事件混链。"""
+
+    if isinstance(started, AiCallStartedV1) and isinstance(completed, AiCallCompletedV1):
+        if late is not None and not isinstance(late, AiCallLateCompletionV1):
+            raise AiCallEventConflictError
+        validate_ai_call_event_chain(started, completed, late)
+        return
+    if isinstance(started, AiCallStartedV2) and isinstance(completed, AiCallCompletedV2):
+        if late is not None and not isinstance(late, AiCallLateCompletionV2):
+            raise AiCallEventConflictError
+        validate_ai_call_event_chain_v2(started, completed, late)
+        return
+    raise AiCallEventConflictError

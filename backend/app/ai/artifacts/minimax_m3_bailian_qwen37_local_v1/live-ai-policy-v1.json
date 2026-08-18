@@ -1,0 +1,122 @@
+{
+  "environment_scope": [
+    "local",
+    "test"
+  ],
+  "llm_profile": {
+    "adapter_id": "openai_chat_completions_v1",
+    "address_policy_version": "ip-deny-cidrs-v1",
+    "allowed_cidrs": [],
+    "allowed_response_model_ids": [
+      "MiniMax-M3"
+    ],
+    "approved_hostnames": [
+      "api.minimaxi.com"
+    ],
+    "base_url": "https://api.minimaxi.com/v1",
+    "billing_mode": "external_usd",
+    "completion_token_field": "max_completion_tokens",
+    "context_window_tokens": 512000,
+    "endpoint_id": "minimax-global-api-v1",
+    "input_accounting_mode": "request_utf8_bytes_plus_4096_v1",
+    "input_price_micro_usd_per_million": 300000,
+    "model_id": "MiniMax-M3",
+    "model_version": "minimax-m3-2026-06-01",
+    "network_scope": "external_public",
+    "output_price_micro_usd_per_million": 1200000,
+    "pricing_version": "minimax-m3-paygo-2026-08-16-lte-512k",
+    "secret_slot": "LLM_API_KEY",
+    "service_tier": "standard",
+    "thinking_mode": "disabled"
+  },
+  "embedding_profile": {
+    "adapter_id": "openai_embeddings_v1",
+    "address_policy_version": "ip-deny-cidrs-v1",
+    "allowed_cidrs": [],
+    "allowed_response_model_ids": [
+      "qwen3.7-text-embedding"
+    ],
+    "approved_hostnames": [
+      "dashscope.aliyuncs.com"
+    ],
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "billing_mode": "external_cny",
+    "embedding_dimension": 1024,
+    "endpoint_id": "bailian-beijing-compatible-v1",
+    "input_price_micro_cny_per_million": 500000,
+    "model_id": "qwen3.7-text-embedding",
+    "model_revision_mode": "provider_managed_alias",
+    "network_scope": "external_public",
+    "pricing_version": "bailian-qwen37-embedding-cny-2026-08-17",
+    "secret_slot": "EMBEDDING_API_KEY",
+    "usage_input_token_field": "prompt_tokens"
+  },
+  "operations": {
+    "contract_field_extraction": {
+      "deadline_seconds": 120,
+      "max_cost_micro_usd": 250000,
+      "max_input_tokens_per_request": 262144,
+      "max_model_repairs": 2,
+      "max_output_tokens_per_request": 2500,
+      "max_provider_attempts_per_business_operation": 3,
+      "max_total_tokens": 793932
+    },
+    "invoice_field_extraction": {
+      "deadline_seconds": 60,
+      "max_cost_micro_usd": 250000,
+      "max_input_tokens_per_request": 262144,
+      "max_model_repairs": 2,
+      "max_output_tokens_per_request": 2500,
+      "max_provider_attempts_per_business_operation": 3,
+      "max_total_tokens": 793932
+    },
+    "rag_answer": {
+      "deadline_seconds": 90,
+      "max_cost_micro_usd": 250000,
+      "max_input_tokens_per_request": 131072,
+      "max_model_repairs": 2,
+      "max_output_tokens_per_request": 1800,
+      "max_provider_attempts_per_business_operation": 3,
+      "max_total_tokens": 398616
+    },
+    "report_draft": {
+      "deadline_seconds": 90,
+      "max_cost_micro_usd": 250000,
+      "max_input_tokens_per_request": 131072,
+      "max_model_repairs": 1,
+      "max_output_tokens_per_request": 3000,
+      "max_provider_attempts_per_business_operation": 2,
+      "max_total_tokens": 268144
+    },
+    "risk_explanation": {
+      "deadline_seconds": 60,
+      "max_cost_micro_usd": 250000,
+      "max_input_tokens_per_request": 131072,
+      "max_model_repairs": 2,
+      "max_output_tokens_per_request": 1600,
+      "max_provider_attempts_per_business_operation": 3,
+      "max_total_tokens": 397416
+    },
+    "embedding": {
+      "deadline_seconds": 30,
+      "max_batch_size": 20,
+      "max_input_tokens_per_text": 128000,
+      "max_provider_attempts_per_business_operation": 1
+    }
+  },
+  "outbound_limits": {
+    "ip_deny_registry_sha256": "628dbf127cf3e88095c479cd8a6a03e87ece7e7f0977856357269579188eca34",
+    "ip_deny_registry_version": "ip-deny-cidrs-v1",
+    "max_chat_decompressed_bytes": 2097152,
+    "max_embedding_decompressed_bytes": 4194304,
+    "max_request_bytes": 4194304,
+    "max_response_header_bytes": 65536
+  },
+  "policy_id": "minimax-m3-bailian-qwen37-local-v1",
+  "policy_version": 1,
+  "provider_calls_enabled": true,
+  "sampling": {
+    "temperature": 0.0,
+    "top_p": 0.95
+  }
+}

@@ -75,6 +75,11 @@ $priorConfirmation = [Environment]::GetEnvironmentVariable(
     'FINAUDIT_ALLOW_LOCAL_CELERY_REDIS_TEST',
     'Process'
 )
+$priorRuntimeUrl = [Environment]::GetEnvironmentVariable('FINAUDIT_TEST_REDIS_URL', 'Process')
+$priorRuntimeConfirmation = [Environment]::GetEnvironmentVariable(
+    'FINAUDIT_TEST_REDIS_CONFIRMATION',
+    'Process'
+)
 
 try {
     [Environment]::SetEnvironmentVariable('REDIS_PASSWORD', $password, 'Process')
@@ -121,6 +126,12 @@ try {
     }
     $brokerUrl = "redis://:$password@127.0.0.1:$port/0"
     [Environment]::SetEnvironmentVariable('TEST_CELERY_BROKER_URL', $brokerUrl, 'Process')
+    [Environment]::SetEnvironmentVariable('FINAUDIT_TEST_REDIS_URL', $brokerUrl, 'Process')
+    [Environment]::SetEnvironmentVariable(
+        'FINAUDIT_TEST_REDIS_CONFIRMATION',
+        'ALLOW_LOCAL_REDIS_RUNTIME_CONTROL_TEST',
+        'Process'
+    )
     [Environment]::SetEnvironmentVariable(
         'FINAUDIT_ALLOW_LOCAL_CELERY_REDIS_TEST',
         'isolated-loopback-redis',
@@ -131,7 +142,8 @@ try {
     try {
         $test = Invoke-CommandResult $python @(
             '-m', 'pytest',
-            'tests/integration/broker/test_real_celery_redis.py'
+            'tests/integration/broker/test_real_celery_redis.py',
+            'tests/integration/broker/test_ai_runtime_control_redis.py'
         )
     }
     finally {
@@ -148,6 +160,12 @@ try {
 }
 finally {
     [Environment]::SetEnvironmentVariable('TEST_CELERY_BROKER_URL', $priorBrokerUrl, 'Process')
+    [Environment]::SetEnvironmentVariable('FINAUDIT_TEST_REDIS_URL', $priorRuntimeUrl, 'Process')
+    [Environment]::SetEnvironmentVariable(
+        'FINAUDIT_TEST_REDIS_CONFIRMATION',
+        $priorRuntimeConfirmation,
+        'Process'
+    )
     [Environment]::SetEnvironmentVariable(
         'FINAUDIT_ALLOW_LOCAL_CELERY_REDIS_TEST',
         $priorConfirmation,

@@ -27,12 +27,17 @@ from app.ai.event_sink import (
 )
 from app.ai.events import (
     AiCallCompletedV1,
+    AiCallCompletedV2,
     AiCallLateCompletionV1,
+    AiCallLateCompletionV2,
     AiCallStartedV1,
-    parse_ai_call_event_v1,
+    AiCallStartedV2,
+    parse_ai_call_event,
 )
 from app.repositories.ai_call_audit import (
+    AiCallAuditLimit,
     AiCallAuditLimits,
+    AiCallAuditLimitsV2,
     AiCallCompleteStatus,
     AiCallReserveStatus,
 )
@@ -43,8 +48,8 @@ class AiCallAuditWriter(Protocol):
 
     def reserve_attempt(
         self,
-        event: AiCallStartedV1,
-        limits: AiCallAuditLimits,
+        event: AiCallStartedV1 | AiCallStartedV2,
+        limits: AiCallAuditLimit,
         *,
         deadline_monotonic: float,
         minimum_attempt_seconds: float = 0.0,
@@ -52,7 +57,10 @@ class AiCallAuditWriter(Protocol):
 
     def complete_attempt(
         self,
-        event: AiCallCompletedV1 | AiCallLateCompletionV1,
+        event: AiCallCompletedV1
+        | AiCallCompletedV2
+        | AiCallLateCompletionV1
+        | AiCallLateCompletionV2,
     ) -> AiCallCompleteStatus: ...
 
 
@@ -61,7 +69,10 @@ class AiCallCompletionWriter(Protocol):
 
     def complete_attempt(
         self,
-        event: AiCallCompletedV1 | AiCallLateCompletionV1,
+        event: AiCallCompletedV1
+        | AiCallCompletedV2
+        | AiCallLateCompletionV1
+        | AiCallLateCompletionV2,
     ) -> AiCallCompleteStatus: ...
 
 
@@ -69,13 +80,13 @@ class AiCallCompletionWriter(Protocol):
 class AiCallReserveContext:
     """由调用方冻结的绝对 deadline 与同源持久预算。"""
 
-    limits: AiCallAuditLimits
+    limits: AiCallAuditLimit
     deadline_monotonic: float
     minimum_attempt_seconds: float = 0.0
 
     def __post_init__(self) -> None:
-        if not isinstance(self.limits, AiCallAuditLimits):
-            raise TypeError("limits must be AiCallAuditLimits")
+        if not isinstance(self.limits, (AiCallAuditLimits, AiCallAuditLimitsV2)):
+            raise TypeError("limits must be an AI call audit limits value")
         for name, value in (
             ("deadline_monotonic", self.deadline_monotonic),
             ("minimum_attempt_seconds", self.minimum_attempt_seconds),
@@ -86,7 +97,7 @@ class AiCallReserveContext:
             raise ValueError("minimum_attempt_seconds must be non-negative")
 
 
-ReserveContextFactory = Callable[[AiCallStartedV1], AiCallReserveContext]
+ReserveContextFactory = Callable[[AiCallStartedV1 | AiCallStartedV2], AiCallReserveContext]
 
 _RESERVE_STATUS = {
     AiCallReserveStatus.RESERVED_NEW: ReserveAttemptStatus.RESERVED_NEW,
@@ -130,14 +141,14 @@ class DurableAiCallEventSink:
     def create_call_scope(self, event: SinkEvent) -> CallScopeToken:
         if not isinstance(event, SinkEvent):
             raise TypeError("CALL_SCOPE_REQUIRES_SINK_EVENT")
-        dto = parse_ai_call_event_v1(event.payload_jcs)
+        dto = parse_ai_call_event(event.payload_jcs)
         scope = CallScopeToken(
             event.event_id,
             self._generation,
             self._scope_owner,
             _SCOPE_FACTORY,
         )
-        if isinstance(dto, AiCallStartedV1):
+        if isinstance(dto, (AiCallStartedV1, AiCallStartedV2)):
             context = self._reserve_context_factory(dto)
             if not isinstance(context, AiCallReserveContext):
                 raise TypeError("reserve_context_factory must return AiCallReserveContext")
@@ -159,8 +170,8 @@ class DurableAiCallEventSink:
         """同步 Worker 边界；与 async Port 共享完全相同的状态机。"""
 
         self._validate_scope(event, scope)
-        dto = parse_ai_call_event_v1(event.payload_jcs)
-        if not isinstance(dto, AiCallStartedV1):
+        dto = parse_ai_call_event(event.payload_jcs)
+        if not isinstance(dto, (AiCallStartedV1, AiCallStartedV2)):
             raise ValueError("reserve_attempt requires ai.call.started")
         context = self._reserve_contexts.get(scope)
         if context is None:
@@ -204,8 +215,11 @@ class DurableAiCallEventSink:
         scope: CallScopeToken,
     ) -> CompleteAttemptDecision:
         self._validate_scope(event, scope)
-        dto = parse_ai_call_event_v1(event.payload_jcs)
-        if not isinstance(dto, (AiCallCompletedV1, AiCallLateCompletionV1)):
+        dto = parse_ai_call_event(event.payload_jcs)
+        if not isinstance(
+            dto,
+            (AiCallCompletedV1, AiCallCompletedV2, AiCallLateCompletionV1, AiCallLateCompletionV2),
+        ):
             raise ValueError("complete_attempt requires completed or late event")
 
         return self._complete_with_writer(event, scope, dto, self._audit_writer)
@@ -227,8 +241,11 @@ class DurableAiCallEventSink:
         """把 sequence-2 与 AI 派生业务事实放入调用方同一事务。"""
 
         self._validate_scope(event, scope)
-        dto = parse_ai_call_event_v1(event.payload_jcs)
-        if not isinstance(dto, (AiCallCompletedV1, AiCallLateCompletionV1)):
+        dto = parse_ai_call_event(event.payload_jcs)
+        if not isinstance(
+            dto,
+            (AiCallCompletedV1, AiCallCompletedV2, AiCallLateCompletionV1, AiCallLateCompletionV2),
+        ):
             raise ValueError("complete_attempt requires completed or late event")
         if not callable(getattr(writer, "complete_attempt", None)):
             raise TypeError("writer must provide complete_attempt")
@@ -238,7 +255,10 @@ class DurableAiCallEventSink:
         self,
         event: SinkEvent,
         scope: CallScopeToken,
-        dto: AiCallCompletedV1 | AiCallLateCompletionV1,
+        dto: AiCallCompletedV1
+        | AiCallCompletedV2
+        | AiCallLateCompletionV1
+        | AiCallLateCompletionV2,
         writer: AiCallCompletionWriter,
     ) -> CompleteAttemptDecision:
         persisted = writer.complete_attempt(dto)

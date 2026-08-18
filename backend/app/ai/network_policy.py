@@ -17,7 +17,7 @@ from weakref import WeakSet
 from app.ai.strict_json import parse_strict_json
 
 NetworkScope: TypeAlias = Literal["external_public", "internal_service"]
-BillingMode: TypeAlias = Literal["external_usd", "internal_unmetered"]
+BillingMode: TypeAlias = Literal["external_usd", "external_cny", "internal_unmetered"]
 IpAddress: TypeAlias = ipaddress.IPv4Address | ipaddress.IPv6Address
 IpNetwork: TypeAlias = ipaddress.IPv4Network | ipaddress.IPv6Network
 _BindingState: TypeAlias = tuple[object, ...]
@@ -162,7 +162,7 @@ def _base_url_hostname(policy: OutboundNetworkPolicy) -> str | None:
     if (
         not _hostname_is_canonical(raw_host)
         or parsed.hostname != raw_host
-        or parsed.path != "/v1"
+        or parsed.path not in {"/v1", "/compatible-mode/v1"}
         or parsed.query
         or parsed.fragment
         or parsed.username is not None
@@ -171,7 +171,7 @@ def _base_url_hostname(policy: OutboundNetworkPolicy) -> str | None:
     ):
         return None
     expected_netloc = raw_host if port_text is None else f"{raw_host}:{port_text}"
-    if value != f"{parsed.scheme}://{expected_netloc}/v1":
+    if value != f"{parsed.scheme}://{expected_netloc}{parsed.path}":
         return None
     if policy.network_scope == "external_public" and parsed.scheme != "https":
         return None
@@ -322,7 +322,7 @@ def _prepare_policy(
         or type(policy.allowed_cidrs) is not tuple
         or (policy.network_scope == "internal_service" and not policy.allowed_cidrs)
         or policy.network_scope not in {"external_public", "internal_service"}
-        or policy.billing_mode not in {"external_usd", "internal_unmetered"}
+        or policy.billing_mode not in {"external_usd", "external_cny", "internal_unmetered"}
         or (
             policy.network_scope == "internal_service"
             and policy.billing_mode != "internal_unmetered"

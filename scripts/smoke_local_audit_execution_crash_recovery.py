@@ -135,7 +135,7 @@ def _client(base_url: str, origin: str) -> httpx.Client:
         base_url=base_url,
         verify=False,
         timeout=httpx.Timeout(15),
-        headers={"Origin": origin, "Host": origin.removeprefix("https://")},
+        headers={"Origin": origin, "Host": origin.removeprefix("http://")},
     )
 
 
@@ -145,9 +145,7 @@ def _client_profile() -> tuple[str, str, str, str]:
     username = _required_environment("BOOTSTRAP_ADMIN_USERNAME")
     run_id = _required_environment("FINAUDIT_CRASH_RUN_ID")
     _validate_run_id(run_id)
-    if base_url != "https://frontend:8443" or not origin.startswith(
-        "https://localhost:"
-    ):
+    if base_url != "http://frontend:8443" or not origin.startswith("http://localhost:"):
         raise AuditCrashRecoveryError("CLIENT_PROFILE_INVALID")
     return base_url, origin, username, run_id
 

@@ -23,7 +23,14 @@ from app.adapters.qdrant_vector import (
     QdrantStoredPoint,
     QdrantVectorStoreError,
 )
-from app.ai.adapters.deterministic_hash import DeterministicHashEmbeddingAdapter
+from app.ai.contracts import ModelTarget, TransportPolicy
+from app.ai.embedding_runtime import (
+    AuditedEmbeddingAdoption,
+    AuditedEmbeddingResult,
+    EmbeddingCallIdentity,
+    EmbeddingRuntime,
+    create_deterministic_embedding_runtime,
+)
 from app.ai.output_validation import RagAnswerOutput
 from app.ai.rag_prompts import RagPromptCandidate
 from app.core.config import Settings
@@ -134,6 +141,63 @@ class _UnavailableVectorStore(_MemoryVectorStore):
         raise QdrantVectorStoreError
 
 
+class _RecordingEmbeddingAdoption:
+    def __init__(self, adopted: list[str]) -> None:
+        self._adopted = adopted
+
+    def adopt_in_transaction(self, session: Session) -> None:
+        assert session.in_transaction()
+        self._adopted.append("adopted")
+
+
+class _RecordingEmbeddingRuntime:
+    def __init__(self, delegate: EmbeddingRuntime, *, audited: bool = False) -> None:
+        self._delegate = delegate
+        self._audited = audited
+        self.calls: list[tuple[str, ...]] = []
+        self.adopted: list[str] = []
+
+    @property
+    def target(self) -> ModelTarget:
+        return self._delegate.target
+
+    @property
+    def transport_policy(self) -> TransportPolicy:
+        return self._delegate.transport_policy
+
+    @property
+    def requires_audit(self) -> bool:
+        return self._audited
+
+    def embed_texts(
+        self, *, trace_id: str, input_texts: tuple[str, ...]
+    ) -> tuple[tuple[float, ...], ...]:
+        self.calls.append(input_texts)
+        return self._delegate.embed_texts(trace_id=trace_id, input_texts=input_texts)
+
+    def embed_texts_audited(
+        self,
+        *,
+        trace_id: str,
+        input_texts: tuple[str, ...],
+        identity: EmbeddingCallIdentity,
+        deadline_monotonic: float,
+    ) -> AuditedEmbeddingResult:
+        del identity, deadline_monotonic
+        vectors = self.embed_texts(trace_id=trace_id, input_texts=input_texts)
+        return AuditedEmbeddingResult(
+            vectors=vectors,
+            input_tokens=sum(len(value.encode("utf-8")) for value in input_texts),
+            response_body_sha256="a" * 64,
+            cost_currency="CNY",
+            actual_cost_microunits=1,
+            adoption=cast(
+                AuditedEmbeddingAdoption,
+                _RecordingEmbeddingAdoption(self.adopted),
+            ),
+        )
+
+
 class _RecordingRagAdoption:
     def __init__(self, adopted: list[str]) -> None:
         self._adopted = adopted
@@ -234,6 +298,8 @@ def _settings() -> Settings:
     return cast(
         Settings,
         SimpleNamespace(
+            ai_embedding_deadline_seconds=30,
+            ai_provider_calls_enabled=False,
             qdrant_collection="finaudit-knowledge-integration",
             qdrant_vector_size=32,
             qdrant_distance="Cosine",
@@ -457,9 +523,10 @@ def test_index_formal_evaluation_publish_rag_and_feedback_close_once(
 
         settings = _settings()
         vector_store = _MemoryVectorStore()
-        embedding = DeterministicHashEmbeddingAdapter(
+        embedding = create_deterministic_embedding_runtime(
             model_id=settings.embedding_model,
             vector_size=settings.qdrant_vector_size,
+            deadline_seconds=settings.ai_embedding_deadline_seconds,
         )
         management = KnowledgeIndexManagementService(factory, settings)
         index = management.build_index(
@@ -634,11 +701,13 @@ def test_index_formal_evaluation_publish_rag_and_feedback_close_once(
             uuid4(),
         )
         eval_outbox = _dispatch_pending(factory, run.data.job_id)
+        recording_embedding = _RecordingEmbeddingRuntime(embedding, audited=True)
         evaluated = KnowledgeJobExecutor(
             factory,
             vector_store,
-            embedding,
+            cast(EmbeddingRuntime, recording_embedding),
             embedding_batch_size=8,
+            evaluation_embedding_batch_size=8,
         ).execute(
             job_id=run.data.job_id,
             event_id=eval_outbox.event_id,
@@ -649,6 +718,8 @@ def test_index_formal_evaluation_publish_rag_and_feedback_close_once(
         evaluated_run = management.get_evaluation_run(_publisher(), KNOWLEDGE_BASE_ID, run.data.id)
         assert evaluated_run.status == "passed"
         assert evaluated_run.completed_case_count == 100
+        assert tuple(map(len, recording_embedding.calls)) == (*((8,) * 12), 4)
+        assert recording_embedding.adopted == ["adopted"] * 13
 
         activated = management.activate_index(
             _publisher(),
@@ -789,9 +860,10 @@ def test_uploaded_prompt_injection_is_refused_after_authorized_postgresql_rechec
 
         settings = _settings()
         vector_store = _MemoryVectorStore()
-        embedding = DeterministicHashEmbeddingAdapter(
+        embedding = create_deterministic_embedding_runtime(
             model_id=settings.embedding_model,
             vector_size=settings.qdrant_vector_size,
+            deadline_seconds=settings.ai_embedding_deadline_seconds,
         )
         management = KnowledgeIndexManagementService(factory, settings)
         index = management.build_index(
@@ -987,9 +1059,10 @@ def test_dependency_failure_requeues_knowledge_index_and_completes_attempt_two(
             _publisher(), KNOWLEDGE_BASE_ID, "knowledge-index-retry-001", uuid4()
         )
         first_event = _dispatch_pending(factory, cast(UUID, index.data.job_id))
-        embedding = DeterministicHashEmbeddingAdapter(
+        embedding = create_deterministic_embedding_runtime(
             model_id=settings.embedding_model,
             vector_size=settings.qdrant_vector_size,
+            deadline_seconds=settings.ai_embedding_deadline_seconds,
         )
         failed = KnowledgeJobExecutor(
             factory,
@@ -1107,9 +1180,10 @@ def test_expired_knowledge_lease_reclaims_or_exhausts_atomically(
         _expire_knowledge_job(engine, job_id)
 
         vector_store = _MemoryVectorStore()
-        embedding = DeterministicHashEmbeddingAdapter(
+        embedding = create_deterministic_embedding_runtime(
             model_id=settings.embedding_model,
             vector_size=settings.qdrant_vector_size,
+            deadline_seconds=settings.ai_embedding_deadline_seconds,
         )
         recovered = KnowledgeJobRecovery(
             factory,

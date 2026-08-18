@@ -66,7 +66,9 @@ def _login(client: httpx.Client, username: str, initial_password: str) -> str:
     if first.status_code == 403:
         payload = first.json()
         token = payload.get("data", {}).get("password_change_token")
-        if payload.get("code") != "AUTH_PASSWORD_CHANGE_REQUIRED" or not isinstance(token, str):
+        if payload.get("code") != "AUTH_PASSWORD_CHANGE_REQUIRED" or not isinstance(
+            token, str
+        ):
             raise SmokeError("PASSWORD_CHANGE_CONTRACT_INVALID")
         changed = client.post(
             "/api/v1/auth/password/change",
@@ -100,15 +102,15 @@ def run() -> None:
     origin = os.environ.get("AUTH_PUBLIC_ORIGIN")
     username = os.environ.get("BOOTSTRAP_ADMIN_USERNAME")
     if (
-        base_url != "https://frontend:8443"
+        base_url != "http://frontend:8443"
         or not origin
-        or not origin.startswith("https://localhost:")
+        or not origin.startswith("http://localhost:")
         or not username
     ):
         raise SmokeError("SMOKE_PROFILE_INVALID")
     password = _read_password(os.environ.get("BOOTSTRAP_ADMIN_PASSWORD_FILE"))
     pdf = _synthetic_pdf()
-    host = origin.removeprefix("https://")
+    host = origin.removeprefix("http://")
 
     with httpx.Client(
         base_url=base_url,
@@ -119,7 +121,9 @@ def run() -> None:
         admin_token = _login(client, username, password)
         uploader_suffix = uuid4().hex[:12]
         uploader_username = f"local-smoke-{uploader_suffix}"
-        uploader_password = validate_new_password(f"{password}-uploader-{uploader_suffix}")
+        uploader_password = validate_new_password(
+            f"{password}-uploader-{uploader_suffix}"
+        )
         created_user = client.post(
             "/api/v1/users",
             headers={
@@ -196,7 +200,7 @@ def main() -> int:
         print("LOCAL_FILE_UPLOAD_REASON=UNEXPECTED_FAILURE")
         return 1
     print("LOCAL_FILE_UPLOAD_SMOKE=PASS")
-    print("LOCAL_FILE_MULTIPART_TLS_GATE=PASS")
+    print("LOCAL_FILE_MULTIPART_HTTP_GATE=PASS")
     print("LOCAL_FILE_ROLE_BOUNDARY_GATE=PASS")
     print("LOCAL_FILE_CLAMAV_WORKER_GATE=PASS")
     print("LOCAL_FILE_PREVIEW_GATE=PASS")

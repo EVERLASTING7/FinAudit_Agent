@@ -4,7 +4,7 @@ from typing import cast
 from uuid import UUID
 
 from app.adapters.qdrant_vector import QdrantHit
-from app.ai.adapters.deterministic_hash import DeterministicHashEmbeddingAdapter
+from app.ai.embedding_runtime import create_deterministic_embedding_runtime
 from app.core.config import Settings
 from app.models.retrieval import QaQuery
 from app.repositories.retrieval_runtime import AuthorizedIndexHit, RetrievalRuntimeRepository
@@ -80,7 +80,11 @@ def _service() -> RagQueryService:
     return RagQueryService(
         cast(object, SimpleNamespace()),
         cast(VectorQuery, _UnusedVector()),
-        DeterministicHashEmbeddingAdapter(model_id="embedding-test", vector_size=16),
+        create_deterministic_embedding_runtime(
+            model_id="embedding-test",
+            vector_size=16,
+            deadline_seconds=30,
+        ),
         settings,
     )
 

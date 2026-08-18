@@ -1,6 +1,6 @@
 # 正式报告制品兼容性门禁
 
-状态：2026-08-17 本地兼容性切片已通过；LibreOffice、production 与正式 AC 仍为 `NOT_RUN`
+状态：2026-08-17 Microsoft Excel/Poppler 本地兼容性切片已通过；LibreOffice 已安装但 Calc 运行挂起，production 与正式 AC 仍为 `NOT_RUN`
 
 ## 1. 目的和边界
 
@@ -27,7 +27,7 @@
 - PDF 为 3 页，宿主与容器字节相同；固定正文指纹相同，未发现活动 Catalog 项，Poppler 两份均成功渲染。三页人工视觉检查未见文字裁切、重叠或缺页。
 - XLSX 均包含且只包含 `Summary`、`Rules`、`Risks`；规范化单元格内容指纹相同。压缩包原始字节不同，因此不声明跨运行环境字节一致。
 - Microsoft Excel 以禁用宏、禁用事件、只读方式实际打开宿主和容器两份 XLSX，并核对工作表和关键单元格：`PASS`。
-- LibreOffice 未安装：`NOT_RUN`。
+- LibreOffice `26.2.5.2` 已通过官方 winget 包安装。PDF→ODG 的 headless 路径可完成，但 Calc 对宿主/容器报告 XLSX 和独立最小单单元格 XLSX 的 headless 打开/转换均超过 180 秒未完成；UNO socket/pipe 也未进入可连接状态。随后从 Windows GUI 直接启动 `scalc.exe`，等待后仍没有暴露任何可见或可控窗口，且并未进入打开文件步骤；本次进程与临时合成制品已精确清理为 0。因此 LibreOffice XLSX 兼容性仍为 `NOT_RUN`，不能把安装成功、PDF 路径或无窗口启动写成 Calc 打开通过。
 - 最终输出：`REPORT_ARTIFACT_CROSS_IMAGE_SEMANTICS=PASS`、`PDF_POPPLER_RENDER=PASS`、`REPORT_ARTIFACT_COMPATIBILITY=PASS`。
 
 ## 4. 自动化回归
@@ -36,6 +36,6 @@
 
 ## 5. 剩余完成条件
 
-- 在受控 LibreOffice 版本中实际打开两份 XLSX，并记录版本、退出码和关键工作表检查。
+- 先解除本机 LibreOffice Calc 启动挂起（可能需要受控重启或环境修复），再在固定版本中实际打开两份 XLSX，并记录版本、退出码和关键工作表检查。
 - 由发布候选镜像而不是临时本地标签重跑，并关联可复现 Git revision、SBOM 和镜像签名。
 - 使用批准的代表性报告数据执行正式 AC-014/UAT；人工确认分页、字体、长文本、公式前缀安全和导出内容。

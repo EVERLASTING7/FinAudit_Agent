@@ -237,15 +237,20 @@ def test_auth_public_origin_normalizes_default_ports() -> None:
     assert settings.auth_public_origin == "https://audit.example"
 
 
-def test_production_auth_public_origin_requires_https() -> None:
-    with pytest.raises(ValidationError):
-        build_settings(
-            app_env="prod",
-            auth_jwt_active_kid="authkey01",
-            auth_jwt_private_key_file="C:\\run\\secrets\\auth-private.pem",
-            auth_jwt_public_keyring_file="C:\\run\\secrets\\auth-public.json",
-            auth_public_origin="http://audit.example",
-        )
+def test_production_auth_public_origin_accepts_global_http_profile() -> None:
+    settings = build_settings(
+        app_env="prod",
+        auth_jwt_active_kid="authkey01",
+        auth_jwt_private_key_file="C:\\run\\secrets\\auth-private.pem",
+        auth_jwt_public_keyring_file="C:\\run\\secrets\\auth-public.json",
+        auth_public_origin="http://audit.example",
+        minio_endpoint="https://minio.example:9000",
+        minio_secure=True,
+        scanner_provider="clamav_instream",
+        scanner_host="scanner.internal",
+    )
+
+    assert settings.auth_public_origin == "http://audit.example"
 
 
 def test_partial_auth_key_profile_is_rejected_in_every_environment() -> None:
@@ -329,9 +334,11 @@ def test_live_ai_provider_calls_require_the_exact_local_profile() -> None:
         llm_extraction_model="MiniMax-M3",
         llm_generation_model="MiniMax-M3",
         llm_fallback_model="MiniMax-M3",
-        embedding_base_url=None,
-        embedding_api_key=None,
-        embedding_model="deterministic-hash-v1",
+        embedding_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        embedding_api_key="test-live-embedding-key",
+        embedding_model="qwen3.7-text-embedding",
+        embedding_vector_size=1024,
+        embedding_batch_size=20,
     )
 
     assert settings.ai_provider_calls_enabled is True
@@ -346,8 +353,10 @@ def test_live_ai_provider_calls_reject_unapproved_target() -> None:
     ("field", "value"),
     [
         ("embedding_base_url", "https://embedding.example/v1"),
-        ("embedding_api_key", "test-live-embedding-key"),
+        ("embedding_api_key", None),
         ("embedding_model", "provider-looking-model"),
+        ("embedding_vector_size", 768),
+        ("embedding_batch_size", 10),
     ],
 )
 def test_live_ai_provider_calls_reject_unapproved_embedding_profile(
@@ -360,9 +369,11 @@ def test_live_ai_provider_calls_reject_unapproved_embedding_profile(
         "llm_extraction_model": "MiniMax-M3",
         "llm_generation_model": "MiniMax-M3",
         "llm_fallback_model": "MiniMax-M3",
-        "embedding_base_url": None,
-        "embedding_api_key": None,
-        "embedding_model": "deterministic-hash-v1",
+        "embedding_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "embedding_api_key": "test-live-embedding-key",
+        "embedding_model": "qwen3.7-text-embedding",
+        "embedding_vector_size": 1024,
+        "embedding_batch_size": 20,
     }
     with pytest.raises(ValidationError):
         build_settings(**(profile | {field: value}))

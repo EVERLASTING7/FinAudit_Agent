@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -12,7 +11,7 @@ from app.api.dependencies.auth import (
     AuthServiceDependency,
     CurrentActorDependency,
 )
-from app.core.config import AppEnvironment, canonicalize_http_origin
+from app.core.config import canonicalize_http_origin
 from app.core.errors import AppError
 from app.core.responses import utc_timestamp
 from app.schemas.auth import (
@@ -50,19 +49,9 @@ def _validate_origin(request: Request) -> None:
 
 
 def _refresh_cookie_secure(request: Request) -> bool:
-    environment = request.app.state.settings.app_env
     configured_origin = request.app.state.settings.auth_public_origin
     public_url = urlsplit(configured_origin) if configured_origin is not None else request.url
-    if environment is AppEnvironment.PROD or public_url.scheme == "https":
-        return True
-    hostname = public_url.hostname
-    try:
-        is_loopback = hostname == "localhost" or (
-            hostname is not None and ipaddress.ip_address(hostname).is_loopback
-        )
-    except ValueError:
-        is_loopback = False
-    return not (environment is AppEnvironment.LOCAL and public_url.scheme == "http" and is_loopback)
+    return public_url.scheme == "https"
 
 
 def _set_refresh_cookie(response: Response, result: AuthSessionResult, request: Request) -> None:

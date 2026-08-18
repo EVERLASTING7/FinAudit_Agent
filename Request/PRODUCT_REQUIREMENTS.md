@@ -28,11 +28,35 @@
 
 ### 0.3 当前实现投影
 
-- 截至 2026-08-16，核心代码已经实现到 accepted Alembic head `20260816_023`，覆盖 57/57 张核心物理表，以及用户、文件、合同/补充协议/发票/供应商、知识/RAG、审核、正式报告、工作台、依赖健康、AI 调用审计和内部指标主链。`021` 封锁检索状态旁路；`022` 允许未确认发票无证据币种为空且 confirmed 时仍强制非空；`023` 增加可降级风险解释与报告草稿持久事实。
+- 截至 2026-08-17，核心代码已经实现到 Alembic head `20260817_024`，覆盖 57/57 张核心物理表，以及用户、文件、合同/补充协议/发票/供应商、知识/RAG、审核、正式报告、工作台、依赖健康、AI 调用审计和内部指标主链。`021` 封锁检索状态旁路；`022` 允许未确认发票无证据币种为空且 confirmed 时仍强制非空；`023` 增加可降级风险解释与报告草稿持久事实；`024` 在保留 Event v1 回放的同时增加 Event v2 USD/CNY 费用事实。
 - 隔离 PostgreSQL、真实 Redis/Celery、真实 Qdrant、真实 MinIO、官方 ClamAV、本地自签名 TLS/Nginx 和完整 Compose 已有分层运行证据。隔离浏览器还实际完成了合同与发票上传 → Worker 提取 → 人工确认 → 关联 → 审核 → PDF/XLSX 报告闭环；`local-performance-baseline-v2` 在全新栈与同栈新 run 各连续三轮通过，覆盖默认最大 20 件批量受理、同键重放、207 部分失败、第 21 件 413 和 PostgreSQL 零重复/零超限副作用。本地 Worker 故障注入还在 `file_process` 的 scan step 中真实 SIGKILL Worker，确认退出码 137、同容器受管重启、Maintenance attempt 2、`scan → parse → markdown` 恢复及下游 `contract_extract` 正常完成；另两个专用门禁分别在 `contract_extract` 与 `invoice_extract` attempt 1 的 `extract` step 内真实 SIGKILL Worker，均确认恢复前零业务事实、attempt 1 `failed/LEASE_EXPIRED`、Maintenance attempt 2 成功和唯一事实收敛。合同终态为唯一合同、关联、13 个证据字段和追加日志；发票终态为唯一发票、明细、关联、13 个字段证据、1 条明细证据和追加日志，二者客户端详情与原件 SHA-256/ETag 均一致。第三个专用门禁还在 `audit_execute` attempt 1 的 `evaluate` 事务内真实 SIGKILL Worker，精确终止唯一孤儿数据库等待后端，确认恢复前零规则/风险/执行日志，再由 Maintenance attempt 2 收敛为固定 15 条规则、2 条待复核风险和 1 条追加式执行日志；客户端审核列表、任务与执行详情一致。另两个全新栈又分别验证 `report_generate` 在 MinIO 对象已写、数据库制品事实未提交时强杀后的孤儿对象保留与 attempt-2 唯一报告收敛，以及 `knowledge_index_build` 在真实 Qdrant 点和 PostgreSQL 成员 Hash 已提交、ready 事务未提交时强杀后的相同 Point ID 幂等重放与唯一 ready 索引收敛；两者均核对 `failed/LEASE_EXPIRED → succeeded`、客户端终态、唯一日志/Outbox 和跨恢复不变摘要。独立 local 安全门禁覆盖 TLS/CSRF/锁定/防枚举/角色拒绝/存在性隐藏/篡改 Token/Trace 审计/审计失败回滚/操作日志不可变/日志哨兵与容器最小权限，并实际让提示注入 PDF 穿过 ClamAV/Worker、制度双人审批、安全专用 100 条 `no_answer` 合成集、索引一致性、真实 Qdrant 和 HTTP 直接/间接双路径拒答。同一已激活知识库又经一次性 loopback HTTP 测试中继进入原 Nginx TLS → Backend → Qdrant 链路，由真实浏览器完成合成账号登录、工作台导航、问答提交和可见 `PROMPT_INJECTION_DETECTED` 拒答；PostgreSQL 随后独立核对唯一 Query、问题 Hash、Trace 与追加式操作日志，浏览器控制台和业务容器日志均无目标泄漏。上述结果属于小型合成 PDF 的本地 `VERIFIED` 工程证据，不是正式参考环境完整容量，也不自动构成任何 AC 的 `ACCEPTED`。
-- 主要 P0 Frontend 已接同源真实 API；批量上传、预览、归档和失败 Job 重试也已有实现与聚焦证据。本地 PostgreSQL/MinIO 权威备份、隔离恢复及恢复后冷启动已通过。`minimax-m3-local-v1` 已把真实 OpenAI-compatible Chat Adapter、Gateway、结构修复、预算、网络策略和持久 EventSink 接入合同/发票提取、RAG 回答、风险解释与报告草稿；采用前重验业务输入，完成事件与业务事实同一 PostgreSQL 事务提交。公共 OPS-005 只读摘要和受独立凭据保护的 `/metrics` 已实现。受限真实 MiniMax smoke 覆盖五条生成链并核对每次尝试的持久审计，但这只是链路证据。知识索引仍使用确定性 Hash Embedding；代表性合同/发票准确率、99% 结构合法率、50/100 条业务检索集、正式 DAST、production OCR/Scanner/CA/TLS/Secret Manager、正式容量、异地恢复、正式 AC/UAT 和 production 仍为 `NOT_RUN` 或 `BLOCKED`。
+- 主要 P0 Frontend 已接同源真实 API；批量上传、预览、归档和失败 Job 重试也已有实现与聚焦证据。本地 PostgreSQL/MinIO 权威备份、隔离恢复及恢复后冷启动已通过。`minimax-m3-local-v1` 已把真实 OpenAI-compatible Chat Adapter、Gateway、结构修复、预算、网络策略和持久 EventSink 接入合同/发票提取、RAG 回答、风险解释与报告草稿；采用前重验业务输入，完成事件与业务事实同一 PostgreSQL 事务提交。公共 OPS-005 只读摘要和受独立凭据保护的 `/metrics` 已实现。受限真实 MiniMax smoke 覆盖五条生成链并核对每次尝试的持久审计，但这只是链路证据。2026-08-17 的 `CR-021` 与 `CR-022` 又批准 `minimax-m3-bailian-qwen37-local-v2`，把 1024 维 `qwen3.7-text-embedding` 经 Gateway 接入 Backend 查询与 Worker 索引/评测，以 Event v2/CNY 完成 durable reserve、权威实际费用和同事务采用，并用 Adapter/模型/维度身份禁止与旧 Hash 索引混用；唯一一次受限付费 smoke 已成功，但代表性合同/发票准确率、99% 结构合法率、50/100 条业务检索集、正式 DAST、production OCR/Scanner/CA/TLS/Secret Manager、正式容量、异地恢复、正式 AC/UAT 和 production 仍为 `NOT_RUN` 或 `BLOCKED`。
 - Docker Scout 1.23.1 的本地镜像证据为：Frontend `0C/0H`；Backend 在 `pypdf 6.13.0 → 6.14.2` 且移除运行镜像中的 `pip/setuptools/wheel` 后由 `2C/6H` 降为 `2C/2H`，所有仍有修复版本的 C/H 为 0。剩余 4 项均来自 Debian Bookworm Perl 且扫描器标记 `not fixed`；因此 production 的严重/高危为 0 门槛仍未通过。
 - AI-003 已实现合同/发票独立版本 Prompt、严格输出 DTO、证据白名单、结构修复和真实 Provider 采用；Prompt 明确把正文视为不可信数据、无证据返回 `null` 且不得确认业务事实。发票无证据币种语义已由 `022` 闭合，但正式代表性准确率和结构合法率尚未验收，因此只能描述为 `IMPLEMENTED/VERIFIED local`，不能描述为 `ACCEPTED`。
+- `CR-024` 根据 BOSS 明确指令将内置应用入口全局改为 HTTP，并移除证书生成、挂载和本地 TLS 中继；本节上方涉及自签名 TLS 的运行证据只保留为变更前历史。当前 HTTP Profile 必须重新验证入口、Cookie、文件链和浏览器链，且不提供传输加密或服务器身份认证。
+
+### 0.4 当前 Local MVP 本机可用 Profile
+
+BOSS 于 2026-08-17 明确当前阶段为 `Local MVP`，目标是 YHBX 当前 Windows 本机上的可用验证，不是 production、局域网或公网发布。当前实际使用者为 1 人，但系统继续支持多账号与五种固定角色。
+
+| 维度 | 当前冻结值 |
+|---|---|
+| 主机与运行时 | BOSS 当前 Windows 本机，使用 Docker Desktop 和本机现有 CPU、内存、磁盘；这些资源不构成正式容量基线 |
+| 网络与入口 | 仅本机；入口固定为 `http://localhost:8443`，只允许绑定 `127.0.0.1`，不得开放局域网或公网 |
+| 传输协议 | BOSS 批准的全局 HTTP Profile；内置入口不生成或配置 TLS 证书，且不提供传输机密性或服务器身份认证 |
+| Scanner/OCR | 本地使用 ClamAV；OCR 暂不启用，扫描件和纯图片文档不得声明识别成功 |
+| AI | 默认关闭；保留确定性规则并明确展示降级，Provider 配额和 canary 在本阶段不适用 |
+| Secret | 使用仓库外的本地受管 Secret 文件挂载；禁止真实密钥进入仓库；生产 Secret Manager 留待公网部署阶段选择 |
+| 数据与备份 | PostgreSQL 与 MinIO 使用本机 Docker 数据卷；重要操作前执行本地备份；异地备份暂未配置 |
+| 保留与恢复承诺 | 数据和日志保留期暂未制定并由 BOSS 手工清理；本阶段不作正式 RPO/RTO 承诺 |
+| 用户与容量 | 当前实际使用者 1 人；系统支持多账号和五种固定角色；不作多人并发或正式容量承诺，本机性能数据只作工程参考 |
+| 安全与发布治理 | 正式 DAST、远程仓库和分支保护留到公网部署前；Local MVP 的 UAT 签署人与发布责任人均为 YHBX |
+
+Local MVP 本机可用必须同时满足：当前 Alembic head 完成；完整 Compose 启动成功；全部必需依赖为 `ok`；AI 明确为 `disabled`；Frontend 可渲染；入口没有非 loopback 监听；至少一个授权用户能够真实登录并读取其权限范围内页面。未满足的条件必须单独标记，不能用进程健康或历史合成门禁替代。
+
+YHBX 于 2026-08-18 明确签署 `Local MVP UAT通过`；签署制品为 `docs/testing/local-mvp-uat-2026-08-18.md`。该结论只接受本节冻结的本机范围，不能推导 production 或正式 AC 通过。
+
+该 Profile 只关闭当前本机部署决策，不改变 AC-001～AC-016 的正式 production/UAT 口径；公网部署仍须重新确定域名/CA、Secret Manager、Scanner/OCR、容量、保留期、RPO/RTO、DAST、远程治理和发布证据。
 
 ## 1. 产品定位与目标
 
@@ -66,10 +90,10 @@ P0 的产品目标是形成一条可追溯的审核闭环：
 
 - 支持登录、刷新、退出、用户创建、启停、密码重置和固定角色分配；用户禁用后已有会话必须失效。
 - 首次初始化或重置后的用户必须先完成受限换密；所有受保护操作由后端强制鉴权。
-- 认证行为采用 `auth-mvp-v1`：密码按严格 JSON 字符串解码，拒绝 NUL，做 Unicode NFC 后保持原样，不 trim、casefold 或折叠；NFC 后长度为 15～128 个 code point 且 UTF-8 不超过 512 bytes，允许空格和 Unicode，不增加字符组合规则；创建和重置都必须命中本地版本化弱密码 blocklist 门禁。
+- 认证行为采用 `auth-mvp-v1`，其中全局密码策略为 BOSS 批准的 `auth-password-v2`：密码按严格 JSON 字符串解码，拒绝 NUL，做 Unicode NFC 后保持原样，不 trim、casefold 或折叠；NFC 后长度为 6～128 个 code point 且 UTF-8 不超过 512 bytes，允许空格和 Unicode，不增加字符组合规则；创建、重置和强制换密都必须命中版本化弱密码 blocklist 门禁。
 - 密码使用 Argon2id v19，参数固定为 `m=65536 KiB`、`t=3`、`p=1`、16-byte salt、32-byte hash 和 PHC 字符串；连续 5 次错误后锁定 15 分钟，未知、已删除、禁用、锁定和密码错误对匿名调用者使用同一 401 口径。
 - Access Token 为 EdDSA/Ed25519、15 分钟；Refresh Token 为 256-bit opaque token，普通会话绝对有效期 7 天，`remember_me=true` 为 30 天。Refresh 每次成功原子旋转但不延长绝对到期时间，旧 Token 重放使该会话族失效。
-- Refresh 只通过 `finaudit_refresh` HttpOnly、SameSite=Strict、`Path=/api/v1/auth`、无 Domain 的 Cookie 传递；production 必须 `Secure=true`，仅本地 loopback HTTP 可为 `false`。所有写入或清除该 Cookie 的浏览器端点必须通过同源 Origin 校验。
+- Refresh 只通过 `finaudit_refresh` HttpOnly、SameSite=Strict、`Path=/api/v1/auth`、无 Domain 的 Cookie 传递；`Secure` 严格跟随已配置公开 Origin，当前全局 HTTP Profile 为 `false`，未来显式 HTTPS Origin 为 `true`。所有写入或清除该 Cookie 的浏览器端点必须通过同源 Origin 校验。
 - 首次初始化或管理员重置后的登录只返回 5 分钟、一次性的 `password:change` 受限 Token；完成换密后撤销旧会话并要求重新登录，不签发普通业务会话。
 
 P0 认证公开接口固定为以下五个；请求/响应和安全细节以 `TECHNICAL_SPEC.md` 第 7 节为机器实现边界：
@@ -242,22 +266,24 @@ P0 规则语义如下：
 
 ## 7. P0 验收标准
 
-### AC-001 登录、权限与职责分离
+`CR-025` 根据 BOSS 当前“只在本地运行”的明确决定，将 AC-001、AC-002、AC-015、AC-016 调整为 Local MVP 口径；四项当前结论由 `docs/testing/local-mvp-ac-acceptance-2026-08-18.md` 绑定。其余 AC 保持原有质量/业务口径，未自动接受。扩大到局域网、公网或 production 时必须重新验收这四项，不能沿用 Local MVP `ACCEPTED`。
+
+### AC-001 登录、权限与职责分离（Local MVP `ACCEPTED`）
 
 - 五种固定角色只能执行其授权动作；所有越权操作被后端拒绝并留痕。
 - 系统管理员不能修改业务事实、审批制度或复核风险。
 - 财务不能最终处理高风险；合同管理员不能确认主合同；只读用户不能导出。
 - 首次或重置后登录只能完成一次性受限换密，不能获得普通业务会话。
-- 生产长期角色组合、同人提交与批准、临时授权自批等职责分离负例全部失败。
+- 当前实际使用者为 1 人但系统支持多账号和五角色；长期角色组合、同人提交与批准、临时授权自批等职责分离负例允许使用本地合成 Actor，并必须全部失败。
 
-### AC-002 文件上传与校验
+### AC-002 文件上传与校验（Local MVP `ACCEPTED`）
 
 - 合法支持文件获得唯一文件标识和真实处理状态。
 - 伪装文件、超限文件、非法空文件和不一致类型被拒绝且不进入存储成功态。
 - 重复文件不得创建第二份权威文件事实或第二个相同业务对象。
 - 同组织相同 SHA-256 与大小命中 archived 文件时，单文件响应固定为 409 `FILE_ARCHIVED_DUPLICATE`，既有事实和对象不变，且不产生新文件、Job、业务对象或 MinIO 副本。
 - 未通过安全检查的文件不得进入解析。
-- 文件存储不可用时不得返回成功。
+- 本地 MinIO/存储不可用时不得返回成功；本阶段使用本地 ClamAV 和合成代表文件，不要求 production Scanner 产品或正式容量。
 
 ### AC-003 合同提取与修正
 
@@ -350,22 +376,22 @@ P0 规则语义如下：
 - 新报告不覆盖旧报告；事实变化后旧报告明确显示过期。
 - PDF 预览和读取要求报告读取权限，Excel 风险明细要求导出权限；响应不得泄露 MinIO 对象键。
 
-### AC-015 追踪与脱敏
+### AC-015 追踪与脱敏（Local MVP `ACCEPTED`）
 
 - 一次业务流程可用追踪标识串联同步请求、异步处理和外部依赖日志。
 - 密码、Token、API Key 和不必要正文不出现在日志、指标或错误中。
 - 税务身份等敏感字段按策略脱敏。
 - 日志或审计写入失败不得产生伪成功。
-- 无法可靠完成 AI 调用审计时，其输出不得成为成功答案或业务事实。
+- AI Provider 在本阶段关闭；provider-neutral AI 审计失败或恢复时，输出不得成为成功答案或业务事实。正式 DAST 和传输加密不进入本地 AC。
 
-### AC-016 可部署运行与恢复
+### AC-016 可部署运行与恢复（Local MVP `ACCEPTED`）
 
-- 使用安全占位配置和实际注入的非密钥配置启动 P0 目标环境。
-- 必需服务健康后，完整审核、制度处理和代表性检索流程可运行。
+- 使用仓库外受管配置和实际注入的非密钥配置启动当前本机 P0 环境。
+- 必需服务健康后，完整审核、制度处理和本地合成检索流程可运行。
 - 重启后权威业务事实、文件制品和评测记录保持可用。
 - 派生检索数据丢失后可以从权威版本和成员清单重建并校验。
-- AI 服务不可用时规则结果保留，并明确展示降级。
-- 仓库和构建产物不存在真实密钥。
+- AI 服务关闭或不可用时规则结果保留，并明确展示降级。
+- 仓库和构建产物不存在真实密钥；本阶段不要求正式容量、异地恢复、主机断电或正式 RPO/RTO。
 
 ## 8. 质量与发布门槛
 
@@ -406,13 +432,14 @@ P0 规则语义如下：
 - `recommended-forward-v1` 已冻结供应商统一身份、Markdown/表格 Profile、组织级知识权限、Qdrant Collection 粒度、安全检索顺序、5/50/100 评测、15 规则发布、审核/高风险与报告状态机。
 - AI 只做候选、检索、解释和草稿，以及拒答、降级和人工兜底。
 - AC-003～AC-007、AC-010～AC-011、AC-013～AC-015 的产品结果。
+- `CR-025` 的 Local MVP 环境口径已冻结，AC-001、AC-002、AC-015、AC-016 当前为本机 `ACCEPTED`；扩大环境必须重验。
 
 ### 9.2 BLOCKED
 
 以下仅阻断对应最小切片；当前本地业务与部署 Profile 不再依赖这些决定：
 
-- 真实 AI Provider：fixed-test/production 的 endpoint、模型、维度、计费、配额、出站 allowlist 和 Secret 槽位尚未批准。
-- Production 验收：目标主机、域名/CA 证书、生产 Scanner/OCR、Secret Manager、保留期、RPO/RTO、容量基线和发布权限尚未形成一致且已验证的环境 Profile。
+- 真实 AI Provider：local/test Chat 与百炼 Embedding 的 endpoint、模型、维度、计费、出站 allowlist 和 Secret 槽位已批准并有受限 smoke；production 的 Profile、配额、Secret Manager、canary 和发布权限尚未批准或验证。
+- Production 验收：当前全局 HTTP Profile 不提供传输加密，不能用于局域网或公网发布；目标主机、恢复受信任 TLS 或由受信任代理终止 TLS、生产 Scanner/OCR、Secret Manager、保留期、RPO/RTO、容量基线和发布权限尚未形成一致且已验证的环境 Profile。
 
 ### 9.3 TBD
 

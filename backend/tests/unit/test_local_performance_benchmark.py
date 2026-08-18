@@ -11,6 +11,10 @@ sys.path.insert(0, str(_PROJECT_ROOT / "scripts"))
 import benchmark_local_performance as subject  # noqa: E402
 
 
+def test_performance_evidence_uses_the_current_http_transport_profile() -> None:
+    assert subject._TRANSPORT_SCOPE == "http-nginx-backend"
+
+
 def test_p95_uses_nearest_rank_for_twenty_samples() -> None:
     samples = [float(value) for value in range(1, 21)]
 

@@ -11,10 +11,9 @@ from app.adapters.minio_file_runtime import MinioFileRuntimeAdapter
 from app.adapters.minio_report_storage import MinioReportStorageAdapter
 from app.adapters.ocr import create_ocr_engine, create_pdf_renderer
 from app.adapters.qdrant_vector import QdrantVectorAdapter
-from app.ai.adapters.deterministic_hash import DeterministicHashEmbeddingAdapter
-from app.ai.adapters.openai_compatible import OpenAiChatCompletionsAdapter
+from app.ai.embedding_runtime import create_deterministic_embedding_runtime
 from app.ai.live_policy import LIVE_LLM_POLICY
-from app.ai.live_runtime import create_live_llm_runtime
+from app.ai.live_runtime import LiveAiRuntime, create_live_ai_runtime
 from app.ai.policy_loader import ValidatedPolicySnapshot, load_validated_policy
 from app.core.config import Settings
 from app.db.session import create_application_engine, create_session_factory
@@ -42,11 +41,11 @@ class FileWorkerRuntime:
     audit_executor: AuditJobExecutor | None = None
     report_executor: ReportJobExecutor | None = None
     vector_store: QdrantVectorAdapter | None = None
-    llm_adapter: OpenAiChatCompletionsAdapter | None = None
+    live_ai_runtime: LiveAiRuntime | None = None
 
     def close(self) -> None:
-        if self.llm_adapter is not None:
-            self.llm_adapter.close()
+        if self.live_ai_runtime is not None:
+            self.live_ai_runtime.close()
         if self.vector_store is not None:
             self.vector_store.close()
         self.engine.dispose()
@@ -60,7 +59,7 @@ def create_file_worker_runtime(settings: Settings) -> FileWorkerRuntime:
     )
     engine = create_application_engine(settings)
     vector_store: QdrantVectorAdapter | None = None
-    llm_adapter: OpenAiChatCompletionsAdapter | None = None
+    live_ai_runtime: LiveAiRuntime | None = None
     try:
         session_factory = create_session_factory(engine)
         parser = DocumentParser(
@@ -78,27 +77,35 @@ def create_file_worker_runtime(settings: Settings) -> FileWorkerRuntime:
         ai_risk_explanation: AiRiskExplanationService | None = None
         ai_report_draft: AiReportDraftService | None = None
         if policy_snapshot.provider_calls_enabled:
-            llm_runtime = create_live_llm_runtime(
+            live_ai_runtime = create_live_ai_runtime(
                 settings=settings,
                 session_factory=session_factory,
                 policy_snapshot=policy_snapshot,
             )
-            llm_adapter = llm_runtime.adapter
             ai_extraction = AiExtractionService(
-                llm_runtime.invoker,
+                live_ai_runtime.invoker,
                 LIVE_LLM_POLICY,
             )
             ai_risk_explanation = AiRiskExplanationService(
-                llm_runtime.invoker,
+                live_ai_runtime.invoker,
                 LIVE_LLM_POLICY,
             )
             ai_report_draft = AiReportDraftService(
-                llm_runtime.invoker,
+                live_ai_runtime.invoker,
                 LIVE_LLM_POLICY,
             )
         invoice_executor = InvoiceExtractionExecutor(session_factory, ai_extraction)
         contract_executor = ContractExtractionExecutor(session_factory, ai_extraction)
         vector_store = QdrantVectorAdapter(settings)
+        embedding_runtime = (
+            create_deterministic_embedding_runtime(
+                model_id=settings.embedding_model,
+                vector_size=settings.embedding_vector_size,
+                deadline_seconds=settings.ai_embedding_deadline_seconds,
+            )
+            if live_ai_runtime is None
+            else live_ai_runtime.embedding
+        )
         return FileWorkerRuntime(
             executor=executor,
             engine=engine,
@@ -112,10 +119,7 @@ def create_file_worker_runtime(settings: Settings) -> FileWorkerRuntime:
             knowledge_executor=KnowledgeJobExecutor(
                 session_factory,
                 vector_store,
-                DeterministicHashEmbeddingAdapter(
-                    model_id=settings.embedding_model,
-                    vector_size=settings.embedding_vector_size,
-                ),
+                embedding_runtime,
                 embedding_batch_size=min(settings.embedding_batch_size, 256),
             ),
             audit_executor=AuditJobExecutor(session_factory, ai_risk_explanation),
@@ -125,11 +129,11 @@ def create_file_worker_runtime(settings: Settings) -> FileWorkerRuntime:
                 ai_report_draft,
             ),
             vector_store=vector_store,
-            llm_adapter=llm_adapter,
+            live_ai_runtime=live_ai_runtime,
         )
     except Exception:
-        if llm_adapter is not None:
-            llm_adapter.close()
+        if live_ai_runtime is not None:
+            live_ai_runtime.close()
         if vector_store is not None:
             vector_store.close()
         engine.dispose()

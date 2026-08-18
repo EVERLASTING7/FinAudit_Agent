@@ -10,10 +10,17 @@ from uuid import UUID
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.ai.events import AiCallCompletedV1, AiCallLateCompletionV1, AiCallStartedV1
+from app.ai.events import (
+    AiCallCompletedV1,
+    AiCallCompletedV2,
+    AiCallLateCompletionV1,
+    AiCallLateCompletionV2,
+    AiCallStartedV1,
+    AiCallStartedV2,
+)
 from app.core.config import Settings
 from app.repositories.ai_call_audit import (
-    AiCallAuditLimits,
+    AiCallAuditLimit,
     AiCallAuditRepository,
     AiCallCompleteStatus,
     AiCallOperationAuditSummary,
@@ -33,7 +40,10 @@ class TransactionalAiCallCompletionWriter:
 
     def complete_attempt(
         self,
-        event: AiCallCompletedV1 | AiCallLateCompletionV1,
+        event: AiCallCompletedV1
+        | AiCallCompletedV2
+        | AiCallLateCompletionV1
+        | AiCallLateCompletionV2,
     ) -> AiCallCompleteStatus:
         return self._repository.append_completion(event)
 
@@ -50,8 +60,8 @@ class AiCallAuditService:
 
     def reserve_attempt(
         self,
-        event: AiCallStartedV1,
-        limits: AiCallAuditLimits,
+        event: AiCallStartedV1 | AiCallStartedV2,
+        limits: AiCallAuditLimit,
         *,
         deadline_monotonic: float,
         minimum_attempt_seconds: float = 0.0,
@@ -71,7 +81,10 @@ class AiCallAuditService:
 
     def complete_attempt(
         self,
-        event: AiCallCompletedV1 | AiCallLateCompletionV1,
+        event: AiCallCompletedV1
+        | AiCallCompletedV2
+        | AiCallLateCompletionV1
+        | AiCallLateCompletionV2,
     ) -> AiCallCompleteStatus:
         try:
             with self._session_factory.begin() as session:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -38,6 +38,9 @@ class AiCallAuditQueryService:
             reserved_input_tokens=summary.reserved_input_tokens,
             reserved_output_tokens=summary.reserved_output_tokens,
             reserved_cost_micro_usd=summary.reserved_cost_micro_usd,
+            cost_currency=summary.cost_currency,
+            reserved_cost_microunits=summary.reserved_cost_microunits,
+            actual_cost_microunits=summary.actual_cost_microunits,
             actual_input_tokens=summary.actual_input_tokens,
             actual_output_tokens=summary.actual_output_tokens,
             attempts=tuple(
@@ -48,9 +51,13 @@ class AiCallAuditQueryService:
                     model_id=item.model_id,
                     is_fallback=item.is_fallback,
                     status=cast(AiCallStatus, item.status),
+                    event_version=cast(Literal[1, 2], item.event_version),
                     reserved_input_tokens=item.reserved_input_tokens,
                     reserved_output_tokens=item.reserved_output_tokens,
                     reserved_cost_micro_usd=item.reserved_cost_micro_usd,
+                    cost_currency=item.cost_currency,
+                    reserved_cost_microunits=item.reserved_cost_microunits,
+                    actual_cost_microunits=item.actual_cost_microunits,
                     input_tokens=item.input_tokens,
                     output_tokens=item.output_tokens,
                     trace_id=item.trace_id,

@@ -21,8 +21,10 @@ def _require_status(response: httpx.Response, status_code: int, code: str) -> No
 def run() -> None:
     base_url = os.environ.get("FINAUDIT_SMOKE_BASE_URL")
     origin = os.environ.get("AUTH_PUBLIC_ORIGIN")
-    if base_url != "http://backend:8000" or not origin or not origin.startswith(
-        "https://localhost:"
+    if (
+        base_url != "http://backend:8000"
+        or not origin
+        or not origin.startswith("http://localhost:")
     ):
         raise SmokeError("SMOKE_PROFILE_INVALID")
     config = load_config(os.environ)
@@ -48,7 +50,9 @@ def run() -> None:
                 or first_login.headers.get("cache-control") != "no-store"
             ):
                 raise SmokeError("INITIAL_LOGIN_CONTRACT_INVALID")
-            password_change_token = first_payload.get("data", {}).get("password_change_token")
+            password_change_token = first_payload.get("data", {}).get(
+                "password_change_token"
+            )
             if not isinstance(password_change_token, str) or not password_change_token:
                 raise SmokeError("PASSWORD_CHANGE_TOKEN_MISSING")
 

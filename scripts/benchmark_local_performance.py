@@ -40,6 +40,7 @@ from app.models.financial import Contract, Invoice, InvoiceItem
 from app.models.reliability import AsyncJob, AsyncJobStep, OutboxEvent
 
 _SCHEMA_VERSION = "finaudit-local-performance-v2"
+_TRANSPORT_SCOPE = "http-nginx-backend"
 _RUN_ID_PATTERN = re.compile(r"[0-9a-f]{32}\Z", re.ASCII)
 _BASELINE_DATE = date(2026, 8, 15)
 _ROUND_COUNT = 3
@@ -128,7 +129,10 @@ def _validate_batch_response(
     if (
         type(expected_count) is not int
         or expected_count < 1
-        or any(type(index) is not int or not 0 <= index < expected_count for index in rejections)
+        or any(
+            type(index) is not int or not 0 <= index < expected_count
+            for index in rejections
+        )
         or (expected_names is not None and len(expected_names) != expected_count)
         or type(items) is not list
         or len(items) != expected_count
@@ -142,7 +146,10 @@ def _validate_batch_response(
         if (
             not isinstance(item, dict)
             or item.get("index") != index
-            or (expected_names is not None and item.get("original_name") != expected_names[index])
+            or (
+                expected_names is not None
+                and item.get("original_name") != expected_names[index]
+            )
         ):
             raise PerformanceError("BATCH_CONTRACT_INVALID")
         if index in rejections:
@@ -193,7 +200,9 @@ def _performance_pdf(run_id: str, round_no: int, sample_no: int) -> bytes:
     eof_offset = base.rfind(b"%%EOF")
     if eof_offset < 0:
         raise PerformanceError("PDF_FIXTURE_INVALID")
-    marker = (f"% local-performance-{run_id}-{round_no:02d}-{sample_no:02d}\n").encode("ascii")
+    marker = (f"% local-performance-{run_id}-{round_no:02d}-{sample_no:02d}\n").encode(
+        "ascii"
+    )
     payload = base[:eof_offset] + marker + base[eof_offset:]
     if not payload.startswith(b"%PDF") or not payload.rstrip().endswith(b"%%EOF"):
         raise PerformanceError("PDF_FIXTURE_INVALID")
@@ -242,7 +251,9 @@ def seed_database() -> None:
                 raise PerformanceError("ORGANIZATION_SUBJECT_INVALID")
             existing_ids = tuple(
                 session.scalars(select(Contract.id).where(Contract.id == contract_id))
-            ) + tuple(session.scalars(select(Invoice.id).where(Invoice.id.in_(invoice_ids))))
+            ) + tuple(
+                session.scalars(select(Invoice.id).where(Invoice.id.in_(invoice_ids)))
+            )
             if existing_ids:
                 raise PerformanceError("PERFORMANCE_SEED_COLLISION")
             now = session.scalar(select(func.clock_timestamp()))
@@ -357,9 +368,9 @@ def _client_profile() -> tuple[str, str, str, str, str]:
     origin = _required_environment("AUTH_PUBLIC_ORIGIN")
     username = _required_environment("BOOTSTRAP_ADMIN_USERNAME")
     run_id = _run_id()
-    if base_url != "https://frontend:8443" or not origin.startswith("https://localhost:"):
+    if base_url != "http://frontend:8443" or not origin.startswith("http://localhost:"):
         raise PerformanceError("CLIENT_PROFILE_INVALID")
-    return base_url, origin, origin.removeprefix("https://"), username, run_id
+    return base_url, origin, origin.removeprefix("http://"), username, run_id
 
 
 def _client(
@@ -413,7 +424,10 @@ def _wait_for_scan_only_files(
             if status in {"failed", "cancelled"}:
                 raise PerformanceError("UPLOAD_JOB_FAILED")
             if status == "succeeded":
-                if data.get("status") != "stored" or data.get("security_scan_status") != "clean":
+                if (
+                    data.get("status") != "stored"
+                    or data.get("security_scan_status") != "clean"
+                ):
                     raise PerformanceError("UPLOAD_JOB_RESULT_INVALID")
                 started, _payload = pending.pop(file_id)
                 processing_samples.append(time.perf_counter() - started)
@@ -427,7 +441,8 @@ def _wait_for_scan_only_files(
     if (
         preview.status_code != 200
         or preview.content != preview_payload
-        or preview.headers.get("etag") != f'"{hashlib.sha256(preview_payload).hexdigest()}"'
+        or preview.headers.get("etag")
+        != f'"{hashlib.sha256(preview_payload).hexdigest()}"'
         or preview.headers.get("x-file-status") != "stored"
     ):
         raise PerformanceError("UPLOAD_PREVIEW_INVALID")
@@ -449,7 +464,9 @@ def _measure_uploads(
             "/api/v1/files",
             headers={
                 **authorization,
-                "Idempotency-Key": (f"local-performance-file.{run_id}.{round_no}.{sample_no}"),
+                "Idempotency-Key": (
+                    f"local-performance-file.{run_id}.{round_no}.{sample_no}"
+                ),
             },
             data={
                 "intended_business_type": "contract",
@@ -665,7 +682,9 @@ def _post_audit_task(
             "/api/v1/audit-tasks",
             headers={
                 **authorization,
-                "Idempotency-Key": (f"local-performance-audit.{run_id}.{round_no}.{task_no}"),
+                "Idempotency-Key": (
+                    f"local-performance-audit.{run_id}.{round_no}.{task_no}"
+                ),
             },
             json={
                 "task_no": f"{_task_prefix(run_id)}{round_no}-{task_no}",
@@ -723,7 +742,8 @@ def _measure_concurrent_audits(
         created = tuple(future.result() for future in futures)
 
     identities = tuple(
-        (task_id, execution_id, job_id) for task_id, execution_id, job_id, _, _ in created
+        (task_id, execution_id, job_id)
+        for task_id, execution_id, job_id, _, _ in created
     )
     if (
         len({item[0] for item in identities}) != _AUDIT_TASK_COUNT
@@ -732,7 +752,8 @@ def _measure_concurrent_audits(
     ):
         raise PerformanceError("AUDIT_IDENTITY_DUPLICATED")
     pending = {
-        execution_id: started for _task_id, execution_id, _job_id, started, _accepted in created
+        execution_id: started
+        for _task_id, execution_id, _job_id, started, _accepted in created
     }
     execution_samples: list[float] = []
     deadline = time.monotonic() + _JOB_TIMEOUT_SECONDS
@@ -772,7 +793,9 @@ def run_client() -> dict[str, object]:
     with _client(base_url, origin, host) as client:
         admin_token = _login(client, username, password)
         reviewer_username = f"perf-{run_id[:12]}"
-        reviewer_password = validate_new_password(f"{password}-performance-{run_id[:12]}")
+        reviewer_password = validate_new_password(
+            f"{password}-performance-{run_id[:12]}"
+        )
         created_user = client.post(
             "/api/v1/users",
             headers={
@@ -837,7 +860,9 @@ def run_client() -> dict[str, object]:
                     "upload_acceptance_samples": len(upload_acceptance),
                     "upload_acceptance_p95_ms": round(upload_acceptance_p95 * 1000, 3),
                     "scan_only_processing_samples": len(upload_processing),
-                    "scan_only_processing_p95_ms": round(_p95(upload_processing) * 1000, 3),
+                    "scan_only_processing_p95_ms": round(
+                        _p95(upload_processing) * 1000, 3
+                    ),
                     "batch_file_count": len(batch_identities),
                     "batch_acceptance_ms": round(batch_acceptance * 1000, 3),
                     "batch_replay_acceptance_ms": round(
@@ -870,7 +895,9 @@ def run_client() -> dict[str, object]:
         "schema_version": _SCHEMA_VERSION,
         "round_count": _ROUND_COUNT,
         "list_p95_limit_ms": int(_LIST_P95_LIMIT_SECONDS * 1000),
-        "upload_acceptance_p95_limit_ms": int(_UPLOAD_ACCEPTANCE_P95_LIMIT_SECONDS * 1000),
+        "upload_acceptance_p95_limit_ms": int(
+            _UPLOAD_ACCEPTANCE_P95_LIMIT_SECONDS * 1000
+        ),
         "rounds": rounds,
         "partial_batch": {
             "file_count": 2,
@@ -886,7 +913,7 @@ def run_client() -> dict[str, object]:
             "rejection_ms": round(over_limit_rejection * 1000, 3),
         },
         "scope": {
-            "transport": "https-nginx-backend",
+            "transport": _TRANSPORT_SCOPE,
             "scanner": "local-clamav-scan-only",
             "batch_upload": (
                 "default-max-20-idempotent-replay-partial-failure-and-limit-rejection"
@@ -961,7 +988,9 @@ def verify_database() -> None:
             )
             batch_job_ids = tuple(job.id for job in batch_jobs)
             batch_steps = tuple(
-                session.scalars(select(AsyncJobStep).where(AsyncJobStep.job_id.in_(batch_job_ids)))
+                session.scalars(
+                    select(AsyncJobStep).where(AsyncJobStep.job_id.in_(batch_job_ids))
+                )
             )
             batch_outbox = tuple(
                 session.scalars(
@@ -991,14 +1020,20 @@ def verify_database() -> None:
             task_ids = tuple(task.id for task in tasks)
             executions = tuple(
                 session.scalars(
-                    select(AuditTaskExecution).where(AuditTaskExecution.audit_task_id.in_(task_ids))
+                    select(AuditTaskExecution).where(
+                        AuditTaskExecution.audit_task_id.in_(task_ids)
+                    )
                 )
             )
             execution_ids = tuple(execution.id for execution in executions)
-            job_ids = tuple(execution.job_id for execution in executions if execution.job_id)
+            job_ids = tuple(
+                execution.job_id for execution in executions if execution.job_id
+            )
             items = tuple(
                 session.scalars(
-                    select(AuditTaskItem).where(AuditTaskItem.audit_task_id.in_(task_ids))
+                    select(AuditTaskItem).where(
+                        AuditTaskItem.audit_task_id.in_(task_ids)
+                    )
                 )
             )
             snapshots = tuple(
@@ -1010,12 +1045,18 @@ def verify_database() -> None:
             )
             rules = tuple(
                 session.scalars(
-                    select(RuleExecution).where(RuleExecution.execution_id.in_(execution_ids))
+                    select(RuleExecution).where(
+                        RuleExecution.execution_id.in_(execution_ids)
+                    )
                 )
             )
-            jobs = tuple(session.scalars(select(AsyncJob).where(AsyncJob.id.in_(job_ids))))
+            jobs = tuple(
+                session.scalars(select(AsyncJob).where(AsyncJob.id.in_(job_ids)))
+            )
             steps = tuple(
-                session.scalars(select(AsyncJobStep).where(AsyncJobStep.job_id.in_(job_ids)))
+                session.scalars(
+                    select(AsyncJobStep).where(AsyncJobStep.job_id.in_(job_ids))
+                )
             )
             outbox = tuple(
                 session.scalars(
@@ -1085,10 +1126,13 @@ def verify_database() -> None:
     expected_count = _ROUND_COUNT * _AUDIT_TASK_COUNT
     execution_by_task = {execution.audit_task_id: execution for execution in executions}
     item_counts = {
-        task_id: sum(item.audit_task_id == task_id for item in items) for task_id in task_ids
+        task_id: sum(item.audit_task_id == task_id for item in items)
+        for task_id in task_ids
     }
     invoice_ids = {
-        item.invoice_id for item in items if item.item_type == "invoice" and item.invoice_id
+        item.invoice_id
+        for item in items
+        if item.item_type == "invoice" and item.invoice_id
     }
     rule_counts = {
         execution_id: sum(rule.execution_id == execution_id for rule in rules)

@@ -10,8 +10,8 @@ x-app-environment: &app-environment
   AUTH_JWT_ACTIVE_KID: finaudit-local-key-v1
   AUTH_JWT_PRIVATE_KEY_FILE: /run/secrets/auth_jwt_private_key
   AUTH_JWT_PUBLIC_KEYRING_FILE: /run/secrets/auth_jwt_public_keyring
-  AUTH_PUBLIC_ORIGIN: https://localhost:${FINAUDIT_HTTPS_PORT:-8443}
-  CORS_ALLOWED_ORIGINS: https://localhost:${FINAUDIT_HTTPS_PORT:-8443}
+  AUTH_PUBLIC_ORIGIN: http://localhost:${FINAUDIT_HTTP_PORT:-8443}
+  CORS_ALLOWED_ORIGINS: http://localhost:${FINAUDIT_HTTP_PORT:-8443}
   MAX_UPLOAD_SIZE_MB: "50"
   MAX_BATCH_FILE_COUNT: "20"
   DB_POOL_SIZE: "10"
@@ -26,21 +26,21 @@ x-app-environment: &app-environment
   MINIO_BUCKET_EXPORTS: exports
   MINIO_BUCKET_TEMP: temp
   QDRANT_URL: http://qdrant:6333
-  QDRANT_COLLECTION: finaudit_policy_chunks_local_e1024_v1
+  QDRANT_COLLECTION: "${QDRANT_COLLECTION:-finaudit_policy_chunks_local_e1024_v1}"
   QDRANT_VECTOR_SIZE: "1024"
   QDRANT_DISTANCE: Cosine
   AI_POLICY_VERSION: "1"
-  AI_PROVIDER_CALLS_ENABLED: "false"
+  AI_PROVIDER_CALLS_ENABLED: "${AI_PROVIDER_CALLS_ENABLED:-false}"
   AI_PROVIDER_POLICY_SCHEMA_VERSION: "1"
-  AI_POLICY_FILE: /app/config/ai-policy-v1.json
-  LLM_BASE_URL: http://synthetic-extraction:8000/v1
-  LLM_EXTRACTION_MODEL: synthetic-extraction-model
-  LLM_GENERATION_MODEL: synthetic-generation-model
-  LLM_FALLBACK_MODEL: synthetic-fallback-model
-  EMBEDDING_BASE_URL: http://synthetic-embedding:8003/v1
-  EMBEDDING_MODEL: synthetic-embedding-model
-  EMBEDDING_VECTOR_SIZE: "1024"
-  EMBEDDING_BATCH_SIZE: "32"
+  AI_POLICY_FILE: "${AI_POLICY_FILE:-/app/config/ai-policy-v1.json}"
+  LLM_BASE_URL: "${LLM_BASE_URL:-http://synthetic-extraction:8000/v1}"
+  LLM_EXTRACTION_MODEL: "${LLM_EXTRACTION_MODEL:-synthetic-extraction-model}"
+  LLM_GENERATION_MODEL: "${LLM_GENERATION_MODEL:-synthetic-generation-model}"
+  LLM_FALLBACK_MODEL: "${LLM_FALLBACK_MODEL:-synthetic-fallback-model}"
+  EMBEDDING_BASE_URL: "${EMBEDDING_BASE_URL:-http://synthetic-embedding:8003/v1}"
+  EMBEDDING_MODEL: "${EMBEDDING_MODEL:-synthetic-embedding-model}"
+  EMBEDDING_VECTOR_SIZE: "${EMBEDDING_VECTOR_SIZE:-1024}"
+  EMBEDDING_BATCH_SIZE: "${EMBEDDING_BATCH_SIZE:-32}"
   OCR_PROVIDER: not_configured
   SCANNER_PROVIDER: clamav_instream
   SCANNER_HOST: clamav
@@ -80,6 +80,12 @@ x-app-secrets: &app-secrets
   - source: auth_jwt_public_keyring
     target: auth_jwt_public_keyring
 
+x-local-logging: &local-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 x-backend-service: &backend-service
   image: finaudit-backend-local:${FINAUDIT_IMAGE_REVISION:-dev}
   environment: *app-environment
@@ -91,6 +97,7 @@ x-backend-service: &backend-service
     - no-new-privileges:true
   cap_drop:
     - ALL
+  logging: *local-logging
   restart: unless-stopped
 
 services:
@@ -114,6 +121,7 @@ services:
       start_period: 10s
     security_opt:
       - no-new-privileges:true
+    logging: *local-logging
     restart: unless-stopped
 
   redis:
@@ -136,6 +144,7 @@ services:
       start_period: 5s
     security_opt:
       - no-new-privileges:true
+    logging: *local-logging
     restart: unless-stopped
 
   minio:
@@ -160,6 +169,7 @@ services:
       start_period: 5s
     security_opt:
       - no-new-privileges:true
+    logging: *local-logging
     restart: unless-stopped
 
   qdrant:
@@ -176,6 +186,7 @@ services:
       start_period: 5s
     security_opt:
       - no-new-privileges:true
+    logging: *local-logging
     restart: unless-stopped
 
   clamav:
@@ -187,6 +198,7 @@ services:
       - scanner_updates
     security_opt:
       - no-new-privileges:true
+    logging: *local-logging
     restart: unless-stopped
 
   migrate:
@@ -234,7 +246,7 @@ services:
     command: ["python", "/app/scripts/bootstrap_local_qdrant.py"]
     environment:
       APP_ENV: local
-      QDRANT_COLLECTION: finaudit_policy_chunks_local_e1024_v1
+      QDRANT_COLLECTION: "${QDRANT_COLLECTION:-finaudit_policy_chunks_local_e1024_v1}"
       QDRANT_VECTOR_SIZE: "1024"
       QDRANT_DISTANCE: Cosine
     secrets: []
@@ -376,12 +388,7 @@ services:
       context: ../..
       dockerfile: frontend/Dockerfile
     ports:
-      - 127.0.0.1:${FINAUDIT_HTTPS_PORT:-8443}:8443
-    secrets:
-      - source: tls_certificate
-        target: tls_certificate
-      - source: tls_private_key
-        target: tls_private_key
+      - 127.0.0.1:${FINAUDIT_HTTP_PORT:-8443}:8443
     depends_on:
       backend:
         condition: service_healthy
@@ -394,7 +401,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - wget --no-check-certificate -qO- https://127.0.0.1:8443/health >/dev/null
+        - wget -qO- http://127.0.0.1:8443/health >/dev/null
       interval: 5s
       timeout: 5s
       retries: 20
@@ -407,6 +414,7 @@ services:
       - CHOWN
       - SETGID
       - SETUID
+    logging: *local-logging
     restart: unless-stopped
 
 networks:
@@ -465,7 +473,3 @@ secrets:
     file: ${FINAUDIT_RUNTIME_DIR:?required}/auth_jwt_public_keyring
   bootstrap_admin_password:
     file: ${FINAUDIT_RUNTIME_DIR:?required}/bootstrap_admin_password
-  tls_certificate:
-    file: ${FINAUDIT_RUNTIME_DIR:?required}/tls_certificate
-  tls_private_key:
-    file: ${FINAUDIT_RUNTIME_DIR:?required}/tls_private_key

@@ -4,8 +4,8 @@
 
 ## 当前事实
 
-- 当前 accepted Alembic head：`20260816_023`。
-- 当前 ORM 与运行时 catalog 覆盖 57/57 张核心物理表；`021` 封锁检索状态旁路，`022` 闭合未确认发票空币种，`023` 增加风险解释与报告草稿持久事实，三者均不增加表。
+- 当前 accepted Alembic head：`20260817_024`。
+- 当前 ORM 与运行时 catalog 覆盖 57/57 张核心物理表；`021` 封锁检索状态旁路，`022` 闭合未确认发票空币种，`023` 增加风险解释与报告草稿持久事实，`024` 增加 Event v2 的 USD/CNY 通用 microunit 费用列；四者均不增加表。
 - 当前物理 Schema 的唯一来源：`backend/alembic/versions/` 的单一线性历史。
 - 当前 ORM 投影：`backend/app/models/`。
 - 当前 head 覆盖的对象只是已实现切片；目标业务对象或历史表清单不代表表已存在。
@@ -55,6 +55,8 @@ Set-Location .\backend
 
 `20260816_023` 为 `audit_risks` 和 `audit_reports` 增加 AI `status/json/sha256` 三元组及一致性约束；报告触发器只允许 `generating` 内部从 `disabled` 原子转到 `succeeded|degraded`，其他报告状态转换要求 AI payload 不变，ready/outdated 制品不可变规则继续生效。downgrade 先恢复 v1 报告触发器，再删除新增列。
 
+`20260817_024` 保留可空 legacy `reserved_cost_micro_usd` 供 Event v1 历史回放，并为 `ai_call_logs` 增加 `cost_currency`、`reserved_cost_microunits`、`actual_cost_microunits`。Event v2 外部计费只允许 USD/CNY，内部不计费必须使用空币种和零金额；禁止 v1/v2 字段混填、隐式汇率换算或跨币种汇总。upgrade 在存在未完成 AI 审计行或未发布 AI Outbox 时以 `55000` 失败关闭；downgrade 在存在任何 v2 Event/日志时失败关闭，不把 CNY 数据转换为 USD。
+
 ## 安全执行
 
 迁移只允许在受信任进程显式注入 DSN 后执行：
@@ -97,7 +99,7 @@ Set-Location ..
 .\scripts\verify-postgresql-current-head.ps1
 ```
 
-2026-08-16 当前 checkout 的唯一 head `20260816_023` 已在 PostgreSQL 16.14 上完成 Full wrapper 双轮验证：完整 `integration/database` 目录每轮 146 项，分别输出 `POSTGRESQL_CURRENT_HEAD_RUN=1/2 status=ok` 与 `POSTGRESQL_CURRENT_HEAD=PASS`，专用 current-head 容器最终为 0。该结果不等于 production migration、备份恢复、容量或正式 AC 通过。
+2026-08-17 当前 checkout 的唯一 head `20260817_024` 已在 PostgreSQL 16.14 上完成 Full wrapper 双轮验证：完整 `integration/database` 目录每轮 146 项，分别输出 `POSTGRESQL_CURRENT_HEAD_RUN=1/2 status=ok`、`POSTGRESQL_CURRENT_HEAD_RUN=2/2 status=ok` 与 `POSTGRESQL_CURRENT_HEAD=PASS`，专用 current-head 容器最终为 0。验证包含非空 v1 历史保留、pending/Outbox 升级阻断、v1/v2 字段混用阻断、CNY v2 投影和 v2 downgrade 阻断；该结果不等于 production migration、备份恢复、容量或正式 AC 通过。
 
 验证至少覆盖：
 

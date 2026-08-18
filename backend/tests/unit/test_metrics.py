@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -90,4 +91,44 @@ def test_local_nginx_proxies_only_the_exact_metrics_path_and_forwards_authorizat
     assert nginx.count(marker) == 1
     block = nginx.split(marker, 1)[1].split("\n        }", 1)[0]
     assert "proxy_pass http://backend:8000/metrics;" in block
+    assert "proxy_hide_header X-Content-Type-Options;" in block
     assert "proxy_set_header Authorization $http_authorization;" in block
+
+
+def test_local_compose_bounds_logs_and_restarts_all_long_running_services() -> None:
+    project_root = Path(__file__).resolve().parents[3]
+    compose = (project_root / "infra" / "compose" / "compose.local.yml").read_text(encoding="utf-8")
+    backend_defaults = compose.split("x-backend-service: &backend-service", 1)[1].split(
+        "\nservices:", 1
+    )[0]
+
+    assert 'driver: local\n  options:\n    max-size: "10m"\n    max-file: "5"' in compose
+    assert "logging: *local-logging" in backend_defaults
+    assert "restart: unless-stopped" in backend_defaults
+
+    for service in ("postgresql", "redis", "minio", "qdrant", "clamav", "frontend"):
+        tail = compose.split(f"\n  {service}:\n", 1)[1]
+        next_service = re.search(r"\n  [a-z][a-z0-9-]*:\n", tail)
+        block = tail if next_service is None else tail[: next_service.start()]
+        assert "logging: *local-logging" in block
+        assert "restart: unless-stopped" in block
+
+
+def test_local_metrics_runbook_uses_the_current_loopback_http_profile() -> None:
+    project_root = Path(__file__).resolve().parents[3]
+    runbook = (project_root / "docs" / "runbooks" / "internal-metrics.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "http://127.0.0.1:8443/metrics" in runbook
+    assert "https://127.0.0.1:8443/metrics" not in runbook
+
+
+def test_local_stack_metrics_gate_tracks_the_registry_metric_names() -> None:
+    project_root = Path(__file__).resolve().parents[3]
+    verifier = (project_root / "scripts" / "verify-local-stack.ps1").read_text(encoding="utf-8")
+
+    assert "'finaudit_process_uptime_seconds'" in verifier
+    assert "'finaudit_http_requests_in_flight'" in verifier
+    assert "'finaudit_uptime_seconds'" not in verifier
+    assert "'finaudit_http_inflight_requests'" not in verifier

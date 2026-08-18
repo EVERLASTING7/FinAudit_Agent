@@ -3,7 +3,7 @@ param(
     [string]$BackendPythonPath,
     [string]$DockerPath,
     [string]$Image = 'postgres:16-alpine',
-    [ValidateSet('Full', 'Retrieval', 'Audit', 'Contract', 'File', 'AI', 'LiveAI')]
+    [ValidateSet('Full', 'Retrieval', 'Audit', 'Contract', 'File', 'AI', 'LiveAI', 'LiveEmbedding')]
     [string]$Scope = 'Full'
 )
 
@@ -341,11 +341,17 @@ try {
             @(
                 'tests/integration/database/test_migrations.py::test_current_base005_migration_round_trip',
                 'tests/integration/database/test_migrations.py::test_ai_generated_fact_columns_and_constraints_round_trip',
+                'tests/integration/database/test_migrations.py::test_currency_neutral_ai_cost_migration_preserves_v1_and_guards_v2',
                 'tests/integration/database/test_ai_call_audit_runtime.py',
                 'tests/integration/database/test_live_ai_extraction_runtime.py'
             )
         }
         elseif ($Scope -eq 'LiveAI') {
+            @(
+                'tests/integration/database/test_migrations.py::test_current_base005_migration_round_trip'
+            )
+        }
+        elseif ($Scope -eq 'LiveEmbedding') {
             @(
                 'tests/integration/database/test_migrations.py::test_current_base005_migration_round_trip'
             )
@@ -380,6 +386,20 @@ try {
             if ($liveSmoke.ExitCode -ne 0) {
                 $testOutputs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
                 throw 'Live AI contract smoke failed.'
+            }
+        }
+        elseif ($Scope -eq 'LiveEmbedding') {
+            $liveSmoke = Invoke-ExternalCommand -FilePath $backendPython -Arguments @(
+                '-I', (Join-Path $projectRoot 'scripts/smoke_live_bailian_embedding.py')
+            )
+            foreach ($line in $liveSmoke.Output) {
+                $testOutputs.Add(
+                    ($line -replace [regex]::Escape($databasePassword), '[REDACTED]')
+                )
+            }
+            if ($liveSmoke.ExitCode -ne 0) {
+                $testOutputs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+                throw 'Live Bailian embedding smoke failed.'
             }
         }
     }

@@ -7,8 +7,9 @@ param(
     [ValidatePattern('^[a-z0-9][a-z0-9_-]{2,39}$')]
     [string]$TargetProjectName,
 
+    [Alias('HttpsPort')]
     [ValidateRange(1024, 65535)]
-    [int]$HttpsPort = 9443
+    [int]$HttpPort = 9443
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,8 +20,7 @@ $secretNames = @(
     'minio_root_user', 'minio_root_password', 'minio_access_key', 'minio_secret_key',
     'minio_worker_access_key', 'minio_worker_secret_key', 'llm_api_key',
     'embedding_api_key', 'metrics_internal_token', 'auth_jwt_private_key',
-    'auth_jwt_public_keyring', 'bootstrap_admin_password', 'tls_certificate',
-    'tls_private_key'
+    'auth_jwt_public_keyring', 'bootstrap_admin_password'
 )
 
 function Invoke-Docker([string[]]$Arguments, [string]$FailureMessage) {
@@ -114,7 +114,7 @@ function Wait-LocalReadiness([int]$Port) {
         for ($attempt = 0; $attempt -lt 90; $attempt++) {
             try {
                 $response = $client.GetAsync(
-                    "https://localhost:$Port/health/dependencies"
+                    "http://localhost:$Port/health/dependencies"
                 ).GetAwaiter().GetResult()
                 if ($response.IsSuccessStatusCode) {
                     $payload = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult() |
@@ -284,7 +284,7 @@ try {
     $targetForCompose = $targetRuntime.Replace('\', '/')
     Write-Utf8File (Join-Path $stagingRuntime 'compose.env') @(
         "FINAUDIT_RUNTIME_DIR=$targetForCompose",
-        "FINAUDIT_HTTPS_PORT=$HttpsPort",
+        "FINAUDIT_HTTP_PORT=$HttpPort",
         "FINAUDIT_IMAGE_REVISION=$imageRevision",
         "BOOTSTRAP_ORGANIZATION_NAME=$($sourceMarker.organizationName)",
         "BOOTSTRAP_ORGANIZATION_USCC=$($sourceMarker.organizationUscc)",
@@ -366,7 +366,7 @@ try {
 
     $null = Invoke-Docker ($composeArguments + @('up', '--detach')) `
         'Unable to start the isolated restored application stack.'
-    Wait-LocalReadiness $HttpsPort
+    Wait-LocalReadiness $HttpPort
 }
 catch {
     $restoreError = $_
@@ -413,7 +413,7 @@ catch {
 
 Write-Output 'LOCAL_STACK_RESTORE=PASS'
 Write-Output "LOCAL_STACK_RESTORE_PROJECT=$TargetProjectName"
-Write-Output "LOCAL_STACK_RESTORE_URL=https://localhost:$HttpsPort"
+Write-Output "LOCAL_STACK_RESTORE_URL=http://localhost:$HttpPort"
 Write-Output "LOCAL_STACK_RESTORE_RUNTIME_DIR=$targetRuntime"
 Write-Output 'LOCAL_STACK_RESTORE_POSTGRESQL=VERIFIED_ROW_COUNTS'
 Write-Output 'LOCAL_STACK_RESTORE_MINIO=VERIFIED_VOLUME_DIGEST'

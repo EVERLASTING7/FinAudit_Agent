@@ -63,6 +63,23 @@ def client(exact_policy_file: Path, auth_service: Mock) -> Iterator[TestClient]:
         yield test_client
 
 
+def test_auth_openapi_freezes_all_operation_identities(client: TestClient) -> None:
+    paths = client.get("/openapi.json").json()["paths"]
+    expected = {
+        ("/api/v1/auth/login", "post"): "login_api_v1_auth_login_post",
+        ("/api/v1/auth/refresh", "post"): "refresh_api_v1_auth_refresh_post",
+        ("/api/v1/auth/logout", "post"): "logout_api_v1_auth_logout_post",
+        ("/api/v1/auth/me", "get"): "me_api_v1_auth_me_get",
+        (
+            "/api/v1/auth/password/change",
+            "post",
+        ): "change_password_api_v1_auth_password_change_post",
+    }
+
+    for (path, method), operation_id in expected.items():
+        assert paths[path][method]["operationId"] == operation_id
+
+
 def test_login_returns_session_and_strict_refresh_cookie(
     client: TestClient, auth_service: Mock
 ) -> None:
@@ -82,7 +99,7 @@ def test_login_returns_session_and_strict_refresh_cookie(
     assert "SameSite=strict" in cookie
     assert "Path=/api/v1/auth" in cookie
     assert "Domain=" not in cookie
-    assert "Secure" in cookie
+    assert "Secure" not in cookie
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["pragma"] == "no-cache"
 
@@ -236,7 +253,7 @@ def test_local_non_test_requests_require_same_origin(exact_policy_file: Path) ->
     service.login.assert_not_called()
 
 
-def test_local_loopback_http_is_the_only_insecure_cookie_profile(
+def test_local_loopback_http_uses_non_secure_cookie(
     exact_policy_file: Path,
 ) -> None:
     application = create_app(build_startup_settings(exact_policy_file, environment="local"))
@@ -254,7 +271,7 @@ def test_local_loopback_http_is_the_only_insecure_cookie_profile(
     assert "Secure" not in response.headers["set-cookie"]
 
 
-def test_test_profile_keeps_secure_cookie_on_loopback_http(
+def test_test_profile_http_uses_non_secure_cookie(
     exact_policy_file: Path,
 ) -> None:
     application = create_app(build_startup_settings(exact_policy_file, environment="test"))
@@ -269,7 +286,7 @@ def test_test_profile_keeps_secure_cookie_on_loopback_http(
         )
 
     assert response.status_code == 200
-    assert "Secure" in response.headers["set-cookie"]
+    assert "Secure" not in response.headers["set-cookie"]
 
 
 def test_test_environment_does_not_create_an_origin_bypass(

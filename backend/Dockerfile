@@ -32,9 +32,9 @@ COPY scripts/bootstrap_local_minio.py scripts/bootstrap_local_minio_worker.py \
 RUN mkdir -p /app/config \
     && cp /app/app/ai/artifacts/cr011_v1/ai-policy-v1.positive.json \
         /app/config/ai-policy-v1.json \
-    && cp /app/app/ai/artifacts/minimax_m3_local_v1/live-ai-policy-v1.json \
-        /app/config/live-ai-policy-v1.json \
-    && chmod 0444 /app/config/ai-policy-v1.json /app/config/live-ai-policy-v1.json \
+    && cp /app/app/ai/artifacts/minimax_m3_bailian_qwen37_local_v2/live-ai-policy-v2.json \
+        /app/config/live-ai-policy-v2.json \
+    && chmod 0444 /app/config/ai-policy-v1.json /app/config/live-ai-policy-v2.json \
     && addgroup --system --gid 10001 finaudit \
     && adduser --system --uid 10001 --ingroup finaudit --home /nonexistent finaudit
 

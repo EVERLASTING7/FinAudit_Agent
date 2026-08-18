@@ -239,6 +239,7 @@ def test_supplier_openapi_freezes_operations(exact_policy_file: Path) -> None:
     }
     for path, (method, operation_id) in expected.items():
         assert paths[path][method]["operationId"] == operation_id
+    assert paths["/api/v1/suppliers/{supplier_id}"]["get"]["operationId"] == "get_supplier_v1"
     for path, (method, _) in tuple(expected.items())[1:]:
         assert "Idempotency-Key" in {
             parameter["name"] for parameter in paths[path][method]["parameters"]

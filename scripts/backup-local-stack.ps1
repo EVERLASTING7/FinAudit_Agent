@@ -106,7 +106,7 @@ function Wait-LocalReadiness([int]$Port) {
         for ($attempt = 0; $attempt -lt 90; $attempt++) {
             try {
                 $response = $client.GetAsync(
-                    "https://localhost:$Port/health/dependencies"
+                    "http://localhost:$Port/health/dependencies"
                 ).GetAwaiter().GetResult()
                 if ($response.IsSuccessStatusCode) {
                     $payload = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult() |
@@ -211,10 +211,10 @@ foreach ($line in (Get-Content -LiteralPath $composeEnvPath)) {
     }
 }
 $imageRevision = [string]$composeEnv['FINAUDIT_IMAGE_REVISION']
-$httpsPort = 0
+$httpPort = 0
 if (
     [string]::IsNullOrWhiteSpace($imageRevision) -or
-    -not [int]::TryParse([string]$composeEnv['FINAUDIT_HTTPS_PORT'], [ref]$httpsPort)
+    -not [int]::TryParse([string]$composeEnv['FINAUDIT_HTTP_PORT'], [ref]$httpPort)
 ) {
     throw 'The managed Compose environment is invalid.'
 }
@@ -367,7 +367,7 @@ finally {
         try {
             $null = Invoke-Docker ($composeArguments + @('up', '--detach')) `
                 'Unable to restart the local stack after backup.'
-            Wait-LocalReadiness $httpsPort
+            Wait-LocalReadiness $httpPort
         }
         catch {
             if ($null -eq $backupError) {

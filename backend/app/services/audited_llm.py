@@ -7,13 +7,14 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.ai.adapters.openai_compatible import OpenAiChatCompletionsAdapter
 from app.ai.contracts import (
+    ErrorDisposition,
     ExternalError,
     ExternalErrorCategory,
     LlmGenerationParameters,
@@ -27,7 +28,7 @@ from app.ai.event_sink import (
     ReserveAttemptStatus,
     SinkEvent,
 )
-from app.ai.events import AiCallCompletedV1, AiCallStartedV1, validate_ai_call_event_v1
+from app.ai.events import AiCallCompletedV2, AiCallStartedV2, validate_ai_call_event_v2
 from app.ai.gateway import (
     AdapterNotRegisteredError,
     AiGateway,
@@ -38,12 +39,20 @@ from app.ai.live_policy import LiveLlmPolicy, LiveOperationPolicy
 from app.ai.policy_loader import ValidatedPolicySnapshot
 from app.ai.pricing import (
     BillingMode,
-    BudgetProfile,
-    PricingProfile,
-    calculate_preflight_reservation,
-    reconcile_actual_usage,
+    BudgetProfileV2,
+    CostCurrency,
+    PricingProfileV2,
+    calculate_preflight_reservation_v2,
+    reconcile_actual_usage_v2,
 )
-from app.repositories.ai_call_audit import AiCallAuditLimits
+from app.ai.redis_runtime_control import (
+    AiRuntimeControlError,
+    AiRuntimeController,
+    AiRuntimePermit,
+    RuntimeOutcome,
+)
+from app.ai.routing import P0AiPurpose, rate_limit_pool_for_purpose
+from app.repositories.ai_call_audit import AiCallAuditLimitsV2
 from app.services.ai_call_audit import (
     AiCallAuditService,
     TransactionalAiCallCompletionWriter,
@@ -107,6 +116,7 @@ class _CompletionFacts:
     input_tokens: int
     output_tokens: int
     duration_ms: int
+    actual_cost_microunits: int
 
 
 @dataclass(slots=True)
@@ -149,6 +159,7 @@ class AuditedLlmAdoption:
             http_status=200,
             error_category="invalid_response",
             safe_error_code=safe_error_code,
+            actual_cost_microunits=self._completion_facts.actual_cost_microunits,
         )
         decision = self._sink.complete_attempt_in_transaction_sync(
             SinkEvent(rejected),
@@ -179,13 +190,14 @@ def _started_event(
     input_hash: str,
     reserved_input_tokens: int,
     reserved_output_tokens: int,
-    reserved_cost_micro_usd: int,
+    reserved_cost_microunits: int,
     started_at: str,
-) -> AiCallStartedV1:
-    event = validate_ai_call_event_v1(
+    breaker_state: Literal["closed", "half_open"] | None,
+) -> AiCallStartedV2:
+    event = validate_ai_call_event_v2(
         {
             "event_id": str(event_id),
-            "event_version": 1,
+            "event_version": 2,
             "event_sequence": 1,
             "event_type": "ai.call.started",
             "aggregate_type": "ai_call",
@@ -214,15 +226,16 @@ def _started_event(
             "input_hash": input_hash,
             "reserved_input_tokens": reserved_input_tokens,
             "reserved_output_tokens": reserved_output_tokens,
-            "reserved_cost_micro_usd": reserved_cost_micro_usd,
+            "cost_currency": llm_policy.cost_currency,
+            "reserved_cost_microunits": reserved_cost_microunits,
             "attempt_count": identity.provider_attempt_no,
             "is_fallback": False,
-            "breaker_state": None,
+            "breaker_state": breaker_state,
             "status": "pending",
             "started_at": started_at,
         }
     )
-    if not isinstance(event, AiCallStartedV1):
+    if not isinstance(event, AiCallStartedV2):
         raise AuditedLlmInvocationError("AI_EVENT_BUILD_FAILED")
     return event
 
@@ -240,13 +253,14 @@ def _completed_event(
     http_status: int | None,
     error_category: str | None,
     safe_error_code: str | None,
-) -> AiCallCompletedV1:
+    actual_cost_microunits: int | None = None,
+) -> AiCallCompletedV2:
     if identity.event_id is None:
         raise AuditedLlmInvocationError("AI_EVENT_BUILD_FAILED")
-    event = validate_ai_call_event_v1(
+    event = validate_ai_call_event_v2(
         {
             "event_id": str(identity.event_id),
-            "event_version": 1,
+            "event_version": 2,
             "event_sequence": 2,
             "event_type": "ai.call.completed",
             "aggregate_type": "ai_call",
@@ -258,6 +272,8 @@ def _completed_event(
             "trace_id": str(identity.trace_id),
             "policy_version": policy_snapshot.policy_version,
             "policy_hash": policy_snapshot.policy_hash,
+            "cost_currency": "USD",
+            "actual_cost_microunits": actual_cost_microunits,
             "status": status,
             "completed_at": completed_at,
             "duration_ms": duration_ms,
@@ -271,7 +287,7 @@ def _completed_event(
             "citation_validation_status": None,
         }
     )
-    if not isinstance(event, AiCallCompletedV1):
+    if not isinstance(event, AiCallCompletedV2):
         raise AuditedLlmInvocationError("AI_EVENT_BUILD_FAILED")
     return event
 
@@ -299,14 +315,18 @@ class AuditedLlmInvoker:
         llm_policy: LiveLlmPolicy,
         monotonic_clock: Callable[[], float] = time.monotonic,
         audit_writer: AiCallAuditWriter | None = None,
+        runtime_control: AiRuntimeController | None = None,
     ) -> None:
-        if not policy_snapshot.provider_calls_enabled:
-            raise ValueError("provider policy snapshot is not enabled")
+        if not policy_snapshot.provider_calls_enabled or policy_snapshot.policy_version != 2:
+            raise ValueError("provider Policy v2 snapshot is not enabled")
+        if llm_policy.cost_currency != "USD":
+            raise ValueError("LLM cost currency must be USD")
         self._gateway = gateway
         self._adapter = adapter
         self._policy_snapshot = policy_snapshot
         self._llm_policy = llm_policy
         self._monotonic = monotonic_clock
+        self._runtime_control = runtime_control
         self._audit: AiCallAuditWriter = (
             AiCallAuditService(
                 session_factory,
@@ -341,31 +361,35 @@ class AuditedLlmInvoker:
 
         # byte 数 + 4096 是 fail-closed 上界；Provider usage 超过时禁止采用。
         input_token_upper_bound = len(request_body) + 4_096
-        pricing = PricingProfile(
+        pricing = PricingProfileV2(
             pricing_version=self._llm_policy.pricing_version,
             billing_mode=BillingMode.EXTERNAL_USD,
-            input_price_micro_usd_per_million=(self._llm_policy.input_price_micro_usd_per_million),
-            output_price_micro_usd_per_million=(
-                self._llm_policy.output_price_micro_usd_per_million
+            cost_currency=CostCurrency.USD,
+            input_price_microunits_per_million=(
+                self._llm_policy.input_price_microunits_per_million
+            ),
+            output_price_microunits_per_million=(
+                self._llm_policy.output_price_microunits_per_million
             ),
         )
-        budget = BudgetProfile(
+        budget = BudgetProfileV2(
             max_provider_attempts_per_business_operation=(
                 operation.max_provider_attempts_per_business_operation
             ),
             max_input_tokens_per_request=operation.max_input_tokens_per_request,
             max_output_tokens_per_request=operation.max_output_tokens_per_request,
             max_total_tokens=operation.max_total_tokens,
-            max_cost_micro_usd=operation.max_cost_micro_usd,
+            cost_currency=CostCurrency.USD,
+            max_cost_microunits=operation.max_cost_microunits,
         )
         try:
-            reservation = calculate_preflight_reservation(
+            reservation = calculate_preflight_reservation_v2(
                 budget,
                 pricing,
                 provider_attempts_used=identity.provider_attempt_no - 1,
                 future_model_repair_slots=future_model_repair_slots,
                 reserved_total_tokens=0,
-                reserved_cost_micro_usd=0,
+                reserved_cost_microunits=0,
                 input_tokens=input_token_upper_bound,
                 max_output_tokens=operation.max_output_tokens_per_request,
                 context_window_tokens=self._llm_policy.context_window_tokens,
@@ -373,50 +397,68 @@ class AuditedLlmInvoker:
         except ValueError:
             raise AuditedLlmInvocationError("AI_BUDGET_PREFLIGHT_REJECTED") from None
 
-        started_at = _utc_timestamp()
-        started = _started_event(
-            event_id=event_id,
-            identity=identity,
-            policy_snapshot=self._policy_snapshot,
-            llm_policy=self._llm_policy,
-            input_hash=hashlib.sha256(request_body).hexdigest(),
-            reserved_input_tokens=reservation.reserved_input_tokens,
-            reserved_output_tokens=reservation.reserved_output_tokens,
-            reserved_cost_micro_usd=reservation.reserved_cost_micro_usd,
-            started_at=started_at,
-        )
-        limits = AiCallAuditLimits(
-            max_provider_attempts_per_business_operation=(
-                operation.max_provider_attempts_per_business_operation
-            ),
-            max_input_tokens_per_request=operation.max_input_tokens_per_request,
-            max_output_tokens_per_request=operation.max_output_tokens_per_request,
-            max_total_tokens=operation.max_total_tokens,
-            max_cost_micro_usd=operation.max_cost_micro_usd,
-        )
-        sink = DurableAiCallEventSink(
-            self._audit,
-            reserve_context_factory=lambda _event: AiCallReserveContext(
-                limits=limits,
-                deadline_monotonic=deadline_monotonic,
-                minimum_attempt_seconds=1.0,
-            ),
-        )
-        started_sink_event = SinkEvent(started)
-        scope = sink.create_call_scope(started_sink_event)
-        reserve_decision = sink.reserve_attempt_sync(started_sink_event, scope)
-        if reserve_decision.status is ReserveAttemptStatus.UNKNOWN:
-            reserve_decision = sink.reserve_attempt_sync(started_sink_event, scope)
-        if reserve_decision.permit is None or reserve_decision.status not in {
-            ReserveAttemptStatus.RESERVED_NEW,
-            ReserveAttemptStatus.REPLAYED_SAME,
-        }:
-            raise AuditedLlmInvocationError("AI_AUDIT_RESERVATION_UNAVAILABLE")
-
         remaining = deadline_monotonic - self._monotonic()
         if remaining <= 1.0:
             raise AuditedLlmInvocationError("AI_DEADLINE_EXHAUSTED")
-        reserve_decision.permit.consume()
+        runtime_permit = self._acquire_runtime_permit(
+            identity=identity,
+            estimated_tokens=(
+                reservation.reserved_input_tokens + reservation.reserved_output_tokens
+            ),
+            lease_seconds=remaining,
+        )
+
+        try:
+            started_at = _utc_timestamp()
+            started = _started_event(
+                event_id=event_id,
+                identity=identity,
+                policy_snapshot=self._policy_snapshot,
+                llm_policy=self._llm_policy,
+                input_hash=hashlib.sha256(request_body).hexdigest(),
+                reserved_input_tokens=reservation.reserved_input_tokens,
+                reserved_output_tokens=reservation.reserved_output_tokens,
+                reserved_cost_microunits=reservation.reserved_cost_microunits,
+                started_at=started_at,
+                breaker_state=(None if runtime_permit is None else runtime_permit.breaker_state),
+            )
+            limits = AiCallAuditLimitsV2(
+                max_provider_attempts_per_business_operation=(
+                    operation.max_provider_attempts_per_business_operation
+                ),
+                max_input_tokens_per_request=operation.max_input_tokens_per_request,
+                max_output_tokens_per_request=operation.max_output_tokens_per_request,
+                max_total_tokens=operation.max_total_tokens,
+                cost_currency="USD",
+                max_cost_microunits=operation.max_cost_microunits,
+            )
+            sink = DurableAiCallEventSink(
+                self._audit,
+                reserve_context_factory=lambda _event: AiCallReserveContext(
+                    limits=limits,
+                    deadline_monotonic=deadline_monotonic,
+                    minimum_attempt_seconds=1.0,
+                ),
+            )
+            started_sink_event = SinkEvent(started)
+            scope = sink.create_call_scope(started_sink_event)
+            reserve_decision = sink.reserve_attempt_sync(started_sink_event, scope)
+            if reserve_decision.status is ReserveAttemptStatus.UNKNOWN:
+                reserve_decision = sink.reserve_attempt_sync(started_sink_event, scope)
+            if reserve_decision.permit is None or reserve_decision.status not in {
+                ReserveAttemptStatus.RESERVED_NEW,
+                ReserveAttemptStatus.REPLAYED_SAME,
+            }:
+                raise AuditedLlmInvocationError("AI_AUDIT_RESERVATION_UNAVAILABLE")
+
+            remaining = deadline_monotonic - self._monotonic()
+            if remaining <= 1.0:
+                raise AuditedLlmInvocationError("AI_DEADLINE_EXHAUSTED")
+            reserve_decision.permit.consume()
+        except Exception:
+            self._finish_runtime_permit(runtime_permit, "neutral")
+            raise
+
         call_started = self._monotonic()
         try:
             outcome = self._gateway.generate(
@@ -429,7 +471,11 @@ class AuditedLlmInvoker:
                     max_attempts=1,
                 ),
             )
-        except (AdapterNotRegisteredError, GatewayAdapterError, GatewayContractError):
+        except (AdapterNotRegisteredError, GatewayAdapterError, GatewayContractError) as error:
+            self._finish_runtime_permit(
+                runtime_permit,
+                "transient_failure" if isinstance(error, GatewayAdapterError) else "neutral",
+            )
             duration_ms = max(0, int((self._monotonic() - call_started) * 1_000))
             completed = _completed_event(
                 identity=identity,
@@ -450,6 +496,14 @@ class AuditedLlmInvoker:
         completed_at = _utc_timestamp()
 
         if isinstance(outcome, ExternalError):
+            self._finish_runtime_permit(
+                runtime_permit,
+                (
+                    "transient_failure"
+                    if outcome.disposition is ErrorDisposition.TRANSIENT
+                    else "neutral"
+                ),
+            )
             completed = _completed_event(
                 identity=identity,
                 policy_snapshot=self._policy_snapshot,
@@ -472,6 +526,7 @@ class AuditedLlmInvoker:
             or outcome.output_tokens is None
             or outcome.response_body_sha256 is None
         ):
+            self._finish_runtime_permit(runtime_permit, "neutral")
             completed = _completed_event(
                 identity=identity,
                 policy_snapshot=self._policy_snapshot,
@@ -487,8 +542,12 @@ class AuditedLlmInvoker:
             )
             self._complete_without_adoption(sink, scope, completed)
             raise AuditedLlmInvocationError("AI_USAGE_UNAVAILABLE")
+        reported_cost = pricing.calculate_request_cost_microunits(
+            input_tokens=outcome.input_tokens,
+            output_tokens=outcome.output_tokens,
+        )
         try:
-            reconcile_actual_usage(
+            reconciled = reconcile_actual_usage_v2(
                 pricing,
                 reservation,
                 input_tokens=outcome.input_tokens,
@@ -496,6 +555,7 @@ class AuditedLlmInvoker:
                 total_tokens=outcome.input_tokens + outcome.output_tokens,
             )
         except ValueError:
+            self._finish_runtime_permit(runtime_permit, "neutral")
             completed = _completed_event(
                 identity=identity,
                 policy_snapshot=self._policy_snapshot,
@@ -508,9 +568,28 @@ class AuditedLlmInvoker:
                 http_status=200,
                 error_category="invalid_response",
                 safe_error_code="AI_USAGE_EXCEEDS_RESERVATION",
+                actual_cost_microunits=reported_cost,
             )
             self._complete_without_adoption(sink, scope, completed)
             raise AuditedLlmInvocationError("AI_USAGE_EXCEEDS_RESERVATION") from None
+
+        if not self._finish_runtime_permit(runtime_permit, "success"):
+            completed = _completed_event(
+                identity=identity,
+                policy_snapshot=self._policy_snapshot,
+                status="failed",
+                completed_at=completed_at,
+                duration_ms=duration_ms,
+                output_hash=outcome.response_body_sha256,
+                input_tokens=outcome.input_tokens,
+                output_tokens=outcome.output_tokens,
+                http_status=200,
+                error_category="transient",
+                safe_error_code="AI_RUNTIME_CONTROL_UNAVAILABLE",
+                actual_cost_microunits=reconciled.actual_cost_microunits,
+            )
+            self._complete_without_adoption(sink, scope, completed)
+            raise AuditedLlmInvocationError("AI_RUNTIME_CONTROL_UNAVAILABLE")
 
         try:
             value = validate_output(outcome.output_text)
@@ -527,6 +606,7 @@ class AuditedLlmInvoker:
                 http_status=200,
                 error_category="invalid_response",
                 safe_error_code="AI_STRUCTURED_OUTPUT_INVALID",
+                actual_cost_microunits=reconciled.actual_cost_microunits,
             )
             self._complete_without_adoption(sink, scope, completed)
             raise AuditedLlmOutputRejected("AI_STRUCTURED_OUTPUT_INVALID") from None
@@ -543,12 +623,14 @@ class AuditedLlmInvoker:
             http_status=200,
             error_category=None,
             safe_error_code=None,
+            actual_cost_microunits=reconciled.actual_cost_microunits,
         )
         facts = _CompletionFacts(
             output_hash=outcome.response_body_sha256,
             input_tokens=outcome.input_tokens,
             output_tokens=outcome.output_tokens,
             duration_ms=duration_ms,
+            actual_cost_microunits=reconciled.actual_cost_microunits,
         )
         return AuditedLlmResult(
             value=value,
@@ -562,11 +644,46 @@ class AuditedLlmInvoker:
             ),
         )
 
+    def _acquire_runtime_permit(
+        self,
+        *,
+        identity: LlmCallIdentity,
+        estimated_tokens: int,
+        lease_seconds: float,
+    ) -> AiRuntimePermit | None:
+        if self._runtime_control is None:
+            return None
+        try:
+            purpose = P0AiPurpose(identity.call_type)
+            return self._runtime_control.acquire(
+                pool=rate_limit_pool_for_purpose(purpose),
+                target=self._adapter.target,
+                estimated_tokens=estimated_tokens,
+                lease_seconds=lease_seconds,
+            )
+        except ValueError:
+            raise AuditedLlmInvocationError("AI_RUNTIME_CONTROL_POOL_INVALID") from None
+        except AiRuntimeControlError as error:
+            raise AuditedLlmInvocationError(error.code) from None
+
+    @staticmethod
+    def _finish_runtime_permit(
+        permit: AiRuntimePermit | None,
+        outcome: RuntimeOutcome,
+    ) -> bool:
+        if permit is None:
+            return True
+        try:
+            permit.finish(outcome)
+        except AiRuntimeControlError:
+            return False
+        return True
+
     @staticmethod
     def _complete_without_adoption(
         sink: DurableAiCallEventSink,
         scope: CallScopeToken,
-        completed: AiCallCompletedV1,
+        completed: AiCallCompletedV2,
     ) -> None:
         event = SinkEvent(completed)
         decision = sink.complete_attempt_sync(event, scope)

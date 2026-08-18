@@ -133,7 +133,7 @@ class OpenAiCompatibleProfile:
         parsed = urlsplit(self.base_url)
         if (
             parsed.scheme not in {"http", "https"}
-            or parsed.path != "/v1"
+            or parsed.path not in {"/v1", "/compatible-mode/v1"}
             or parsed.query
             or parsed.fragment
             or parsed.username is not None
@@ -437,7 +437,7 @@ class _OpenAiCompatibleAdapterBase:
             binding,
             scheme=parsed_base_url.scheme,
             port=port,
-            path=f"/v1{path}",
+            path=f"{parsed_base_url.path}{path}",
         )
         default_port = 443 if parsed_base_url.scheme == "https" else 80
         host_header = hostname if port == default_port else f"{hostname}:{port}"
@@ -753,6 +753,7 @@ class OpenAiEmbeddingsAdapter(_OpenAiCompatibleAdapterBase):
         payload: JsonValue = {
             "model": target.model_id,
             "input": list(request.input_texts),
+            "dimensions": self._profile.embedding_dimension,
             "encoding_format": "float",
         }
         return encode_request_body(payload, max_bytes=self._profile.max_request_bytes)

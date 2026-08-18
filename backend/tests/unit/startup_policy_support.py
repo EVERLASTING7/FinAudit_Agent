@@ -13,6 +13,7 @@ _POLICY_RESOURCE_PACKAGE = "app.ai.artifacts.cr011_v1"
 _POLICY_RESOURCE_NAME = "ai-policy-v1.positive.json"
 
 _STARTUP_SETTINGS: dict[str, object] = {
+    "ai_provider_calls_enabled": False,
     "secret_key": "test-signing-key-with-at-least-32-characters",
     "database_url": "postgresql+psycopg://test:test-password@postgresql:5432/test",
     "redis_url": "redis://:test-password@redis:6379/0",

@@ -112,9 +112,9 @@ def _profile() -> tuple[str, str, str, str, str]:
     origin = _required_environment("AUTH_PUBLIC_ORIGIN")
     username = _required_environment("BOOTSTRAP_ADMIN_USERNAME")
     run_id = _run_id()
-    if base_url != "https://frontend:8443" or not origin.startswith("https://localhost:"):
+    if base_url != "http://frontend:8443" or not origin.startswith("http://localhost:"):
         raise SecurityGateError("CLIENT_PROFILE_INVALID")
-    return base_url, origin, origin.removeprefix("https://"), username, run_id
+    return base_url, origin, origin.removeprefix("http://"), username, run_id
 
 
 def _client(base_url: str, origin: str, host: str) -> httpx.Client:
@@ -182,8 +182,15 @@ def _require_error(
     return value, trace_id
 
 
-def _generic_error_projection(value: dict[str, object]) -> tuple[object, object, object, bool]:
-    return value.get("code"), value.get("message"), value.get("details"), "data" in value
+def _generic_error_projection(
+    value: dict[str, object],
+) -> tuple[object, object, object, bool]:
+    return (
+        value.get("code"),
+        value.get("message"),
+        value.get("details"),
+        "data" in value,
+    )
 
 
 def _authorization(access_token: str) -> dict[str, str]:
@@ -229,7 +236,9 @@ def _poll_data(
     raise SecurityGateError("PROMPT_INJECTION_ASYNC_JOB_TIMEOUT")
 
 
-def _require_prompt_injection_refusal(data: dict[str, object], expected_index_id: UUID) -> None:
+def _require_prompt_injection_refusal(
+    data: dict[str, object], expected_index_id: UUID
+) -> None:
     if (
         data.get("index_version_id") != str(expected_index_id)
         or data.get("status") != "refused"
@@ -486,7 +495,9 @@ def run_client() -> None:
             client.post(
                 "/api/v1/auth/login",
                 headers={
-                    "traceparent": _traceparent(_trace_id(run_id, "login-failure:locked-correct"))
+                    "traceparent": _traceparent(
+                        _trace_id(run_id, "login-failure:locked-correct")
+                    )
                 },
                 json={
                     "username": lock_username,
@@ -517,7 +528,9 @@ def run_client() -> None:
         if observed != finance_denied_trace:
             raise SecurityGateError("FINANCE_DENIAL_TRACE_INVALID")
 
-        detail_response = client.get(f"/api/v1/contracts/{contract_id}", headers=finance_auth)
+        detail_response = client.get(
+            f"/api/v1/contracts/{contract_id}", headers=finance_auth
+        )
         detail = _require_success(detail_response, 200)
         if (
             detail.get("id") != str(contract_id)
@@ -525,7 +538,9 @@ def run_client() -> None:
         ):
             raise SecurityGateError("AUTHORIZED_OBJECT_READ_INVALID")
         missing, _ = _require_error(
-            client.get(f"/api/v1/contracts/{missing_contract_id}", headers=finance_auth),
+            client.get(
+                f"/api/v1/contracts/{missing_contract_id}", headers=finance_auth
+            ),
             404,
             "RESOURCE_NOT_FOUND",
         )
@@ -534,12 +549,17 @@ def run_client() -> None:
 
         replacement = "A" if finance_token[-1] != "A" else "B"
         tampered = finance_token[:-1] + replacement
-        tampered_response = client.get("/api/v1/auth/me", headers=_authorization(tampered))
+        tampered_response = client.get(
+            "/api/v1/auth/me", headers=_authorization(tampered)
+        )
         _require_error(tampered_response, 401, "AUTH_ACCESS_EXPIRED")
-        if finance_token in tampered_response.text or tampered in tampered_response.text:
+        if (
+            finance_token in tampered_response.text
+            or tampered in tampered_response.text
+        ):
             raise SecurityGateError("TOKEN_REFLECTED")
 
-    print("LOCAL_SECURITY_TLS_HEADERS_GATE=PASS")
+    print("LOCAL_SECURITY_HTTP_HEADERS_GATE=PASS")
     print("LOCAL_SECURITY_AUTH_CSRF_LOCKOUT_GATE=PASS")
     print("LOCAL_SECURITY_AUTHORIZATION_GATE=PASS")
     print("LOCAL_SECURITY_CLIENT_GATE=PASS")
@@ -567,8 +587,12 @@ def run_prompt_injection_client() -> None:
     submitter_username = f"sec-pi-submit-{run_id[:10]}"
     approver_username = f"sec-pi-approve-{run_id[:10]}"
     browser_username = _prompt_browser_username(run_id)
-    submitter_password = _security_password(run_id, "prompt-submitter", bootstrap_password)
-    approver_password = _security_password(run_id, "prompt-approver", bootstrap_password)
+    submitter_password = _security_password(
+        run_id, "prompt-submitter", bootstrap_password
+    )
+    approver_password = _security_password(
+        run_id, "prompt-approver", bootstrap_password
+    )
     knowledge_base_id = _stable_id(run_id, "knowledge-base")
     pdf = _prompt_injection_pdf(run_id)
 
@@ -634,7 +658,10 @@ def run_prompt_injection_client() -> None:
             ready=lambda value: value.get("job_status") == "succeeded",
             failed=lambda value: value.get("job_status") in {"failed", "cancelled"},
         )
-        if file_data.get("status") != "stored" or file_data.get("security_scan_status") != "clean":
+        if (
+            file_data.get("status") != "stored"
+            or file_data.get("security_scan_status") != "clean"
+        ):
             raise SecurityGateError("PROMPT_INJECTION_FILE_RESULT_INVALID")
 
         created = _require_success(
@@ -656,7 +683,10 @@ def run_prompt_injection_client() -> None:
             201,
         )
         created_policy = created.get("policy")
-        if type(created_policy) is not dict or type(created_policy.get("id")) is not str:
+        if (
+            type(created_policy) is not dict
+            or type(created_policy.get("id")) is not str
+        ):
             raise SecurityGateError("PROMPT_INJECTION_POLICY_CREATE_INVALID")
         policy_id = created_policy["id"]
 
@@ -712,7 +742,8 @@ def run_prompt_injection_client() -> None:
             f"/api/v1/knowledge-bases/{knowledge_base_id}/index-versions/{index_id}",
             _authorization(admin_token),
             ready=lambda value: (
-                value.get("status") == "ready" and value.get("job_status") == "succeeded"
+                value.get("status") == "ready"
+                and value.get("job_status") == "succeeded"
             ),
             failed=lambda value: (
                 value.get("status") == "failed"
@@ -797,14 +828,18 @@ def run_prompt_injection_client() -> None:
             f"/api/v1/knowledge-bases/{knowledge_base_id}/retrieval-eval-runs/{run_id_value}",
             _authorization(admin_token),
             ready=lambda value: (
-                value.get("status") == "passed" and value.get("job_status") == "succeeded"
+                value.get("status") == "passed"
+                and value.get("job_status") == "succeeded"
             ),
             failed=lambda value: (
                 value.get("status") == "failed"
                 or value.get("job_status") in {"failed", "cancelled"}
             ),
         )
-        if evaluated.get("case_count") != 100 or evaluated.get("completed_case_count") != 100:
+        if (
+            evaluated.get("case_count") != 100
+            or evaluated.get("completed_case_count") != 100
+        ):
             raise SecurityGateError("PROMPT_INJECTION_EVALUATION_RESULT_INVALID")
 
         activated = _require_success(
@@ -832,7 +867,10 @@ def run_prompt_injection_client() -> None:
             200,
         )
         published_policy = published.get("policy")
-        if type(published_policy) is not dict or published_policy.get("status") != "published":
+        if (
+            type(published_policy) is not dict
+            or published_policy.get("status") != "published"
+        ):
             raise SecurityGateError("PROMPT_INJECTION_POLICY_PUBLISH_INVALID")
 
         expected_index_id = UUID(index_id)
@@ -896,9 +934,13 @@ def arm_audit_failure() -> None:
     try:
         with engine.begin() as connection:
             connection.execute(
-                text(f"DROP TRIGGER IF EXISTS {_AUDIT_FAILURE_TRIGGER} ON public.operation_logs")
+                text(
+                    f"DROP TRIGGER IF EXISTS {_AUDIT_FAILURE_TRIGGER} ON public.operation_logs"
+                )
             )
-            connection.execute(text(f"DROP FUNCTION IF EXISTS public.{_AUDIT_FAILURE_FUNCTION}()"))
+            connection.execute(
+                text(f"DROP FUNCTION IF EXISTS public.{_AUDIT_FAILURE_FUNCTION}()")
+            )
             connection.execute(
                 text(
                     f"""
@@ -941,9 +983,13 @@ def disarm_audit_failure() -> None:
     try:
         with engine.begin() as connection:
             connection.execute(
-                text(f"DROP TRIGGER IF EXISTS {_AUDIT_FAILURE_TRIGGER} ON public.operation_logs")
+                text(
+                    f"DROP TRIGGER IF EXISTS {_AUDIT_FAILURE_TRIGGER} ON public.operation_logs"
+                )
             )
-            connection.execute(text(f"DROP FUNCTION IF EXISTS public.{_AUDIT_FAILURE_FUNCTION}()"))
+            connection.execute(
+                text(f"DROP FUNCTION IF EXISTS public.{_AUDIT_FAILURE_FUNCTION}()")
+            )
     finally:
         engine.dispose()
     print("LOCAL_SECURITY_AUDIT_FAILURE_DISARMED=PASS")
@@ -976,7 +1022,9 @@ def run_audit_failure_client() -> None:
     print("LOCAL_SECURITY_AUDIT_FAILURE_CLIENT_GATE=PASS")
 
 
-def _expect_sqlstate(engine: object, statement: str, parameters: dict[str, object]) -> None:
+def _expect_sqlstate(
+    engine: object, statement: str, parameters: dict[str, object]
+) -> None:
     try:
         with engine.begin() as connection:  # type: ignore[attr-defined]
             connection.execute(text(statement), parameters)
@@ -1010,18 +1058,31 @@ def verify_database() -> None:
         factory = create_session_factory(engine)
         with factory() as session:
             admin = session.scalar(
-                select(User).where(User.username == admin_username, User.deleted_at.is_(None))
+                select(User).where(
+                    User.username == admin_username, User.deleted_at.is_(None)
+                )
             )
             finance = session.scalar(
-                select(User).where(User.username == finance_username, User.deleted_at.is_(None))
+                select(User).where(
+                    User.username == finance_username, User.deleted_at.is_(None)
+                )
             )
             locked = session.scalar(
-                select(User).where(User.username == lock_username, User.deleted_at.is_(None))
+                select(User).where(
+                    User.username == lock_username, User.deleted_at.is_(None)
+                )
             )
             rollback = session.scalar(
-                select(User).where(User.username == rollback_username, User.deleted_at.is_(None))
+                select(User).where(
+                    User.username == rollback_username, User.deleted_at.is_(None)
+                )
             )
-            if admin is None or finance is None or locked is None or rollback is not None:
+            if (
+                admin is None
+                or finance is None
+                or locked is None
+                or rollback is not None
+            ):
                 raise SecurityGateError("SECURITY_USER_PROJECTION_INVALID")
             now = session.scalar(select(func.clock_timestamp()))
             if (
@@ -1047,7 +1108,10 @@ def verify_database() -> None:
                 session.scalar(
                     select(func.count())
                     .select_from(OperationLog)
-                    .where(OperationLog.trace_id == _trace_id(run_id, "audit-failure:user-create"))
+                    .where(
+                        OperationLog.trace_id
+                        == _trace_id(run_id, "audit-failure:user-create")
+                    )
                 )
                 != 0
             ):
@@ -1060,7 +1124,8 @@ def verify_database() -> None:
                 )
             )
             if len(observed_logs) != len(required_log_traces) or any(
-                required_log_traces.get(row.trace_id) != row.action_code for row in observed_logs
+                required_log_traces.get(row.trace_id) != row.action_code
+                for row in observed_logs
             ):
                 raise SecurityGateError("TRACE_AUDIT_CHAIN_INVALID")
             marker = _security_password(run_id, "audit-failure")
@@ -1078,7 +1143,9 @@ def verify_database() -> None:
             log_id = session.scalar(
                 select(OperationLog.id).order_by(OperationLog.created_at).limit(1)
             )
-            before_count = session.scalar(select(func.count()).select_from(OperationLog))
+            before_count = session.scalar(
+                select(func.count()).select_from(OperationLog)
+            )
             if log_id is None or before_count is None:
                 raise SecurityGateError("OPERATION_LOG_SUBJECT_MISSING")
 
@@ -1096,7 +1163,9 @@ def verify_database() -> None:
         with factory() as session:
             after_count = session.scalar(select(func.count()).select_from(OperationLog))
             trigger_count = session.scalar(
-                text("SELECT count(*) FROM pg_trigger WHERE tgname=:name AND NOT tgisinternal"),
+                text(
+                    "SELECT count(*) FROM pg_trigger WHERE tgname=:name AND NOT tgisinternal"
+                ),
                 {"name": _AUDIT_FAILURE_TRIGGER},
             )
             if after_count != before_count or trigger_count != 0:
@@ -1126,7 +1195,8 @@ def verify_prompt_injection_database() -> None:
                     select(FileRecord).where(
                         FileRecord.organization_id == knowledge_base.organization_id,
                         FileRecord.target_knowledge_base_id == knowledge_base_id,
-                        FileRecord.original_name == f"security-prompt-injection-{run_id[:12]}.pdf",
+                        FileRecord.original_name
+                        == f"security-prompt-injection-{run_id[:12]}.pdf",
                     )
                 )
                 if knowledge_base is not None
@@ -1213,7 +1283,8 @@ def verify_prompt_injection_database() -> None:
                 or len(logs) != 2
                 or {log.trace_id for log in logs} != set(expected_traces)
                 or any(
-                    log.change_summary_json != {"retrieved_count": 0, "status": "refused"}
+                    log.change_summary_json
+                    != {"retrieved_count": 0, "status": "refused"}
                     for log in logs
                 )
                 or any(

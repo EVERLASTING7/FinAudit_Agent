@@ -1,0 +1,758 @@
+{
+  "schema_version": "synthetic-policy-corpus-v1",
+  "synthetic": true,
+  "classification": "fictional_policy_corpus_non_acceptance",
+  "environment_scope": [
+    "local",
+    "test"
+  ],
+  "controls": {
+    "approved_dataset_created": false,
+    "approval_state": "not_submitted",
+    "index_activation": "not_run",
+    "provider_calls_executed": 0,
+    "release_gate_execution": "not_run",
+    "runtime_tier": null
+  },
+  "data_safety": {
+    "fictional_monetary_thresholds_only": true,
+    "fictional_only": true,
+    "real_company_data_included": false,
+    "real_financial_records_included": false,
+    "real_person_data_included": false,
+    "synthetic_organization_label": "虚构测试组织"
+  },
+  "source_manifest": [
+    {
+      "file": "scripts/generate_synthetic_policy_benchmark_assets.py",
+      "role": "deterministic_synthetic_authoring_source",
+      "sha256": "327F8DBBD15704CADD5E08D1B2678857E0CFC535897CEE73C14EC093372CD5D2"
+    },
+    {
+      "file": "backend/app/core/permissions.py",
+      "role": "role_and_permission_label_source",
+      "sha256": "8848243BFF3565F8E20FD1F6503ABCDCAB818E851C89495B7148B6589A415F9F"
+    }
+  ],
+  "access_model": {
+    "authorized_role_labels": [
+      "audit_reviewer",
+      "contract_admin",
+      "finance_reviewer"
+    ],
+    "required_permission": "knowledge.use",
+    "test_metadata_only": true,
+    "unauthorized_role_labels": [
+      "read_only",
+      "system_admin"
+    ],
+    "valid_role_labels": [
+      "audit_reviewer",
+      "contract_admin",
+      "finance_reviewer",
+      "read_only",
+      "system_admin"
+    ]
+  },
+  "policy_families": [
+    {
+      "domain": "reimbursement",
+      "family_ref": "SPCV1-REIMB",
+      "policy_versions": [
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-REIMB-V1#1.1",
+              "evidence_sha256": "DA18C2BFFEAAA07D5FC4B2F856E5A04B0A86666AD9C4B086600A00E06A181907",
+              "heading": "报销提交时限",
+              "section": "1.1",
+              "text": "虚构测试组织的普通费用报销应在支出发生后20个自然日内提交，并附合成用途说明与合法票据。",
+              "topic": "普通费用报销的提交期限"
+            },
+            {
+              "clause_ref": "SPCV1-REIMB-V1#1.2",
+              "evidence_sha256": "8B2EB6A1A139771F3349F2DD74CB0E297D3CF1D31BFA528721994C8AB2870ECA",
+              "heading": "较大金额复核",
+              "section": "1.2",
+              "text": "单笔虚构费用超过人民币3000元时，应先由成本中心负责人复核，再进入财务复核。",
+              "topic": "单笔超过人民币3000元的费用报销"
+            },
+            {
+              "clause_ref": "SPCV1-REIMB-V1#1.3",
+              "evidence_sha256": "6D16B0FA2E2D449A0FFA345C8C47DF56982AC2A7AFD08A7091F3B39D2EEC5165",
+              "heading": "交通凭证一致性",
+              "section": "1.3",
+              "text": "差旅交通凭证的日期与申请人应和合成行程记录一致；不一致时不得直接提交付款。",
+              "topic": "差旅交通凭证的核对"
+            }
+          ],
+          "family_ref": "SPCV1-REIMB",
+          "policy_ref": "SPCV1-REIMB-V1",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "historical_test_version",
+          "supersedes_policy_ref": null,
+          "title": "虚构测试组织费用报销制度（第1版）",
+          "valid_from": "2025-01-01",
+          "valid_to": "2025-12-31",
+          "version_no": 1,
+          "content_sha256": "441AF74A025C8EAFC7886914445E35A2A3DE5F5D812CE7219D6258A285C5443D"
+        },
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-REIMB-V2#1.1",
+              "evidence_sha256": "33F22AFED50548D128C9CBFAFAFA5AD1ADC1DCB9C3C86CD2BA2359996B007920",
+              "heading": "报销提交时限",
+              "section": "1.1",
+              "text": "虚构测试组织的普通费用报销应在支出发生后15个自然日内提交；逾期时须附书面原因并由独立财务人员记录复核意见。",
+              "topic": "普通费用报销的提交期限"
+            },
+            {
+              "clause_ref": "SPCV1-REIMB-V2#1.2",
+              "evidence_sha256": "446DCEBA13C082AEDC33FD223F46ED974CA4DE46F43B59BBD7E9D044AB2C0C6E",
+              "heading": "较大金额复核",
+              "section": "1.2",
+              "text": "单笔虚构费用超过人民币2500元时，应依次完成成本中心负责人复核和财务复核，两项记录均须保留。",
+              "topic": "单笔超过人民币2500元的费用报销"
+            },
+            {
+              "clause_ref": "SPCV1-REIMB-V2#1.3",
+              "evidence_sha256": "D00C39CB38FE7ADD73982C5156819F13C1347286E519F638DF64BA77E681DFF7",
+              "heading": "电子票据查重",
+              "section": "1.3",
+              "text": "电子票据须按代码和号码执行重复检查；疑似重复时应转人工复核，不得自动认定为违规。",
+              "topic": "电子票据重复风险的处理"
+            }
+          ],
+          "family_ref": "SPCV1-REIMB",
+          "policy_ref": "SPCV1-REIMB-V2",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "current_test_version",
+          "supersedes_policy_ref": "SPCV1-REIMB-V1",
+          "title": "虚构测试组织费用报销制度（第2版）",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "version_no": 2,
+          "content_sha256": "7814995ED61E64534ADCAD20423604D71D9C57F6279951712611279BEBF3EB6D"
+        }
+      ],
+      "title": "费用报销"
+    },
+    {
+      "domain": "vendor",
+      "family_ref": "SPCV1-VENDOR",
+      "policy_versions": [
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-VENDOR-V1#2.1",
+              "evidence_sha256": "E579286A08327FBF577489687EE2BADF6DD33D23E0CD67AF76A1DD2DE7F970FA",
+              "heading": "准入资料",
+              "section": "2.1",
+              "text": "新供应商准入须具备合成资质声明、收款主体名称和账户归属核验记录，缺一项不得启用。",
+              "topic": "新供应商准入资料"
+            },
+            {
+              "clause_ref": "SPCV1-VENDOR-V1#2.2",
+              "evidence_sha256": "AD90D4951F5D8B7FD421268306DC3BC553D2E8D4A5F177E1C5946CCF6B43CBDB",
+              "heading": "收款账户变更",
+              "section": "2.2",
+              "text": "供应商收款账户变更须由提交人与复核人分别操作，并保留双人确认记录。",
+              "topic": "供应商收款账户变更"
+            },
+            {
+              "clause_ref": "SPCV1-VENDOR-V1#2.3",
+              "evidence_sha256": "5DF6C58B40CE417ED0956A00E1BFD80C07A682F9917360CBD77F5BCEA1A4D9D2",
+              "heading": "休眠供应商",
+              "section": "2.3",
+              "text": "连续12个月没有合成交易的供应商应标记为休眠，重新使用前须复核准入资料。",
+              "topic": "长期无交易供应商的处理"
+            }
+          ],
+          "family_ref": "SPCV1-VENDOR",
+          "policy_ref": "SPCV1-VENDOR-V1",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "historical_test_version",
+          "supersedes_policy_ref": null,
+          "title": "虚构测试组织供应商管理制度（第1版）",
+          "valid_from": "2025-01-01",
+          "valid_to": "2025-12-31",
+          "version_no": 1,
+          "content_sha256": "3F6DEC49594C5445EF233D300EF92B8A013B1F043686027C195AE8C9F0DB14FD"
+        },
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-VENDOR-V2#2.1",
+              "evidence_sha256": "7F1E10D4326C1FFC8218B79067246E55BA3476996CB096BCC794D035418AE7F7",
+              "heading": "准入资料",
+              "section": "2.1",
+              "text": "新供应商准入须具备合成资质声明、收款主体与账户一致性核验、利益冲突声明和风险分级记录。",
+              "topic": "新供应商准入资料"
+            },
+            {
+              "clause_ref": "SPCV1-VENDOR-V2#2.2",
+              "evidence_sha256": "5B4D2C5BF5CD2CDA82B12B7722E9F2F7B97EB86818A6E945681534A52868A4BC",
+              "heading": "收款账户变更",
+              "section": "2.2",
+              "text": "供应商收款账户变更须通过既有可信联系渠道回访，并由不同人员提交和复核，回访结论应留痕。",
+              "topic": "供应商收款账户变更"
+            },
+            {
+              "clause_ref": "SPCV1-VENDOR-V2#2.3",
+              "evidence_sha256": "931AF4A51CE3C1CACE6D4CD43EAF9945B3581DF02AC222CE91DB011A5CBC7046",
+              "heading": "休眠供应商",
+              "section": "2.3",
+              "text": "连续9个月没有合成交易的供应商应标记为休眠，完成资料与账户重新核验后方可恢复使用。",
+              "topic": "长期无交易供应商的处理"
+            }
+          ],
+          "family_ref": "SPCV1-VENDOR",
+          "policy_ref": "SPCV1-VENDOR-V2",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "current_test_version",
+          "supersedes_policy_ref": "SPCV1-VENDOR-V1",
+          "title": "虚构测试组织供应商管理制度（第2版）",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "version_no": 2,
+          "content_sha256": "5ED2AA23BFE16F70E033D1A90AB6FDCA7BD98C7A4FC1BAEB2045357A6F89E8FD"
+        }
+      ],
+      "title": "供应商管理"
+    },
+    {
+      "domain": "invoice",
+      "family_ref": "SPCV1-INVOICE",
+      "policy_versions": [
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-INVOICE-V1#3.1",
+              "evidence_sha256": "7F74763C7ADCC1EDA94EF35FF5BAA63E8280BA40ACBB31A5781C559DC727BE0E",
+              "heading": "关键字段核对",
+              "section": "3.1",
+              "text": "发票核验应检查代码、号码、销售方识别号、价税合计和开票日期五项合成字段。",
+              "topic": "发票关键字段核对"
+            },
+            {
+              "clause_ref": "SPCV1-INVOICE-V1#3.2",
+              "evidence_sha256": "575F780E8F585B3943F6F1B8A443F482DC57A76D9915B42843F14B34BA3D2FAE",
+              "heading": "重复候选",
+              "section": "3.2",
+              "text": "代码、号码和销售方识别号相同的发票应列为疑似重复候选，交由人工复核，不得自动驳回。",
+              "topic": "疑似重复发票的处理"
+            },
+            {
+              "clause_ref": "SPCV1-INVOICE-V1#3.3",
+              "evidence_sha256": "DF266EBFBC7DBAC3EB1830CF53633D90E98EC50AE784F80126B8A5F285D3DFF5",
+              "heading": "作废票据",
+              "section": "3.3",
+              "text": "已作废或已红冲的发票不得作为付款依据，相关状态与处理理由应留痕。",
+              "topic": "作废或红冲发票的使用"
+            }
+          ],
+          "family_ref": "SPCV1-INVOICE",
+          "policy_ref": "SPCV1-INVOICE-V1",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "historical_test_version",
+          "supersedes_policy_ref": null,
+          "title": "虚构测试组织发票核验制度（第1版）",
+          "valid_from": "2025-01-01",
+          "valid_to": "2025-12-31",
+          "version_no": 1,
+          "content_sha256": "0DAAA4C94CD94515A5A4D3FE0E14410DBA048AE2FF41696819A16EF38E7202A2"
+        },
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-INVOICE-V2#3.1",
+              "evidence_sha256": "D298E1E440E85974B75BFFF11B9BB3AF6BFAB58B52034441C1975217CF93228E",
+              "heading": "关键字段核对",
+              "section": "3.1",
+              "text": "发票除核对五项合成关键字段外，还须核对明细金额与税额汇总是否等于价税合计。",
+              "topic": "发票金额与明细核对"
+            },
+            {
+              "clause_ref": "SPCV1-INVOICE-V2#3.2",
+              "evidence_sha256": "6ADDCC48978082DE887115CFA0F311093BB9B67E5B5B370B28AB0552E0D98473",
+              "heading": "重复候选",
+              "section": "3.2",
+              "text": "疑似重复发票须同时展示原票与候选票的关键字段差异，并由人工记录确认或排除理由。",
+              "topic": "疑似重复发票的处理"
+            },
+            {
+              "clause_ref": "SPCV1-INVOICE-V2#3.3",
+              "evidence_sha256": "58B5DB56FE30FD365A9581B496B727C63A6558E1132D583CE06EA4EF2677B839",
+              "heading": "缺失币种",
+              "section": "3.3",
+              "text": "发票币种没有来源证据时应保持为空，不得由模型猜测或自动补全。",
+              "topic": "发票币种缺少证据时的处理"
+            }
+          ],
+          "family_ref": "SPCV1-INVOICE",
+          "policy_ref": "SPCV1-INVOICE-V2",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "current_test_version",
+          "supersedes_policy_ref": "SPCV1-INVOICE-V1",
+          "title": "虚构测试组织发票核验制度（第2版）",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "version_no": 2,
+          "content_sha256": "6D57FD6548CB116D3EB823F32A87A3CD6439C86B60CEA639742F072541ACDE46"
+        }
+      ],
+      "title": "发票核验"
+    },
+    {
+      "domain": "contract",
+      "family_ref": "SPCV1-CONTRACT",
+      "policy_versions": [
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-CONTRACT-V1#4.1",
+              "evidence_sha256": "306B44B27FBB56437094A2B00A3236043EA99D3A2AD647D77E443992F687AE28",
+              "heading": "付款前置",
+              "section": "4.1",
+              "text": "合同付款前须存在已生效合同，且合同相对方应与合成付款对象一致。",
+              "topic": "合同付款前置条件"
+            },
+            {
+              "clause_ref": "SPCV1-CONTRACT-V1#4.2",
+              "evidence_sha256": "B41B70C9B966E0EB6593571EA492D726F2CAEA5A33A426BC29178466211150C5",
+              "heading": "补充协议生效",
+              "section": "4.2",
+              "text": "补充协议只有在完成确认且到达生效日后，才可改变对应合同字段。",
+              "topic": "补充协议对合同字段的影响"
+            },
+            {
+              "clause_ref": "SPCV1-CONTRACT-V1#4.3",
+              "evidence_sha256": "A5CCC12BD6C038F37AAEA5A44C84F9B2AAC9C21B8ED7B9D11FE64FF135732AB9",
+              "heading": "合同金额控制",
+              "section": "4.3",
+              "text": "累计已确认发票金额不得超过合同金额上限；出现超额时应暂停付款并转人工复核。",
+              "topic": "累计发票金额超过合同上限"
+            }
+          ],
+          "family_ref": "SPCV1-CONTRACT",
+          "policy_ref": "SPCV1-CONTRACT-V1",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "historical_test_version",
+          "supersedes_policy_ref": null,
+          "title": "虚构测试组织合同控制制度（第1版）",
+          "valid_from": "2025-01-01",
+          "valid_to": "2025-12-31",
+          "version_no": 1,
+          "content_sha256": "4F9EC513CDCAD7D0F6698D2DB4BE14983F0A7E93AFCE1A3612C313EBEC3388BF"
+        },
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-CONTRACT-V2#4.1",
+              "evidence_sha256": "EF51C37A29E2E943514116F587363E5B1456122623806DB046597C396E1A3E19",
+              "heading": "基准日投影",
+              "section": "4.1",
+              "text": "基准日合同视图应采用当日已确认且已生效的最新版本，不得带入未来生效的补充协议。",
+              "topic": "基准日合同版本的选择"
+            },
+            {
+              "clause_ref": "SPCV1-CONTRACT-V2#4.2",
+              "evidence_sha256": "2AFF84ADD2CA5C76A233F32A7A9785DD69BD0D1A9DE3B3389A6D078AF88B47BF",
+              "heading": "同日冲突",
+              "section": "4.2",
+              "text": "两份同日生效的补充协议修改同一字段且结果不一致时，应标记冲突，在解决前均不得生效。",
+              "topic": "同日补充协议修改同一字段"
+            },
+            {
+              "clause_ref": "SPCV1-CONTRACT-V2#4.3",
+              "evidence_sha256": "08D9094DF6CB310EF4F1FCCCD2F8941F1109E7C214D212D551799FA7278CA081",
+              "heading": "主合同关系",
+              "section": "4.3",
+              "text": "每张发票在同一时点只能有一个已确认的主合同关系，替换时须保留历史关系。",
+              "topic": "发票主合同关系的唯一性"
+            }
+          ],
+          "family_ref": "SPCV1-CONTRACT",
+          "policy_ref": "SPCV1-CONTRACT-V2",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "current_test_version",
+          "supersedes_policy_ref": "SPCV1-CONTRACT-V1",
+          "title": "虚构测试组织合同控制制度（第2版）",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "version_no": 2,
+          "content_sha256": "AFDAF2B1499AAB2EC62FB7DECEA6C386BFA0F24AE555DFC0DC0AF8BC58A5B66C"
+        }
+      ],
+      "title": "合同控制"
+    },
+    {
+      "domain": "approval_authority",
+      "family_ref": "SPCV1-APPROVAL",
+      "policy_versions": [
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-APPROVAL-V1#5.1",
+              "evidence_sha256": "7B570EDFC100E697E2CF5287E9240432F7396AF59AF04A86A2A775BD1E54873C",
+              "heading": "风险分级复核",
+              "section": "5.1",
+              "text": "普通付款由财务复核，高风险付款还须由独立审计复核后才能完成。",
+              "topic": "普通付款和高风险付款的复核分工"
+            },
+            {
+              "clause_ref": "SPCV1-APPROVAL-V1#5.2",
+              "evidence_sha256": "113A348F5D99F42635CFC01FE4A8A919F2B3F20FF938815B3C49818F82425D2C",
+              "heading": "职责分离",
+              "section": "5.2",
+              "text": "同一人员不得同时提交并审批同一制度变更，审批记录须能识别两名不同操作人。",
+              "topic": "制度提交人与审批人的职责分离"
+            },
+            {
+              "clause_ref": "SPCV1-APPROVAL-V1#5.3",
+              "evidence_sha256": "015708FDDE8619985780D37EE52C9BB8AB9D02791F1E9BE704F630E78E140226",
+              "heading": "系统管理边界",
+              "section": "5.3",
+              "text": "系统管理员只负责系统配置与发布操作，不得替代财务或审计人员作出业务审批决定。",
+              "topic": "系统管理员参与业务审批"
+            }
+          ],
+          "family_ref": "SPCV1-APPROVAL",
+          "policy_ref": "SPCV1-APPROVAL-V1",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "historical_test_version",
+          "supersedes_policy_ref": null,
+          "title": "虚构测试组织审批权限制度（第1版）",
+          "valid_from": "2025-01-01",
+          "valid_to": "2025-12-31",
+          "version_no": 1,
+          "content_sha256": "4278B453DD2CB5C33A9261147EE1716FE0CC8665BF35014B91EABD173DE2CEF7"
+        },
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-APPROVAL-V2#5.1",
+              "evidence_sha256": "B36D28D4D435CF8C2D463B60EC3EB630E4325A06EE088CBECEC1E54E2C248A2B",
+              "heading": "高风险双人复核",
+              "section": "5.1",
+              "text": "高风险任务须先由财务复核，再由不同的审计复核人独立确认，二者缺一不得完成。",
+              "topic": "高风险任务的完成条件"
+            },
+            {
+              "clause_ref": "SPCV1-APPROVAL-V2#5.2",
+              "evidence_sha256": "153603B4AD3615C01B881FFDA1AFBDFB453064DF0670605CD32E82729C2307E3",
+              "heading": "临时授权",
+              "section": "5.2",
+              "text": "临时提升权限须设置明确到期时间、独立审批记录和完整操作留痕，到期后自动失效。",
+              "topic": "临时提升权限的控制"
+            },
+            {
+              "clause_ref": "SPCV1-APPROVAL-V2#5.3",
+              "evidence_sha256": "C2648E284880C03F33DC6CC420735548739EBC0135681A60C4991CC602843A3B",
+              "heading": "只读限制",
+              "section": "5.3",
+              "text": "只读角色只能查看获准内容，不得修改业务事实、执行审批或导出受限报告。",
+              "topic": "只读角色的操作边界"
+            }
+          ],
+          "family_ref": "SPCV1-APPROVAL",
+          "policy_ref": "SPCV1-APPROVAL-V2",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "current_test_version",
+          "supersedes_policy_ref": "SPCV1-APPROVAL-V1",
+          "title": "虚构测试组织审批权限制度（第2版）",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "version_no": 2,
+          "content_sha256": "2BBB76AD3E0DE7EB12141246E2C0329FD544E28F0A69186365884BF50C795952"
+        }
+      ],
+      "title": "审批权限"
+    },
+    {
+      "domain": "audit_trail",
+      "family_ref": "SPCV1-AUDIT",
+      "policy_versions": [
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-AUDIT-V1#6.1",
+              "evidence_sha256": "353654B46BA4916D9D6E913FF1C37229B732B24C266CFF39F2FD3767AA977859",
+              "heading": "操作日志字段",
+              "section": "6.1",
+              "text": "业务状态变化须记录操作人、时间、动作、结果和追踪标识，且不得写入密钥或原始敏感内容。",
+              "topic": "业务状态变化的日志字段"
+            },
+            {
+              "clause_ref": "SPCV1-AUDIT-V1#6.2",
+              "evidence_sha256": "52AAA0A36334E22BD6B5389A46E980363F216471688C8FA04DA4D56FC1A93CB6",
+              "heading": "日志不可变",
+              "section": "6.2",
+              "text": "操作日志采用追加式记录，已写入条目不得通过业务接口修改、删除或截断。",
+              "topic": "已写入操作日志的修改或删除"
+            },
+            {
+              "clause_ref": "SPCV1-AUDIT-V1#6.3",
+              "evidence_sha256": "69CC091AAA680810F64AC007F3790D50514CC02D8C349BEA5FC7DDFCE5671DCF",
+              "heading": "模型调用审计",
+              "section": "6.3",
+              "text": "模型调用须记录模型、用途、输入Token数和费用摘要，但不得保存密钥、原始提示或向量。",
+              "topic": "模型调用需要保留的审计字段"
+            }
+          ],
+          "family_ref": "SPCV1-AUDIT",
+          "policy_ref": "SPCV1-AUDIT-V1",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "historical_test_version",
+          "supersedes_policy_ref": null,
+          "title": "虚构测试组织审计留痕制度（第1版）",
+          "valid_from": "2025-01-01",
+          "valid_to": "2025-12-31",
+          "version_no": 1,
+          "content_sha256": "54F2AA2E1227D3B9A8B7FC33F7E548841E0B266C51068504E574C1DCA99D5AE0"
+        },
+        {
+          "allowed_role_labels": [
+            "audit_reviewer",
+            "contract_admin",
+            "finance_reviewer"
+          ],
+          "clauses": [
+            {
+              "clause_ref": "SPCV1-AUDIT-V2#6.1",
+              "evidence_sha256": "3049652546E8FB5F3E66DA4D5F1D621AAA70842EBF3C3C04177A5B305AB761C6",
+              "heading": "事务审计",
+              "section": "6.1",
+              "text": "关键业务写入与对应审计记录须在同一事务中采用；审计写入失败时，业务写入也必须回滚。",
+              "topic": "关键业务写入与审计失败的处理"
+            },
+            {
+              "clause_ref": "SPCV1-AUDIT-V2#6.2",
+              "evidence_sha256": "E3373545C5C92A124A0F6912747070E35D2B532370F6B2B80BAD6A26CF30B868",
+              "heading": "费用币种",
+              "section": "6.2",
+              "text": "不同币种的模型费用必须分别记录和汇总，未获批准时不得换汇或跨币种相加。",
+              "topic": "不同币种模型费用的汇总"
+            },
+            {
+              "clause_ref": "SPCV1-AUDIT-V2#6.3",
+              "evidence_sha256": "9B866B6BD406C0220B41BFC16D9C6E7C6FD90696F9D9B94D6BD98C2E069E7E4F",
+              "heading": "迟到结果",
+              "section": "6.3",
+              "text": "模型迟到完成结果只有在持久调用尝试仍有效且审计关联完整时才可采用，否则必须丢弃。",
+              "topic": "模型迟到完成结果的采用"
+            }
+          ],
+          "family_ref": "SPCV1-AUDIT",
+          "policy_ref": "SPCV1-AUDIT-V2",
+          "required_permission": "knowledge.use",
+          "status_at_generation": "current_test_version",
+          "supersedes_policy_ref": "SPCV1-AUDIT-V1",
+          "title": "虚构测试组织审计留痕制度（第2版）",
+          "valid_from": "2026-01-01",
+          "valid_to": null,
+          "version_no": 2,
+          "content_sha256": "FCB8F5DEB45D46011F4DBE85B7BE84329F5BDC70A395AF2AF0B8E403D86F736B"
+        }
+      ],
+      "title": "审计留痕"
+    }
+  ],
+  "source_inventory": [
+    {
+      "clause_count": 3,
+      "content_sha256": "441AF74A025C8EAFC7886914445E35A2A3DE5F5D812CE7219D6258A285C5443D",
+      "domain": "reimbursement",
+      "policy_ref": "SPCV1-REIMB-V1",
+      "title": "虚构测试组织费用报销制度（第1版）",
+      "valid_from": "2025-01-01",
+      "valid_to": "2025-12-31"
+    },
+    {
+      "clause_count": 3,
+      "content_sha256": "7814995ED61E64534ADCAD20423604D71D9C57F6279951712611279BEBF3EB6D",
+      "domain": "reimbursement",
+      "policy_ref": "SPCV1-REIMB-V2",
+      "title": "虚构测试组织费用报销制度（第2版）",
+      "valid_from": "2026-01-01",
+      "valid_to": null
+    },
+    {
+      "clause_count": 3,
+      "content_sha256": "3F6DEC49594C5445EF233D300EF92B8A013B1F043686027C195AE8C9F0DB14FD",
+      "domain": "vendor",
+      "policy_ref": "SPCV1-VENDOR-V1",
+      "title": "虚构测试组织供应商管理制度（第1版）",
+      "valid_from": "2025-01-01",
+      "valid_to": "2025-12-31"
+    },
+    {
+      "clause_count": 3,
+      "content_sha256": "5ED2AA23BFE16F70E033D1A90AB6FDCA7BD98C7A4FC1BAEB2045357A6F89E8FD",
+      "domain": "vendor",
+      "policy_ref": "SPCV1-VENDOR-V2",
+      "title": "虚构测试组织供应商管理制度（第2版）",
+      "valid_from": "2026-01-01",
+      "valid_to": null
+    },
+    {
+      "clause_count": 3,
+      "content_sha256": "0DAAA4C94CD94515A5A4D3FE0E14410DBA048AE2FF41696819A16EF38E7202A2",
+      "domain": "invoice",
+      "policy_ref": "SPCV1-INVOICE-V1",
+      "title": "虚构测试组织发票核验制度（第1版）",
+      "valid_from": "2025-01-01",
+      "valid_to": "2025-12-31"
+    },
+    {
+      "clause_count": 3,
+      "content_sha256": "6D57FD6548CB116D3EB823F32A87A3CD6439C86B60CEA639742F072541ACDE46",
+      "domain": "invoice",
+      "policy_ref": "SPCV1-INVOICE-V2",
+      "title": "虚构测试组织发票核验制度（第2版）",
+      "valid_from": "2026-01-01",
+      "valid_to": null
+    },
+    {
+      "clause_count": 3,
+      "content_sha256": "4F9EC513CDCAD7D0F6698D2DB4BE14983F0A7E93AFCE1A3612C313EBEC3388BF",
+      "domain": "contract",
+      "policy_ref": "SPCV1-CONTRACT-V1",
+      "title": "虚构测试组织合同控制制度（第1版）",
+      "valid_from": "2025-01-01",
+      "valid_to": "2025-12-31"
+    },
+    {
+      "clause_count": 3,
+      "content_sha256": "AFDAF2B1499AAB2EC62FB7DECEA6C386BFA0F24AE555DFC0DC0AF8BC58A5B66C",
+      "domain": "contract",
+      "policy_ref": "SPCV1-CONTRACT-V2",
+      "title": "虚构测试组织合同控制制度（第2版）",
+      "valid_from": "2026-01-01",
+      "valid_to": null
+    },
+    {
+      "clause_count": 3,
+      "content_sha256": "4278B453DD2CB5C33A9261147EE1716FE0CC8665BF35014B91EABD173DE2CEF7",
+      "domain": "approval_authority",
+      "policy_ref": "SPCV1-APPROVAL-V1",
+      "title": "虚构测试组织审批权限制度（第1版）",
+      "valid_from": "2025-01-01",
+      "valid_to": "2025-12-31"
+    },
+    {
+      "clause_count": 3,
+      "content_sha256": "2BBB76AD3E0DE7EB12141246E2C0329FD544E28F0A69186365884BF50C795952",
+      "domain": "approval_authority",
+      "policy_ref": "SPCV1-APPROVAL-V2",
+      "title": "虚构测试组织审批权限制度（第2版）",
+      "valid_from": "2026-01-01",
+      "valid_to": null
+    },
+    {
+      "clause_count": 3,
+      "content_sha256": "54F2AA2E1227D3B9A8B7FC33F7E548841E0B266C51068504E574C1DCA99D5AE0",
+      "domain": "audit_trail",
+      "policy_ref": "SPCV1-AUDIT-V1",
+      "title": "虚构测试组织审计留痕制度（第1版）",
+      "valid_from": "2025-01-01",
+      "valid_to": "2025-12-31"
+    },
+    {
+      "clause_count": 3,
+      "content_sha256": "FCB8F5DEB45D46011F4DBE85B7BE84329F5BDC70A395AF2AF0B8E403D86F736B",
+      "domain": "audit_trail",
+      "policy_ref": "SPCV1-AUDIT-V2",
+      "title": "虚构测试组织审计留痕制度（第2版）",
+      "valid_from": "2026-01-01",
+      "valid_to": null
+    }
+  ],
+  "inventory": {
+    "clause_count": 36,
+    "domain_count": 6,
+    "policy_family_count": 6,
+    "policy_version_count": 12
+  },
+  "quality_verification": {
+    "checks": [
+      {
+        "check_id": "policy_identity_uniqueness",
+        "observed_duplicates": 0,
+        "status": "passed"
+      },
+      {
+        "check_id": "clause_text_and_reference_uniqueness",
+        "observed_duplicates": 0,
+        "status": "passed"
+      },
+      {
+        "check_id": "version_period_non_overlap_and_contiguity",
+        "observed_conflicts": 0,
+        "status": "passed"
+      },
+      {
+        "check_id": "fictional_data_safety_envelope",
+        "observed_real_records": 0,
+        "status": "passed"
+      }
+    ],
+    "status": "passed"
+  }
+}

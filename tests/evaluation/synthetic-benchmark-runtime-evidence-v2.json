@@ -1,0 +1,65 @@
+{
+  "acceptance_boundary": {
+    "business_representative": false,
+    "human_uat": false,
+    "may_mark_ac_accepted": false,
+    "production": false
+  },
+  "authorization": {
+    "authority_ref": "docs/change-requests/CR-026-local-test-batched-retrieval-evaluation.md",
+    "automatic_scope_expansion": false,
+    "cost_cap_microunits": 10000000,
+    "cost_currency": "CNY",
+    "evaluation_embedding_batch_size": 20,
+    "input_token_cap": 50000,
+    "no_fx": true,
+    "production": false,
+    "provider_request_cap": 100,
+    "retry_cap": 0
+  },
+  "dataset_binding": {
+    "corpus_sha256": "2CE2BE5118ADAC7D185D239AFD4713D3F637BDF9D12D314D7690732A8DFAD9E3",
+    "formal_case_count": 100,
+    "mvp_uat_case_count": 50,
+    "review_sha256": "87F5627F0306AA4D5B89E148EB0B4C8D970E80956CFAE624F0783BB66B3DA70F"
+  },
+  "model_profile": {
+    "embedding_dimension": 1024,
+    "embedding_model_id": "qwen3.7-text-embedding",
+    "profile_id": "minimax-m3-bailian-qwen37-local-v2"
+  },
+  "run": {
+    "actual_cost_microunits": 2486,
+    "actual_input_tokens": 4971,
+    "ai_call_log_projection_status": "not_run_due_mvp_uat_failure",
+    "cleanup_remaining_container_count": 0,
+    "evaluation_failed_case_ids_status": "not_retained_in_this_run",
+    "evaluation_failure_code": "QUALITY_GATE_FAILED",
+    "event_v2_transactional_adoption_status": "completed_for_index_and_mvp_results",
+    "formal_release_100_status": "not_run_due_mvp_uat_failure",
+    "index_activation_status": "not_run",
+    "index_provider_request_count": 2,
+    "index_status_before_cleanup": "ready",
+    "input_token_upper_bound": 22560,
+    "mvp_uat_50_metrics": {
+      "authorization_leak_count": 0,
+      "case_count": 50,
+      "case_pass_count": 49,
+      "case_pass_rate": 0.98,
+      "document_hit_at_5": 1.0,
+      "evidence_hit_at_5": 1.0,
+      "mrr": 1.0,
+      "no_answer_false_positive_rate": 0.1,
+      "precision_at_5": 0.9666666666666667,
+      "recall_at_5": 1.0
+    },
+    "mvp_uat_50_provider_request_count": 3,
+    "mvp_uat_50_status": "failed",
+    "provider_request_count": 5,
+    "qdrant_collection_deleted": true,
+    "retry_performed": false,
+    "runner_code": "MVP-UAT-050_EVALUATION_FAILED",
+    "status": "failed_and_stopped"
+  },
+  "schema_version": "synthetic-benchmark-runtime-evidence-v2"
+}

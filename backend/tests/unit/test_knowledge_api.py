@@ -310,6 +310,24 @@ def test_knowledge_openapi_freezes_management_and_rag_paths(exact_policy_file: P
             "post",
         ): "create_retrieval_eval_dataset_v1",
         (
+            "/api/v1/knowledge-bases/{knowledge_base_id}/retrieval-eval-datasets/{dataset_id}",
+            "get",
+        ): "get_retrieval_eval_dataset_v1",
+        (
+            "/api/v1/knowledge-bases/{knowledge_base_id}/retrieval-eval-datasets/"
+            "{dataset_id}/submit-review",
+            "post",
+        ): "submit_retrieval_eval_dataset_v1",
+        (
+            "/api/v1/knowledge-bases/{knowledge_base_id}/retrieval-eval-datasets/"
+            "{dataset_id}/approve",
+            "post",
+        ): "approve_retrieval_eval_dataset_v1",
+        (
+            "/api/v1/knowledge-bases/{knowledge_base_id}/retrieval-eval-runs/{run_id}",
+            "get",
+        ): "get_retrieval_eval_run_v1",
+        (
             "/api/v1/knowledge-bases/{knowledge_base_id}/qa-queries",
             "post",
         ): "query_knowledge_base_v1",

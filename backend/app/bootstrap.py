@@ -37,18 +37,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         _ = adopted_snapshot.policy_hash
         auth_engine = None
         rag_vector_store = None
-        live_llm_runtime = None
+        live_ai_runtime = None
         try:
             if active_settings.auth_jwt_active_kid is not None:
                 from app.adapters.minio_original_storage import MinioOriginalStorageAdapter
                 from app.adapters.minio_quarantine import MinioQuarantineAdapter
                 from app.adapters.minio_report_storage import MinioReportStorageAdapter
                 from app.adapters.qdrant_vector import QdrantVectorAdapter
-                from app.ai.adapters.deterministic_hash import (
-                    DeterministicHashEmbeddingAdapter,
-                )
+                from app.ai.embedding_runtime import create_deterministic_embedding_runtime
                 from app.ai.live_policy import LIVE_LLM_POLICY
-                from app.ai.live_runtime import create_live_llm_runtime
+                from app.ai.live_runtime import create_live_ai_runtime
                 from app.api.dependencies.auth import load_auth_keyring
                 from app.core.auth_security import hash_password
                 from app.db.session import create_application_engine, create_session_factory
@@ -102,7 +100,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 auth_engine = create_application_engine(active_settings)
                 session_factory = create_session_factory(auth_engine)
                 if adopted_snapshot.provider_calls_enabled:
-                    live_llm_runtime = create_live_llm_runtime(
+                    live_ai_runtime = create_live_ai_runtime(
                         settings=active_settings,
                         session_factory=session_factory,
                         policy_snapshot=adopted_snapshot,
@@ -162,22 +160,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 application.state.knowledge_catalog_service = KnowledgeCatalogService(
                     session_factory
                 )
+                embedding_runtime = (
+                    create_deterministic_embedding_runtime(
+                        model_id=active_settings.embedding_model,
+                        vector_size=active_settings.embedding_vector_size,
+                        deadline_seconds=active_settings.ai_embedding_deadline_seconds,
+                    )
+                    if live_ai_runtime is None
+                    else live_ai_runtime.embedding
+                )
                 application.state.knowledge_index_management_service = (
-                    KnowledgeIndexManagementService(session_factory, active_settings)
+                    KnowledgeIndexManagementService(
+                        session_factory,
+                        active_settings,
+                        embedding_target=embedding_runtime.target,
+                    )
                 )
                 rag_vector_store = QdrantVectorAdapter(active_settings)
                 application.state.rag_query_service = RagQueryService(
                     session_factory,
                     rag_vector_store,
-                    DeterministicHashEmbeddingAdapter(
-                        model_id=active_settings.embedding_model,
-                        vector_size=active_settings.embedding_vector_size,
-                    ),
+                    embedding_runtime,
                     active_settings,
                     (
                         None
-                        if live_llm_runtime is None
-                        else AiRagAnswerService(live_llm_runtime.invoker, LIVE_LLM_POLICY)
+                        if live_ai_runtime is None
+                        else AiRagAnswerService(live_ai_runtime.invoker, LIVE_LLM_POLICY)
                     ),
                 )
                 application.state.invoice_primary_contract_query_service = (
@@ -196,8 +204,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 application.state.user_management_service = UserManagementService(session_factory)
             yield
         finally:
-            if live_llm_runtime is not None:
-                live_llm_runtime.close()
+            if live_ai_runtime is not None:
+                live_ai_runtime.close()
             if rag_vector_store is not None:
                 rag_vector_store.close()
             if auth_engine is not None:

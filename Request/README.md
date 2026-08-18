@@ -75,13 +75,13 @@ CR 只记录“为什么改变”和批准结论。批准后必须合并进活�
 - P0 组织级知识权限、环境+Embedding 模型+维度 Collection、PG 允许集→Qdrant must-filter→PG 终审，以及 5/50/100 评测分级。
 - 应用内静态 15 规则整批发布、审核执行/high 风险与正式报告状态机。
 
-该决定只解除当时的实现歧义，不表示代码、外部依赖运行或 AC 已完成。2026-08-16 的真实 AI 与内部 metrics 前向决定另见 `docs/change-requests/CR-019-real-ai-runtime-and-internal-metrics.md`；它只批准 local/test Chat，不批准真实 Embedding、部署或 production。2026-08-17 的本机仓库 dotenv 默认加载边界记录于 `docs/change-requests/CR-020-repository-dotenv-default.md`；它不改变 Docker/production Secret 注入，也不启用 Provider。
+该决定只解除当时的实现歧义，不表示代码、外部依赖运行或 AC 已完成。2026-08-16 的真实 AI 与内部 metrics 前向决定见 `docs/change-requests/CR-019-real-ai-runtime-and-internal-metrics.md`；2026-08-17 的本机仓库 dotenv 默认加载边界记录于 `docs/change-requests/CR-020-repository-dotenv-default.md`；同日 `CR-021` 批准 local/test 百炼 Embedding Profile，`CR-022 / option-A / event-policy-v2 / USD-CNY-only / no-fx` 继续批准币种中立费用审计；`CR-023` 根据 BOSS 当前明确指令把所有环境的密码最小长度调整为 6，并保留弱密码黑名单、Argon2id 与锁定控制；`CR-024` 把内置应用入口全局改为 HTTP、移除 TLS 证书配置，并明确局域网/公网发布前必须重新恢复受信任 TLS；`CR-025` 将 AC-001/002/015/016 调整为当前 Local MVP 口径并由独立 AC 验收记录裁定。
 
 ### 4.2 当前交付快照
 
-截至 2026-08-16，核心 Backend 链路已实现到 accepted Alembic head `20260816_023`：57/57 张核心表、用户与 Break-glass、文件/财务/供应商、Celery 恢复、Markdown/Chunk/Qdrant/检索评测/RAG、审核/报告、工作台、依赖健康、OPS-005 和内部 metrics 均已有机器事实。`021` 封锁检索状态旁路，`022` 闭合未确认发票空币种，`023` 增加风险解释与报告草稿持久事实。主要 P0 Frontend 页面已接同源真实 API。
+截至 2026-08-17，核心 Backend 链路已实现到 Alembic head `20260817_024`：57/57 张核心表、用户与 Break-glass、文件/财务/供应商、Celery 恢复、Markdown/Chunk/Qdrant/检索评测/RAG、审核/报告、工作台、依赖健康、OPS-005 和内部 metrics 均已有机器事实。`021` 封锁检索状态旁路，`022` 闭合未确认发票空币种，`023` 增加风险解释与报告草稿持久事实，`024` 增加向后兼容的 Event v2 USD/CNY 费用事实。主要 P0 Frontend 页面已接同源真实 API。
 
-当前验证分层记录包括 Backend/Frontend 离线门禁、隔离 PostgreSQL、真实 Redis/Celery/Qdrant/MinIO/ClamAV、财务浏览器闭环、故障恢复和 local 安全/性能。`minimax-m3-local-v1` 又把真实 Chat Adapter、Gateway、结构修复、预算/网络策略、持久 EventSink 和共享事务采用接到合同/发票、RAG、风险解释与报告草稿；最新受限真实 smoke 覆盖五条生成链并核对全部 Provider attempt 的持久审计。以上仍只是 local `VERIFIED`：知识索引仍为确定性 Hash，代表性合同/发票与 50/100 条业务检索集、99% 合法率、正式 DAST、浏览器直接 CA 信任、production OCR/Scanner/TLS/Secret Manager、正式容量/恢复/监控告警、AC/UAT 和 production 均保持 `NOT_RUN` 或 `BLOCKED`。
+当前验证分层记录包括 Backend/Frontend 离线门禁、隔离 PostgreSQL、真实 Redis/Celery/Qdrant/MinIO/ClamAV、财务浏览器闭环、故障恢复和 local 安全/性能。`minimax-m3-local-v1` 又把真实 Chat Adapter、Gateway、结构修复、预算/网络策略、持久 EventSink 和共享事务采用接到合同/发票、RAG、风险解释与报告草稿；最新受限真实 smoke 覆盖五条生成链并核对全部 Provider attempt 的持久审计。`minimax-m3-bailian-qwen37-local-v2` 已把真实 Embedding Adapter、Event v2/CNY 预留与权威实际费用、OPS-005 和事务采用接入 Backend/Worker；唯一一次受限付费 smoke 以 2 条短合成输入验证 `43` input tokens、2×1024 维输出和 `22` CNY microunits 持久审计。代表性合同/发票与 50/100 条业务检索集、99% 合法率、正式 DAST、浏览器直接 CA 信任、production OCR/Scanner/TLS/Secret Manager、正式容量/恢复/监控告警、AC/UAT 和 production 均保持 `NOT_RUN` 或 `BLOCKED`。
 
 本地 Docker Scout 1.23.1 镜像扫描已执行：Frontend 为 `0C/0H`；Backend 通过升级 `pypdf` 到 `6.14.2` 并移除运行时安装工具，由 `2C/6H` 降为 `2C/2H`，所有可修复 C/H 已清零。剩余 Bookworm Perl `2C/2H` 均标记 `not fixed`，所以 production 镜像与“严重/高危为 0”仍未验收。
 

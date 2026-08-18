@@ -173,3 +173,14 @@ def test_main_rejects_unknown_mode_without_touching_runtime(
     monkeypatch.setattr(sys, "argv", ["smoke_local_security.py", "unknown"])
 
     assert subject.main() == 2
+
+
+def test_security_wrapper_uses_an_observable_worker_restart_probe() -> None:
+    verifier = (_PROJECT_ROOT / "scripts" / "verify-local-stack.ps1").read_text(encoding="utf-8")
+    probe = verifier.split("$workerBeforeRestart =", 1)[1].split(
+        "$workerAutomaticallyRecovered =", 1
+    )[0]
+
+    assert "'exec', $workerBeforeRestart.Id" in probe
+    assert "'exec', '--detach', $workerBeforeRestart.Id" not in probe
+    assert "os.kill(1, signal.SIGTERM)" in probe

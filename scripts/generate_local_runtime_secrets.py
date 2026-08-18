@@ -1,20 +1,15 @@
 from __future__ import annotations
 
-import ipaddress
 import json
 import os
 import secrets
 import stat
 import sys
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
 
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.asymmetric.rsa import generate_private_key
-from cryptography.x509.oid import NameOID
 
 _AUTH_KID = "finaudit-local-key-v1"
 _SECRET_NAMES = (
@@ -38,8 +33,6 @@ _SECRET_NAMES = (
     "auth_jwt_private_key",
     "auth_jwt_public_keyring",
     "bootstrap_admin_password",
-    "tls_certificate",
-    "tls_private_key",
 )
 
 
@@ -85,30 +78,13 @@ def generate(output_directory: Path) -> None:
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     )
-    auth_public_pem = auth_private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    ).decode("ascii")
-
-    tls_private_key = generate_private_key(public_exponent=65537, key_size=2048)
-    now = datetime.now(timezone.utc)
-    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
-    tls_certificate = (
-        x509.CertificateBuilder()
-        .subject_name(subject)
-        .issuer_name(issuer)
-        .public_key(tls_private_key.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(now - timedelta(minutes=5))
-        .not_valid_after(now + timedelta(days=7))
-        .add_extension(
-            x509.SubjectAlternativeName(
-                [x509.DNSName("localhost"), x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]
-            ),
-            critical=False,
+    auth_public_pem = (
+        auth_private_key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
-        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
-        .sign(tls_private_key, hashes.SHA256())
+        .decode("ascii")
     )
 
     encoded_postgres_password = quote(postgres_password, safe="")
@@ -148,12 +124,6 @@ def generate(output_directory: Path) -> None:
             separators=(",", ":"),
         ).encode("utf-8"),
         "bootstrap_admin_password": _token(36).encode("utf-8"),
-        "tls_certificate": tls_certificate.public_bytes(serialization.Encoding.PEM),
-        "tls_private_key": tls_private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption(),
-        ),
     }
     if set(values) != set(_SECRET_NAMES):
         raise SecretGenerationError("RUNTIME_SECRET_SET_INVALID")

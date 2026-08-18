@@ -319,12 +319,13 @@ onUnmounted(() => {
             v-model="createPassword"
             class="text-input"
             type="password"
+            minlength="6"
             maxlength="512"
             autocomplete="new-password"
             required
             @input="createIdempotencyKey = ''"
           />
-          <p class="form-help">密码强度由服务端统一校验；表单不会持久化密码。</p>
+          <p class="form-help">密码至少 6 个字符，常见弱密码仍会被拒绝；表单不会持久化密码。</p>
         </div>
         <fieldset class="form-field form-field-full">
           <legend>固定角色</legend>
@@ -466,11 +467,13 @@ onUnmounted(() => {
             v-model="editPassword"
             class="text-input"
             type="password"
+            minlength="6"
             maxlength="512"
             autocomplete="new-password"
             required
             @input="passwordIdempotencyKey = ''"
           />
+          <p class="form-help">密码至少 6 个字符，最终由服务端统一校验。</p>
           <button class="button button-secondary" type="submit" :disabled="mutationLoading">
             重置密码并撤销会话
           </button>

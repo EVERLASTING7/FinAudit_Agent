@@ -190,6 +190,7 @@ onBeforeUnmount(() => {
           type="password"
           autocomplete="new-password"
           required
+          minlength="6"
           maxlength="200"
         />
 
@@ -201,8 +202,11 @@ onBeforeUnmount(() => {
           type="password"
           autocomplete="new-password"
           required
+          minlength="6"
           maxlength="200"
         />
+
+        <p class="form-help">密码至少 6 个字符；常见弱密码仍会被拒绝。</p>
 
         <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
         <div class="form-actions">

@@ -30,6 +30,7 @@ from app.services.file_intake import (
     FILE_HANDLER_REGISTRY_HASH,
     FILE_HANDLER_REGISTRY_VERSION,
     FileIntakeService,
+    FileQueryService,
     FileUploadResult,
 )
 from tests.integration.database.test_migrations import (
@@ -197,13 +198,19 @@ def _setup(
     return engine, factory, service, storage
 
 
-def _upload(service: FileIntakeService, key: str) -> FileUploadResult:
+def _upload(
+    service: FileIntakeService,
+    key: str,
+    *,
+    content: bytes = PDF_CONTENT,
+    file_name: str = "contract.pdf",
+) -> FileUploadResult:
     return service.upload(
         _actor(),
         _intent(),
-        file_name="contract.pdf",
+        file_name=file_name,
         declared_mime="application/pdf",
-        stream=BytesIO(PDF_CONTENT),
+        stream=BytesIO(content),
         idempotency_key=key,
         trace_id=uuid4(),
     )
@@ -266,6 +273,53 @@ def test_upload_commits_file_idempotency_job_outbox_and_log_once(
                 "job_scope": "full",
                 "row_version": "1",
             }
+    finally:
+        _clear_subjects(engine)
+        engine.dispose()
+
+
+def test_query_pages_files_and_hides_other_organizations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine, factory, service, _storage = _setup(monkeypatch)
+    try:
+        first = _upload(
+            service,
+            "file-query-001",
+            content=b"%PDF-1.7\nsynthetic file query first",
+            file_name="first.pdf",
+        )
+        second = _upload(
+            service,
+            "file-query-002",
+            content=b"%PDF-1.7\nsynthetic file query second",
+            file_name="second.pdf",
+        )
+        query = FileQueryService(factory)
+
+        first_page = query.list_page(ORGANIZATION_ID, None, 1)
+        assert len(first_page.items) == 1
+        assert first_page.next_cursor is not None
+        second_page = query.list_page(ORGANIZATION_ID, first_page.next_cursor, 1)
+        assert len(second_page.items) == 1
+        assert second_page.next_cursor is None
+        assert {first_page.items[0].file_id, second_page.items[0].file_id} == {
+            first.data.file_id,
+            second.data.file_id,
+        }
+        assert query.get(ORGANIZATION_ID, first.data.file_id).job_id == first.data.job_id
+
+        outside_organization = UUID(int=ORGANIZATION_ID.int + 1)
+        assert query.list_page(outside_organization, None, 20).items == ()
+        with pytest.raises(AppError) as hidden:
+            query.get(outside_organization, first.data.file_id)
+        assert hidden.value.status_code == 404
+        assert hidden.value.code == "RESOURCE_NOT_FOUND"
+
+        with pytest.raises(AppError) as invalid_cursor:
+            query.list_page(ORGANIZATION_ID, "not-canonical", 20)
+        assert invalid_cursor.value.status_code == 422
+        assert invalid_cursor.value.details == [{"field": "query.cursor", "reason": "invalid"}]
     finally:
         _clear_subjects(engine)
         engine.dispose()

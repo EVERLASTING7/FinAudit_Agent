@@ -211,7 +211,7 @@ def _ai_extraction(
         gateway=gateway,
         adapter=adapter,
         policy_snapshot=ValidatedPolicySnapshot(
-            policy_version=1,
+            policy_version=2,
             policy_hash=LIVE_POLICY_HASH,
             raw_sha256=LIVE_POLICY_RAW_SHA256,
             provider_calls_enabled=True,
