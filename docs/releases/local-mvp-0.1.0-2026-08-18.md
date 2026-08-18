@@ -11,7 +11,7 @@
 | UAT | `ACCEPTED`，签署原文为 `Local MVP UAT通过` |
 | 发布日期 | 2026-08-18（Asia/Shanghai） |
 | 发布分支 | `release/local-mvp-0.1.0` |
-| 应用源码提交 | `21a5b9d97f8add04e9f116a2e1a7fbd9fe3a4f3f` |
+| 应用源码提交 | `3449aa5de8cabe1e55201cfcfb4d5705d4098ce1` |
 | 发布记录修订 | 包含本文件最终状态的后续 Git commit |
 | 持久运行镜像修订 | `local-mvp-0.1.0` |
 
@@ -88,7 +88,7 @@
 - [x] 发布范围和 production 排除项已记录。
 - [x] 当前发布快照的 PostgreSQL Full 双轮结果已回写。
 - [x] 发布分支 `release/local-mvp-0.1.0` 已创建。
-- [x] 当前发布快照已提交：`21a5b9d97f8add04e9f116a2e1a7fbd9fe3a4f3f`。
+- [x] 当前发布快照已提交：`3449aa5de8cabe1e55201cfcfb4d5705d4098ce1`。
 - [ ] 用户指定 remote 已配置。
 - [ ] 发布分支已推送且远程分支保护已验证。
 
