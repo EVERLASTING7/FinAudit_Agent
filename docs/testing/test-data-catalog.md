@@ -193,7 +193,7 @@ backend\.venv\Scripts\python.exe scripts\prepare_synthetic_benchmark_reviewed_as
 backend\.venv\Scripts\python.exe -m pytest -q backend\tests\unit\test_synthetic_benchmark_reviewed_assets.py backend\tests\unit\test_runtime_evidence_assets.py
 ```
 
-`scripts/run_live_bailian_synthetic_benchmark.py` 是付费失败即停运行器，不是日常离线命令。`CR-026` 只为 local/test runner 启用评测批次 20，production 默认仍逐题；冻结请求计划为索引 2 次、50 条 3 次、100 条 5 次，50 条失败时立即停止。2026-08-18 的真实运行以 5 次请求、4971 input tokens、CNY 2486 microunits 完成 50 条并以 49/50、`no_answer_false_positive_rate=0.1` 失败，100 条和激活未运行。安全聚合证据位于 `tests/evaluation/synthetic-benchmark-runtime-evidence-v2.json`，不包含密钥、问题、制度原文或向量。
+`scripts/run_live_bailian_synthetic_benchmark.py` 是付费失败即停运行器，不是日常离线命令。`CR-026` 只为 local/test runner 启用评测批次 20，production 默认仍逐题；冻结请求计划为索引 2 次、50 条 3 次、100 条 5 次。2026-08-18 两次独立真实运行均以 5 次请求、4971 input tokens、CNY 2486 microunits 得到 49/50 和 `no_answer_false_positive_rate=0.1`，100 条和激活未运行。v2 保存首次精确聚合；v3 保存第二次 runtime case UUID 及其无法映射源用例的边界。Runner 后续只离线增加稳定 source case ID 遥测，不包含密钥、问题、制度原文或向量，也不授权第三次调用。
 
 ## 6. 安全与 AI 负例
 

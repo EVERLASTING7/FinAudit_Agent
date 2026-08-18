@@ -11,7 +11,8 @@
 | UAT | `ACCEPTED`，签署原文为 `Local MVP UAT通过` |
 | 发布日期 | 2026-08-18（Asia/Shanghai） |
 | 发布分支 | `release/local-mvp-0.1.0` |
-| 源码修订 | 包含本文件的发布提交；提交后以 Git commit ID 为准 |
+| 应用源码提交 | `21a5b9d97f8add04e9f116a2e1a7fbd9fe3a4f3f` |
+| 发布记录修订 | 包含本文件最终状态的后续 Git commit |
 | 持久运行镜像修订 | `local-mvp-0.1.0` |
 
 本决定只接受当前 BOSS Windows 本机、Docker Desktop、loopback HTTP Local MVP。13 个 `TEST-001～007`、`DEP-001～006` 工作包继续保持 `partial`，不声明 production、正式代表性质量或完整 AC-001～016 已通过。
@@ -41,7 +42,7 @@
 
 | 门禁 | 结果 |
 |---|---|
-| 完整离线质量门禁 | `LOCAL_OFFLINE_QUALITY=PASS`；Backend `3062 passed / 142 skipped / 1 warning`；Ruff 497 files；mypy 271 sources；Frontend 527 tests / 147 modules |
+| 完整离线质量门禁 | `LOCAL_OFFLINE_QUALITY=PASS`；Backend `3063 passed / 142 skipped / 1 warning`；Ruff 497 files；mypy 271 sources；Frontend 527 tests / 147 modules |
 | PostgreSQL current-head | PostgreSQL 16.14，完整目录 `149/149 × 2`；两轮 `status=ok`，`POSTGRESQL_CURRENT_HEAD=PASS` |
 | Redis/Celery | `4 passed`，`CELERY_REDIS_BROKER_TRANSPORT=PASS` |
 | 持久核运维 | dependency、bounded logging、restart policy、受管 metrics 全部 PASS |
@@ -73,7 +74,7 @@
 
 ## 7. Provider 与候选能力边界
 
-- `CR-026` 曾获得并消耗一次独立 local/test 百炼授权：5 次请求、4971 input tokens、CNY 0.002486，50 条结果 49/50，因一个 no-answer 假阳性失败停止；100 条、激活和重试均未运行。
+- `CR-026` 的两次独立 local/test 百炼授权均已消耗；两次都使用 5 次请求、4971 input tokens、CNY 0.002486，50 条结果同为 49/50，并因一个 no-answer 假阳性失败停止。100 条、激活和重试均未运行；第二次 runtime UUID 未保留到冻结 source case ID 的映射，不能反查具体问题。
 - 批量评测能力不属于常驻 Local MVP 运行路径，当前仍为 `AI_PROVIDER_CALLS_ENABLED=false`；本次发布决定不产生任何新的 MiniMax/百炼密钥复用或付费请求授权。
 - 未来真实评测必须由 BOSS 重新明确数据集、环境、密钥复用、请求/Token/费用上限与失败停止条件。
 
@@ -87,7 +88,7 @@
 - [x] 发布范围和 production 排除项已记录。
 - [x] 当前发布快照的 PostgreSQL Full 双轮结果已回写。
 - [x] 发布分支 `release/local-mvp-0.1.0` 已创建。
-- [ ] 当前发布快照已提交。
+- [x] 当前发布快照已提交：`21a5b9d97f8add04e9f116a2e1a7fbd9fe3a4f3f`。
 - [ ] 用户指定 remote 已配置。
 - [ ] 发布分支已推送且远程分支保护已验证。
 

@@ -425,9 +425,7 @@ def _execute_run(
         try:
             failed_case_ids = tuple(case_source_ids[value] for value in failed_runtime_case_ids)
         except KeyError:
-            raise LiveSyntheticBenchmarkError(
-                "SYNTHETIC_SOURCE_CASE_MAPPING_INVALID"
-            ) from None
+            raise LiveSyntheticBenchmarkError("SYNTHETIC_SOURCE_CASE_MAPPING_INVALID") from None
         _SAFE_FAILURE_TELEMETRY.update(
             evaluation_failed_case_ids=failed_case_ids,
             evaluation_failure_code=final.failure_code,

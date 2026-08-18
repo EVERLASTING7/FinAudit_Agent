@@ -125,9 +125,7 @@ def test_second_batched_run_keeps_runtime_id_and_mapping_boundary_explicit() -> 
     assert evidence["schema_version"] == "synthetic-benchmark-runtime-evidence-v3"
     run = _mapping(evidence["run"])
 
-    assert run["evaluation_failed_runtime_case_ids"] == [
-        "7623955c-d413-44be-ab26-82ab25e24301"
-    ]
+    assert run["evaluation_failed_runtime_case_ids"] == ["7623955c-d413-44be-ab26-82ab25e24301"]
     assert run["source_case_id_mapping_status"] == "not_retained_in_this_run"
     assert run["provider_request_count"] == 5
     assert run["actual_input_tokens"] == 4971

@@ -54,7 +54,7 @@ backend\.venv\Scripts\python.exe -m pytest -q backend\tests\unit\test_synthetic_
 backend\.venv\Scripts\python.exe -m pytest -q backend\tests\unit\test_synthetic_benchmark_reviewed_assets.py backend\tests\unit\test_runtime_evidence_assets.py
 ```
 
-生成器对候选 ID/规范化问题重复、版本有效期矛盾、证据缺失、no_answer 探针、权限标签、跨权限边界和问题自然度执行确定性检查。生成阶段 Provider 请求为 0；owner-delegated 技术复核只允许 local/test 创建可丢弃 approved 数据集，不改变业务代表性、人工 UAT 或 AC。历史逐题运行的精确 usage 未留存，见 v1 证据；`CR-026` 批量运行随后以 5 次请求、4971 input tokens、CNY 0.002486 得到 49/50 和授权泄露 0，因 1 个 no-answer 假阳性立即停止，100 条与激活未运行。精确聚合证据见 `tests/evaluation/synthetic-benchmark-runtime-evidence-v2.json`；本次授权已消耗，再次运行必须取得新的明确单次 Provider 授权。
+生成器对候选 ID/规范化问题重复、版本有效期矛盾、证据缺失、no_answer 探针、权限标签、跨权限边界和问题自然度执行确定性检查。生成阶段 Provider 请求为 0；owner-delegated 技术复核只允许 local/test 创建可丢弃 approved 数据集，不改变业务代表性、人工 UAT 或 AC。历史逐题运行的精确 usage 未留存，见 v1；`CR-026` 两次独立批量运行均以 5 次请求、4971 input tokens、CNY 0.002486 得到 49/50 和授权泄露 0，因同类 no-answer 假阳性停止，100 条与激活未运行。v2 保存首次精确聚合，v3 保存第二次 runtime UUID 及其不可映射边界；runner 后续仅离线补齐稳定 source case ID 映射，没有第三次调用。两次授权均已消耗，再次运行必须取得新的明确单次 Provider 授权。
 
 ## 二进制资产维护
 

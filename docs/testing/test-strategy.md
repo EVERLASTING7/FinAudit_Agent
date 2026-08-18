@@ -293,11 +293,13 @@ YHBX 于 2026-08-18 明确签署 `Local MVP UAT通过`。`docs/testing/local-mvp
 
 这些结果证明当前 loopback Local MVP 的功能可用性，不证明传输机密性或服务器身份认证。HTTP 不得开放局域网或公网；任何非 loopback 发布必须先恢复受信任 TLS 或在受信任反向代理终止 TLS，并重跑 Cookie、Origin、DAST 和发布验收。
 
-2026-08-18 当前 Goal 收口重跑：完整 `verify-local-offline` 为 Backend `3062 passed / 142 skipped / 1 Starlette deprecation warning`、Ruff check/format 497 files、mypy 271 sources、pip check、Frontend typecheck、26 files/527 Vitest 与 147-module build 全部 PASS；PostgreSQL 16.14 current-head `20260817_024` Full wrapper 149 项连续两轮 PASS，Redis/Celery wrapper 4 项 PASS。全新隔离财务浏览器门禁 completion 返回 `accepted` 并输出 `FINANCIAL_LOOP_BROWSER_GATE=PASS`，受保护 manifest 精确核对 2 个文件/绑定和唯一合同、发票、供应商、主关系、任务、执行、ready 报告及 5 个纯角色 Actor。
+2026-08-18 当前 Goal 收口重跑：完整 `verify-local-offline` 为 Backend `3063 passed / 142 skipped / 1 Starlette deprecation warning`、Ruff check/format 497 files、mypy 271 sources、pip check、Frontend typecheck、26 files/527 Vitest 与 147-module build 全部 PASS；PostgreSQL 16.14 current-head `20260817_024` Full wrapper 149 项连续两轮 PASS，Redis/Celery wrapper 4 项 PASS。全新隔离财务浏览器门禁 completion 返回 `accepted` 并输出 `FINANCIAL_LOOP_BROWSER_GATE=PASS`，受保护 manifest 精确核对 2 个文件/绑定和唯一合同、发票、供应商、主关系、任务、执行、ready 报告及 5 个纯角色 Actor。
 
 同轮全新 `finaudit-security-goal1` HTTP 栈先暴露并修复两项门禁根因：Nginx `/metrics` 隐藏 Backend 重复 `X-Content-Type-Options` 后只保留一个 `nosniff`；运行验证器改为当前 Registry 的 `finaudit_process_uptime_seconds` / `finaudit_http_requests_in_flight` 名称，并用可观察的非 detach `docker exec` 触发 Worker PID 1，使 `unless-stopped` 的 RestartCount 实际增加。清理失败运行后从空栈重跑，`LOCAL_SECURITY_BASELINE=PASS` 覆盖 metrics、bounded logging、自动重启、ClamAV、制度双人审批、安全专用 100 条集、真实 Qdrant 与直接/间接 Prompt Injection；真实浏览器随后加载活动知识库并显示“明确拒答 / PROMPT_INJECTION_DETECTED”，console warning/error 为 0，PostgreSQL/审计终审三项及依赖/日志无 canary 均 PASS。专用栈、卷和受管测试 Secret 已清理；该合成证据仍不替代业务代表性 50/100 条质量、正式 DAST、production 或其余 AC。
 
 同日 `CR-026` 在不改变 production 默认逐题语义的前提下，只为受保护 local/test benchmark runner 启用评测批次 20；批次 completion 与批次内逐题检索结果仍在评测运行的最终 PostgreSQL 事务采用。Provider 前完整离线门禁为 Backend `3061 passed / 142 skipped / 1 warning`、Ruff 497 files、mypy 271 sources、Frontend 527 tests/147 modules，PostgreSQL 16.14 current-head 完整目录连续两轮 PASS。真实运行使用当前批准百炼模型，索引 2 批与 50 条 3 批共 5 次请求，权威 usage 为 4971 input tokens、CNY 2486 microunits；49/50 通过、授权泄露 0，唯一失败为 10 个 no-answer 用例中的 1 个假阳性，`no_answer_false_positive_rate=0.1`。runner 按设计立即停止，100 条、激活和重试均未运行；Collection、专用 PostgreSQL/Qdrant 和确认环境变量残留为 0。
+
+BOSS 再次授予同边界单次权限后，第二次批量运行完全复现相同 usage 与指标，并输出失败 runtime case UUID `7623955c-d413-44be-ab26-82ab25e24301`。由于当次可丢弃数据库未保留 runtime UUID 到冻结 source case ID 的映射，清理后不能反查问题；该 UUID 只证明同一运行事实，不证明源用例已定位。Runner 后续仅做离线映射加固，新增稳定合成 case ID 遥测且继续禁止原文/向量输出；没有第三次 Provider 调用。
 
 本轮 13 个 TEST/DEP 工作包的命令、退出结果、失败轮边界、Local MVP 新增能力和剩余停止条件统一记录于 `docs/testing/test-operations-evidence-2026-08-18.md`；该记录不得被解释为对未运行正式质量或 production 的状态升级。
 

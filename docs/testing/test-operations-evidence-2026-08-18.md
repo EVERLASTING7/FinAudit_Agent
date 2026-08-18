@@ -21,7 +21,7 @@ YHBX 已据此选择 CR-025 Local MVP 路线；应用发布决定记录于 `docs
 
 | 门禁 | 当前结果 | 证据边界 |
 |---|---|---|
-| `scripts/verify-local-offline.ps1` | `LOCAL_OFFLINE_QUALITY=PASS`；Backend `3062 passed / 142 skipped / 1 warning`；Ruff `497 files`；mypy `271 sources`；Frontend `26 files / 527 tests / 147 modules` | PostgreSQL、Compose、浏览器、Provider、remote、production 在该离线包装器中按设计 `NOT_RUN` |
+| `scripts/verify-local-offline.ps1` | `LOCAL_OFFLINE_QUALITY=PASS`；Backend `3063 passed / 142 skipped / 1 warning`；Ruff `497 files`；mypy `271 sources`；Frontend `26 files / 527 tests / 147 modules` | PostgreSQL、Compose、浏览器、Provider、remote、production 在该离线包装器中按设计 `NOT_RUN` |
 | `scripts/verify-postgresql-current-head.ps1 -Scope Full` | PostgreSQL `16.14`，完整 `149/149 × 2`，两轮 `status=ok`，`POSTGRESQL_CURRENT_HEAD=PASS` | 专用可丢弃数据库；不等于 production migration |
 | `scripts/verify-local-celery-redis.ps1` | `4 passed`，`CELERY_REDIS_BROKER_TRANSPORT=PASS` | 锁定 Redis 7.4.9；残留容器 0 |
 | `verify-local-stack.ps1 -ProjectName finaudit-local -OperationsReadiness` | dependency、bounded logging、restart policy、metrics runtime 全部 PASS | 当前持久 Local MVP；非 production 监控平台 |

@@ -25,6 +25,8 @@ BOSS 后续把合成资产的 local/test 技术语义复核委托给 Agent。可
 
 2026-08-18 的 `CR-026` 另行批准 local/test 批量复核并把硬上限调整为 100 请求、50000 input tokens、CNY 10、零重试。Provider 前离线与 PostgreSQL 双轮门禁通过；真实运行随后以 5 次请求、4971 input tokens、CNY 0.002486 完成 50 条，49/50 通过且授权泄露为 0。唯一失败为 10 个 no-answer 用例中的 1 个假阳性，`no_answer_false_positive_rate=0.1`；runner 立即停止，100 条与激活未运行。Event v2 completion 已随索引/评测事实事务采用，但成功后置 `ai_call_logs` 投影核对因质量失败未运行；Collection、专用容器和确认环境变量残留为 0。
 
+BOSS 随后再次授予同一边界的单次诊断权限。第二次运行完全复现 5 次请求、4971 input tokens、CNY 0.002486、49/50、授权泄露 0 和 1 个 no-answer 假阳性；100 条仍未运行。安全输出捕获 runtime case UUID `7623955c-d413-44be-ab26-82ab25e24301`，但该 ID 由可丢弃数据库生成，当次未保留到冻结 source case ID 的映射，清理后不能反查具体问题。Runner 已离线加固未来稳定 ID 映射，但第二次授权已消耗且未第三次调用。
+
 Chrome `151.0.7922.138` 已在可丢弃报告门禁中完成真实原生登录 Tab 顺序、Enter 提交、authenticated shell/dashboard Tab 顺序和 skip-link 聚焦 `MAIN#main-content`，console warning/error 为 0。Edge 已安装，但浏览器连接与 Windows 控制分别因不可用连接和 URL 安全策略未形成证据；屏幕阅读器及全 P0 路由矩阵仍未运行。LibreOffice `26.2.5.2` 已安装，但 Calc 对项目 XLSX 和最小单单元格 XLSX 的 headless 打开/转换均超过 180 秒未完成；Windows GUI 直接启动也没有暴露可见或可控窗口，未进入打开文件步骤，因此不能标记兼容性通过。
 
 ## 2. 86 项逐模块核对
@@ -81,7 +83,7 @@ Chrome `151.0.7922.138` 已在可丢弃报告门禁中完成真实原生登录 T
 
 ## 5. 本轮新增验证
 
-- 当前完整离线门禁：Backend `3062 passed / 142 skipped / 1 warning`，Ruff check/format 497 files、mypy 271 sources、pip check、Frontend typecheck、26 files/527 tests 与 147-module build 全部通过；baseline、Git governance、分支保护 fixture 和测试资产正负门禁也在同一 wrapper 通过。PostgreSQL、Compose、浏览器、Provider、remote 和 production 在该离线门禁中仍按设计为 `NOT_RUN`。
+- 当前完整离线门禁：Backend `3063 passed / 142 skipped / 1 warning`，Ruff check/format 497 files、mypy 271 sources、pip check、Frontend typecheck、26 files/527 tests 与 147-module build 全部通过；baseline、Git governance、分支保护 fixture 和测试资产正负门禁也在同一 wrapper 通过。PostgreSQL、Compose、浏览器、Provider、remote 和 production 在该离线门禁中仍按设计为 `NOT_RUN`。
 - Redis 控制器单元与调用链聚焦测试：`29 passed`。
 - 隔离真实 Redis 7.4.9（锁定 digest）专项测试：`3 passed`，覆盖独立客户端共享并发门禁、RPM/TPM、滚动熔断、并发旧成功不得误关熔断、单 half-open 探针、探针租约 TTL 和恢复；当前 Redis/Celery wrapper 合计 `4 passed`。
 - 临时 Redis 容器使用唯一名称/标签和 loopback 随机端口；测试后已停止并删除。
