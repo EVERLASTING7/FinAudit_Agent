@@ -28,11 +28,13 @@ from app.models.corrections import UserCorrection
 from app.models.financial import Contract, Invoice, InvoiceItem
 from app.models.operations import OperationLog
 from app.models.reliability import AsyncJob, AsyncJobStep, OutboxEvent
+from app.repositories.audit_runtime import AuditRuntimeRepository
 from app.repositories.job_runtime import JobRuntimeRepository
 from app.schemas.audits import (
     AuditCancelRequest,
     AuditExecutionCreateRequest,
     AuditFinanceReviewRequest,
+    AuditRetryRequest,
     AuditReviewDecisionRequest,
     AuditRiskReviewRequest,
     AuditTaskCreateRequest,
@@ -719,17 +721,70 @@ def test_audit_create_execute_review_complete_reaudit_and_cancel_close_the_loop(
             uuid4(),
         )
         assert final_execution.data.execution.version_no == 3
+        assert final_execution.data.execution.job is not None
+        final_event_id = _publish_next_job(factory, final_execution.data.execution.job_id)
+        with factory.begin() as session:
+            claim = JobRuntimeRepository(session).claim_job(
+                job_id=final_execution.data.execution.job_id,
+                event_id=final_event_id,
+                event_schema_version=1,
+                worker_id="audit-runtime-manual-retry-worker",
+                start_step_seq=1,
+            )
+            assert claim is not None
+        with factory.begin() as session:
+            repository = AuditRuntimeRepository(session)
+            cluster = repository.lock_cluster(
+                ORGANIZATION_ID,
+                final_execution.data.execution.id,
+            )
+            assert cluster is not None
+            now = repository.database_now()
+            cluster.execution.status = "failed"
+            cluster.execution.failure_code = "DATABASE_TRANSIENT"
+            cluster.execution.retryable = True
+            cluster.execution.finished_at = now
+            cluster.execution.row_version += 1
+            repository.flush()
+            assert JobRuntimeRepository(session).finish_job(
+                claim,
+                status="failed",
+                summary={},
+                error_code="DATABASE_TRANSIENT",
+                error_message="synthetic retryable database failure",
+            )
+        failed_execution = service.get_execution(
+            ORGANIZATION_ID,
+            final_execution.data.execution.id,
+        ).execution
+        assert failed_execution.job is not None and failed_execution.job.retryable
+        retried_execution = service.retry_execution(
+            audit_actor,
+            failed_execution.id,
+            AuditRetryRequest(
+                execution_row_version=failed_execution.row_version,
+                job_row_version=failed_execution.job.row_version,
+                reason="数据库依赖恢复后技术重试",
+            ),
+            "audit-retry-001",
+            uuid4(),
+        )
+        assert retried_execution.data.status == "queued"
+        assert retried_execution.data.attempt_no == 1
+        assert retried_execution.data.scheduled_attempt_no == 2
         cancelled = service.cancel_execution(
             audit_actor,
             final_execution.data.execution.id,
             AuditCancelRequest(
-                row_version=final_execution.data.execution.row_version,
+                execution_row_version=retried_execution.data.execution_row_version,
+                job_row_version=retried_execution.data.job_row_version,
                 reason="验证排队任务可审计取消",
             ),
             "audit-cancel-001",
             uuid4(),
         )
-        assert cancelled.data.execution.status == "cancelled"
+        assert cancelled.data.execution_status == "cancelled"
+        assert cancelled.data.job_status == "cancelled"
 
         with factory() as session:
             executions = tuple(
@@ -767,7 +822,7 @@ def test_audit_create_execute_review_complete_reaudit_and_cancel_close_the_loop(
                 (1, "failed", "LEASE_EXPIRED"),
                 (2, "succeeded", None),
             ]
-            assert session.scalar(select(func.count()).select_from(OutboxEvent)) == 4
+            assert session.scalar(select(func.count()).select_from(OutboxEvent)) == 5
             reports = tuple(session.scalars(select(AuditReport)).all())
             assert len(reports) == 1
             assert reports[0].status == "outdated"
@@ -785,8 +840,9 @@ def test_audit_create_execute_review_complete_reaudit_and_cancel_close_the_loop(
                 "audits.task_created",
                 "audits.execution_evaluated",
             )
-            assert actions[-2:] == (
+            assert actions[-3:] == (
                 "audits.execution_reaudit_queued",
+                "audits.execution_retry_queued",
                 "audits.execution_cancelled",
             )
     finally:

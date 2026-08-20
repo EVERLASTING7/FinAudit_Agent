@@ -55,6 +55,7 @@ from app.services.file_service import (
     require_file_upload_scope,
     validate_file_batch_count,
 )
+from app.services.job_projection import project_job_action
 from app.workers.file_handler_registry import (
     FILE_HANDLER_REGISTRY_HASH,
     FILE_HANDLER_REGISTRY_VERSION,
@@ -190,16 +191,17 @@ def _upload_projection(file: FileRecord, job: AsyncJob, *, reused: bool) -> File
     )
 
 
-def _list_projection(view: FileJobView) -> FileListItemData:
+def _list_projection(view: FileJobView, database_now: datetime) -> FileListItemData:
     return FileListItemData(
         **_upload_projection(view.file, view.job, reused=False).model_dump(),
         size_bytes=str(view.file.size_bytes),
         created_at=view.file.created_at,
+        job=project_job_action(view.job, database_now),
     )
 
 
-def project_file_list_item(view: FileJobView) -> FileListItemData:
-    return _list_projection(view)
+def project_file_list_item(view: FileJobView, database_now: datetime) -> FileListItemData:
+    return _list_projection(view, database_now)
 
 
 def _utc_text(value: datetime) -> str:
@@ -617,10 +619,12 @@ class FileQueryService:
 
     def get(self, organization_id: UUID, file_id: UUID) -> FileListItemData:
         with self._session_factory() as session:
-            view = FileIntakeRepository(session).read_file(organization_id, file_id)
+            repository = FileIntakeRepository(session)
+            view = repository.read_file(organization_id, file_id)
+            database_now = repository.database_now()
         if view is None:
             raise _error(404, "RESOURCE_NOT_FOUND", "资源不存在")
-        return _list_projection(view)
+        return _list_projection(view, database_now)
 
     def list_page(
         self,
@@ -633,10 +637,12 @@ class FileQueryService:
         if cursor is not None:
             cursor_time, cursor_id = _decode_cursor(cursor)
         with self._session_factory() as session:
-            views, has_more = FileIntakeRepository(session).read_page(
+            repository = FileIntakeRepository(session)
+            views, has_more = repository.read_page(
                 organization_id, page_size, cursor_time, cursor_id
             )
-        items = tuple(_list_projection(view) for view in views)
+            database_now = repository.database_now()
+        items = tuple(_list_projection(view, database_now) for view in views)
         return FileListData(
             items=items,
             page_size=page_size,

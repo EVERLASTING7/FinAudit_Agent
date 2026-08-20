@@ -96,8 +96,17 @@ class FileJobRecovery:
         candidate = candidates[0]
         handler = _validated_handler(candidate)
         start_step = candidate.job.current_attempt_start_step_code
-        if handler is None or not _can_start_at(handler, start_step):
+        can_recover = handler is not None and (
+            _can_start_at(handler, start_step)
+            or (
+                candidate.job.job_type
+                in {"manual_correction_snapshot", "asset_security_revalidation"}
+                and any(step.step_code == start_step for step in handler.handler.steps)
+            )
+        )
+        if not can_recover:
             return RecoveryResult("registry_invalid", str(candidate.job.id))
+        assert handler is not None
         if candidate.job.job_type == "invoice_extract" and self._invoice_executor is None:
             return RecoveryResult("registry_invalid", str(candidate.job.id))
         if candidate.job.job_type == "contract_extract" and self._contract_executor is None:
@@ -363,13 +372,23 @@ def _validated_handler(candidate: FileRecoveryCandidate) -> RecoveryHandlerRunti
         handler.validate_input(candidate.job.input_json)
     except (HandlerRegistryError, ValueError):
         return None
+    is_document_rebuild = candidate.job.job_type in {
+        "manual_correction_snapshot",
+        "asset_security_revalidation",
+    }
     if (
-        candidate.job.job_type
-        not in {"file_process", "file_scan", "invoice_extract", "contract_extract"}
-        or candidate.job.resource_type != "file"
-        or candidate.job.handler_registry_version != handler.registry_version
+        candidate.job.handler_registry_version != handler.registry_version
         or candidate.job.handler_registry_hash != handler.registry_hash
-        or candidate.job.input_json.get("file_id") != str(candidate.job.resource_id)
+        or (
+            candidate.job.resource_type != "document_parse_version"
+            or candidate.job.input_json.get("result_parse_version_id")
+            != str(candidate.job.resource_id)
+            if is_document_rebuild
+            else candidate.job.job_type
+            not in {"file_process", "file_scan", "invoice_extract", "contract_extract"}
+            or candidate.job.resource_type != "file"
+            or candidate.job.input_json.get("file_id") != str(candidate.job.resource_id)
+        )
     ):
         return None
     return handler

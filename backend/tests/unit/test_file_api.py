@@ -326,7 +326,12 @@ def test_file_preview_text_archive_and_retry_are_authorized_and_private(
     retry = client.post(
         f"/api/v1/files/{FILE_ID}/retry",
         headers={"Authorization": "Bearer token", "Idempotency-Key": "retry-file-001"},
-        json={"row_version": "1", "job_id": str(JOB_ID), "reason": "重试失败任务"},
+        json={
+            "file_row_version": "1",
+            "job_id": str(JOB_ID),
+            "job_row_version": "1",
+            "reason": "重试失败任务",
+        },
     )
 
     assert preview.status_code == 200

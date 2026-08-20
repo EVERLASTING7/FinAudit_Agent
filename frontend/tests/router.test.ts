@@ -98,6 +98,26 @@ describe('正式路由', () => {
     expect(router.currentRoute.value.name).toBe('forbidden')
   })
 
+  it('系统管理员可进入获准的文件纠错详情但不能枚举文件列表', async () => {
+    const auth = useAuthStore()
+    auth.setAuthenticatedSession(
+      {
+        id: '90000000-0000-4000-8000-000000000007',
+        displayName: '系统管理员',
+        roles: ['system_admin'],
+        permissions: ['system.configure'],
+      },
+      'test-access-token',
+    )
+    const router = createAppRouter(createMemoryHistory())
+
+    await router.push('/files/41000000-0000-4000-8000-000000000001')
+    expect(router.currentRoute.value.name).toBe('file-detail')
+
+    await router.push('/files')
+    expect(router.currentRoute.value.name).toBe('forbidden')
+  })
+
   it('已登录用户访问登录页时回到工作台', async () => {
     const auth = useAuthStore()
     auth.setAuthenticatedSession(

@@ -254,11 +254,11 @@ DRAFT -> GENERATED_FOR_REVIEW -> APPROVED_CONTRACT -> REQUEST_SYNCED -> IMPLEMEN
 
 | 项目 | 状态 |
 |---|---|
-| GAP-055 / meta-contract | PROPOSED / NOT APPROVED |
+| GAP-055 / meta-contract | SUPERSEDED BY `CR-010-R2` |
 | `scanner_registry_profiles` / shared validators | PROPOSED / NOT AUTHORIZED |
 | core/API delta | PROPOSED：`+1 / 0`；最终总数按有效 CR 累加 |
 | concrete Profile artifacts/JCS/hash | NONE / NOT GENERATED / NOT APPROVED |
-| Request 同步 | NOT AUTHORIZED |
+| Request 同步 | HISTORICAL R1；CURRENT AUTHORITY IS `CR-010-R2` |
 | decision snapshot | `17877a4cef3ca0a145f32ac06acf44e7fb65b49c06dec710a04a6078aca319de` / GENERATED_FOR_REVIEW / NOT APPROVED |
 | 批准记录 | NONE |
 | migration / consumer runtime | NOT AUTHORIZED / BLOCKED BY APPROVAL AND DEPENDENCIES |

@@ -11,6 +11,7 @@ declare module 'vue-router' {
     description?: string
     requiresAuth?: boolean
     requiredPermissions?: readonly PermissionCode[]
+    requiredAnyPermissions?: readonly PermissionCode[]
     parent?: {
       title: string
       name: string

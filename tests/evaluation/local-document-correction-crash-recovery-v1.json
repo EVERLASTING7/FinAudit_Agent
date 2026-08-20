@@ -1,0 +1,88 @@
+{
+  "acceptance_boundary": {
+    "formal_ac": false,
+    "production": false,
+    "provider": false,
+    "representative_document": false
+  },
+  "cleanup": {
+    "container_count": 0,
+    "image_tag_count": 0,
+    "network_count": 0,
+    "process_env_count": 0,
+    "runtime_directory_present": false,
+    "runtime_secrets_present": false,
+    "volume_count": 0
+  },
+  "environment": {
+    "ai_provider": "disabled",
+    "backend_image_id": "sha256:296a4947e6e3f3c65f0a93d9dcb771f4894eace7bc065193b9b6099b8a98a501",
+    "docker_cpus": 20,
+    "docker_memory_bytes": 8223617024,
+    "docker_server_version": "29.6.1",
+    "frontend_image_id": "sha256:74aeeee916b7d8ac340da9871d8ed7392fd774c4f68508206ed84586a9348984",
+    "image_revision": "correction-crash-v1",
+    "production": "not_run",
+    "scanner": "local-clamav",
+    "transport": "http-nginx-backend"
+  },
+  "fault_injection": {
+    "database_lock": "document_content_exclusions_access_exclusive",
+    "expected_maintenance_outcome": "exhausted",
+    "lease_grace_seconds": 15,
+    "lease_seconds": 60,
+    "max_attempts": 1,
+    "worker_exit_code": 137,
+    "worker_signal": "SIGKILL"
+  },
+  "gates": {
+    "client_failed_candidate_rejection": "passed",
+    "database_terminal_failure": "passed",
+    "dependency_restore": "passed",
+    "lease_exhaustion": "passed",
+    "managed_worker_restart": "passed",
+    "old_active_preserved": "passed",
+    "pre_recovery_zero_candidate_facts": "passed",
+    "request": "passed",
+    "source_prepare": "passed",
+    "worker_sigkill": "passed"
+  },
+  "post_failure_invariants": {
+    "activation_error_code": "PARSE_STATE_CONFLICT",
+    "candidate_block_count": 0,
+    "candidate_error_code": "WORKER_LOST",
+    "candidate_markdown_count": 0,
+    "candidate_page_count": 0,
+    "candidate_status": "failed",
+    "correction_attempt_count": 1,
+    "correction_step_error_code": "WORKER_LOST",
+    "job_error_code": "WORKER_LOST",
+    "job_status": "failed",
+    "old_active_status": "active",
+    "source_preview_sha256_unchanged": true
+  },
+  "recorded_on": "2026-08-19",
+  "runtime_identity": {
+    "compose_project": "finaudit-correction-6d113cec",
+    "http_port": 5497
+  },
+  "schema_version": "local-document-correction-crash-recovery-v1",
+  "source_binding": {
+    "dockerfile_bytes": 1989,
+    "dockerfile_path": "backend/Dockerfile",
+    "dockerfile_sha256": "4998e4b099d98aecfe85918fcb4203062a982f0eae14a7d89399192a37010041",
+    "runner_bytes": 32690,
+    "runner_path": "scripts/smoke_local_document_correction_crash_recovery.py",
+    "runner_sha256": "40a943f60b9db5672cfc9b00124ada5f5beb89e19c47d6780e43e0842e9f680d",
+    "wrapper_bytes": 159525,
+    "wrapper_path": "scripts/verify-local-stack.ps1",
+    "wrapper_sha256": "b9e076b9c3e7fd328d6be21f2bb6a55f5aa53e441b555173d345bb85317d2846"
+  },
+  "workload": {
+    "business_type": "supplementary_agreement",
+    "candidate_activation": "explicit_and_rejected_after_failure",
+    "correction_field": "text_content",
+    "pipeline": "http_upload_to_clamav_to_file_process_to_manual_correction_snapshot",
+    "source": "isolated_synthetic_pdf"
+  }
+}

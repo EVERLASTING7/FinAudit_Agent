@@ -1,0 +1,95 @@
+{
+  "acceptance_boundary": {
+    "business_representative": false,
+    "formal_ac": false,
+    "production": false,
+    "provider": false,
+    "reference_environment_capacity": false
+  },
+  "cleanup": {
+    "container_count": 0,
+    "image_tag_count": 0,
+    "network_count": 0,
+    "process_env_count": 0,
+    "runtime_directory_present": false,
+    "runtime_secrets_present": false,
+    "volume_count": 0
+  },
+  "environment": {
+    "ai_provider": "disabled",
+    "backend_image_id": "sha256:cca1f707217e567e71a7ea62bb43406e119b9f0e8c9736044047890491439892",
+    "docker_cpus": 20,
+    "docker_memory_bytes": 8223637504,
+    "docker_server_version": "29.6.1",
+    "embedding_dimension": 1024,
+    "embedding_profile": "fixed_test",
+    "frontend_image_id": "sha256:4161855016273021975cbff7621048b45b4d5271f76d44a6415f4dc2dd48f48e",
+    "image_revision": "security-kp-v5",
+    "production": "not_run",
+    "qdrant": "real_local",
+    "scanner": "local-clamav",
+    "transport": "http-nginx-backend",
+    "worker_concurrency": 2
+  },
+  "gates": {
+    "audit": "passed",
+    "client": "passed",
+    "database": "passed",
+    "dependency_restore": "passed",
+    "prompt_injection_http_qdrant": "passed",
+    "rag_p95": "passed",
+    "security_baseline": "passed",
+    "top5_p95_upper_bound": "passed"
+  },
+  "recorded_on": "2026-08-19",
+  "rounds": [
+    {
+      "rag_p95_ms": 40.774,
+      "round": 1,
+      "samples": 20,
+      "top5_p95_upper_bound_ms": 40.774
+    },
+    {
+      "rag_p95_ms": 38.884,
+      "round": 2,
+      "samples": 20,
+      "top5_p95_upper_bound_ms": 38.884
+    },
+    {
+      "rag_p95_ms": 41.064,
+      "round": 3,
+      "samples": 20,
+      "top5_p95_upper_bound_ms": 41.064
+    }
+  ],
+  "runtime_identity": {
+    "compose_project": "finaudit-security-kp-d08f092b",
+    "http_port": 10004
+  },
+  "schema_version": "local-knowledge-performance-v5",
+  "source_binding": {
+    "security_smoke_bytes": 73402,
+    "security_smoke_path": "scripts/smoke_local_security.py",
+    "security_smoke_sha256": "e78751e09e241f5faa681ecb13436db33157f89a8ef5ec906ad626dffb26fd21",
+    "wrapper_bytes": 149245,
+    "wrapper_path": "scripts/verify-local-stack.ps1",
+    "wrapper_sha256": "8fa8876f275755e2cc9ce3d5e59b019d75e14c005c6de02dfc0bc9984ac8bb34"
+  },
+  "thresholds": {
+    "all_rounds_passed": true,
+    "p95_method": "nearest_rank",
+    "rag_limit_ms": 15000,
+    "round_count": 3,
+    "samples_per_round": 20,
+    "top5_limit_ms": 2000,
+    "top5_measurement": "end_to_end_rag_p95_upper_bound"
+  },
+  "workload": {
+    "database_audit_facts": 60,
+    "database_query_facts": 60,
+    "dataset": "isolated_synthetic_policy",
+    "pipeline": "http_to_postgresql_to_fixed_test_embedding_to_qdrant_to_postgresql_recheck_to_answer",
+    "retrieval_limit": 5,
+    "total_queries": 60
+  }
+}

@@ -1,0 +1,1 @@
+{"entries":[{"adapter_code":"fixed_test","allowed_definition_versions":["fixed-test-definition-v1"],"allowed_scan_outcomes":["clean","infected","scan_failed"],"definition_version_mode":"required_exact","scanner_version":"fixed-test-scanner-v1"}],"profile_class":"fixed_test","registry_version":"fixed-test-registry-v1","schema_version":"scanner-registry-profile-v1"}

@@ -7,21 +7,28 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Path, Query, Request, Response, status
 
-from app.api.dependencies.auth import require_permission
+from app.api.dependencies.auth import require_any_permission, require_permission
 from app.api.dependencies.policies import PolicyManagementServiceDependency
 from app.core.responses import utc_timestamp
 from app.schemas.common import ErrorResponse, SuccessResponse
 from app.schemas.policies import (
+    PendingPolicyRevocationListData,
+    PendingPolicyRevocationListQuery,
     PolicyCreateRequest,
     PolicyData,
     PolicyListData,
     PolicyListQuery,
     PolicyReadQuery,
+    PolicyRevocationRequestData,
+    PolicyRevokeRequest,
     PolicyTransitionRequest,
     PolicyWriteData,
 )
 from app.services.auth import AuthenticatedActor
-from app.services.policy_management import PolicyMutationResult
+from app.services.policy_management import (
+    PolicyMutationResult,
+    PolicyRevocationRequestMutationResult,
+)
 
 router = APIRouter(prefix="/policy-documents", tags=["制度知识库"])
 
@@ -31,7 +38,7 @@ CanonicalPolicyId = Annotated[
 ]
 KnowledgeReadActor = Annotated[
     AuthenticatedActor,
-    Depends(require_permission("knowledge.use")),
+    Depends(require_any_permission(("knowledge.use", "knowledge.publish"))),
 ]
 KnowledgeSubmitActor = Annotated[
     AuthenticatedActor,
@@ -44,6 +51,10 @@ KnowledgeApproveActor = Annotated[
 KnowledgePublishActor = Annotated[
     AuthenticatedActor,
     Depends(require_permission("knowledge.publish")),
+]
+RevocationReadActor = Annotated[
+    AuthenticatedActor,
+    Depends(require_any_permission(("knowledge.approve", "knowledge.publish"))),
 ]
 IdempotencyKey = Annotated[
     str,
@@ -81,6 +92,21 @@ def _mutation_response(
     response.headers["Cache-Control"] = "private, no-store"
     response.headers["Idempotency-Replayed"] = str(result.replayed).lower()
     return SuccessResponse[PolicyWriteData](
+        data=result.data,
+        trace_id=request.state.trace_id,
+        timestamp=utc_timestamp(),
+    )
+
+
+def _revocation_request_response(
+    request: Request,
+    response: Response,
+    result: PolicyRevocationRequestMutationResult,
+) -> SuccessResponse[PolicyRevocationRequestData]:
+    response.status_code = result.status_code
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["Idempotency-Replayed"] = str(result.replayed).lower()
+    return SuccessResponse[PolicyRevocationRequestData](
         data=result.data,
         trace_id=request.state.trace_id,
         timestamp=utc_timestamp(),
@@ -135,6 +161,34 @@ def create_policy_document(
         request,
         response,
         service.create(actor, payload, idempotency_key, UUID(request.state.trace_id)),
+    )
+
+
+@router.get(
+    "/revocation-requests",
+    operation_id="list_pending_policy_revocation_requests_v1",
+    summary="读取制度撤销待执行请求",
+    response_model=SuccessResponse[PendingPolicyRevocationListData],
+    responses=_READ_ERRORS,
+)
+def list_pending_policy_revocation_requests(
+    query: Annotated[PendingPolicyRevocationListQuery, Query()],
+    request: Request,
+    response: Response,
+    actor: RevocationReadActor,
+    service: PolicyManagementServiceDependency,
+) -> SuccessResponse[PendingPolicyRevocationListData]:
+    data = service.list_pending_revocations(
+        actor,
+        query.knowledge_base_id,
+        query.cursor,
+        query.page_size,
+    )
+    response.headers["Cache-Control"] = "private, no-store"
+    return SuccessResponse[PendingPolicyRevocationListData](
+        data=data,
+        trace_id=request.state.trace_id,
+        timestamp=utc_timestamp(),
     )
 
 
@@ -241,6 +295,65 @@ def publish_policy_document(
         request,
         response,
         service.publish(
+            actor,
+            UUID(policy_id),
+            payload,
+            idempotency_key,
+            UUID(request.state.trace_id),
+        ),
+    )
+
+
+@router.post(
+    "/{policy_id}/revocation-requests",
+    status_code=status.HTTP_201_CREATED,
+    operation_id="request_policy_document_revocation_v1",
+    summary="提交制度撤销确认",
+    response_model=SuccessResponse[PolicyRevocationRequestData],
+    responses=_WRITE_ERRORS,
+)
+def request_policy_document_revocation(
+    policy_id: CanonicalPolicyId,
+    payload: PolicyTransitionRequest,
+    request: Request,
+    response: Response,
+    actor: KnowledgeApproveActor,
+    service: PolicyManagementServiceDependency,
+    idempotency_key: IdempotencyKey,
+) -> SuccessResponse[PolicyRevocationRequestData]:
+    return _revocation_request_response(
+        request,
+        response,
+        service.request_revocation(
+            actor,
+            UUID(policy_id),
+            payload,
+            idempotency_key,
+            UUID(request.state.trace_id),
+        ),
+    )
+
+
+@router.post(
+    "/{policy_id}/revoke",
+    operation_id="revoke_policy_document_v1",
+    summary="执行已确认的制度撤销",
+    response_model=SuccessResponse[PolicyWriteData],
+    responses=_WRITE_ERRORS,
+)
+def revoke_policy_document(
+    policy_id: CanonicalPolicyId,
+    payload: PolicyRevokeRequest,
+    request: Request,
+    response: Response,
+    actor: KnowledgePublishActor,
+    service: PolicyManagementServiceDependency,
+    idempotency_key: IdempotencyKey,
+) -> SuccessResponse[PolicyWriteData]:
+    return _mutation_response(
+        request,
+        response,
+        service.revoke(
             actor,
             UUID(policy_id),
             payload,

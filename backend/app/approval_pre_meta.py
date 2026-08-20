@@ -47,7 +47,7 @@ _SCHEMA_IDENTITIES = (
     FileIdentity(
         "docs/change-requests/artifacts/DEP-005/source-contract-approval-record-v2.schema.json",
         340_459,
-        "4f3bd94ca2cfd21f805e3487666796ecacc565136766db8ca93df6f22015b866",
+        "a8087e0c022104ed2c8b56ad4cde53481990893c2217bc098b8b2738df74413f",
     ),
     FileIdentity(
         "docs/change-requests/artifacts/DEP-005/dep005-detached-approval-evidence-v1.schema.json",
@@ -112,8 +112,8 @@ _SNAPSHOT_IDENTITIES = (
     SnapshotIdentity(
         "docs/change-requests/CR-005-document-integrity-contract-closure.md",
         _SECTION_8_STATUS_MARKER,
-        36_753,
-        "739f2004bd6cc785d0a06a69445af2c35a373bbe1746d9ed1b194cb3f94dd029",
+        38_692,
+        "c47944096f7ad143044a2347b8b0656190e9f49f0854c5f31a898b4b70872f65",
     ),
     SnapshotIdentity(
         "docs/change-requests/CR-007-file-knowledge-base-lifecycle-closure.md",
@@ -230,7 +230,7 @@ _BRANCH_SNAPSHOT_IDENTITIES = {
     ),
     "Cr005ContractV2Branch": (
         _SECTION_8_STATUS_MARKER,
-        "739f2004bd6cc785d0a06a69445af2c35a373bbe1746d9ed1b194cb3f94dd029",
+        "c47944096f7ad143044a2347b8b0656190e9f49f0854c5f31a898b4b70872f65",
     ),
     "Cr007ContractV2Branch": (
         _SECTION_8_STATUS_MARKER,

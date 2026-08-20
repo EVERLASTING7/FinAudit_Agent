@@ -12,10 +12,13 @@ from app.api.dependencies.auth import require_permission
 from app.core.errors import AppError
 from app.core.responses import utc_timestamp
 from app.schemas.audits import (
+    AuditCancelData,
     AuditCancelRequest,
     AuditExecutionCreateRequest,
     AuditExecutionMutationData,
     AuditFinanceReviewRequest,
+    AuditRetryData,
+    AuditRetryRequest,
     AuditReviewDecisionRequest,
     AuditRiskMutationData,
     AuditRiskReviewRequest,
@@ -373,9 +376,41 @@ def complete_high_audit_review(
 
 
 @router.post(
+    "/audit-executions/{execution_id}/retry",
+    status_code=202,
+    operation_id="retry_audit_execution_v1",
+    response_model=SuccessResponse[AuditRetryData],
+    responses=_WRITE_ERRORS,
+)
+def retry_audit_execution(
+    execution_id: CanonicalId,
+    payload: AuditRetryRequest,
+    request: Request,
+    response: Response,
+    actor: AuditCompleteActor,
+    service: AuditManagementServiceDependency,
+    idempotency_key: IdempotencyKey,
+) -> SuccessResponse[AuditRetryData]:
+    result = service.retry_execution(
+        actor,
+        _uuid(execution_id),
+        payload,
+        idempotency_key,
+        UUID(request.state.trace_id),
+    )
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["Idempotency-Replayed"] = str(result.replayed).lower()
+    return SuccessResponse[AuditRetryData](
+        data=result.data,
+        trace_id=request.state.trace_id,
+        timestamp=utc_timestamp(),
+    )
+
+
+@router.post(
     "/audit-executions/{execution_id}/cancel",
     operation_id="cancel_audit_execution_v1",
-    response_model=SuccessResponse[AuditExecutionMutationData],
+    response_model=SuccessResponse[AuditCancelData],
     responses=_WRITE_ERRORS,
 )
 def cancel_audit_execution(
@@ -386,17 +421,20 @@ def cancel_audit_execution(
     actor: AuditCompleteActor,
     service: AuditManagementServiceDependency,
     idempotency_key: IdempotencyKey,
-) -> SuccessResponse[AuditExecutionMutationData]:
-    return _execution_mutation_response(
-        request,
-        response,
-        service.cancel_execution(
-            actor,
-            _uuid(execution_id),
-            payload,
-            idempotency_key,
-            UUID(request.state.trace_id),
-        ),
+) -> SuccessResponse[AuditCancelData]:
+    result = service.cancel_execution(
+        actor,
+        _uuid(execution_id),
+        payload,
+        idempotency_key,
+        UUID(request.state.trace_id),
+    )
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["Idempotency-Replayed"] = str(result.replayed).lower()
+    return SuccessResponse[AuditCancelData](
+        data=result.data,
+        trace_id=request.state.trace_id,
+        timestamp=utc_timestamp(),
     )
 
 

@@ -55,6 +55,10 @@ class DocumentBlockCorrection(Base):
             name="field_name_allowed",
         ),
         CheckConstraint("btrim(reason) <> ''", name="reason_nonempty"),
+        UniqueConstraint(
+            "result_parse_version_id",
+            name="uq_document_block_corrections_result_parse",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -70,9 +74,10 @@ class DocumentBlockCorrection(Base):
         ForeignKey("document_blocks.id", name="fk_doc_block_correction_source_block"),
         nullable=False,
     )
-    result_parse_version_id: Mapped[UUID | None] = mapped_column(
+    result_parse_version_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("document_parse_versions.id", name="fk_doc_block_correction_result_parse"),
+        nullable=False,
     )
     field_name: Mapped[str] = mapped_column(String(40), nullable=False)
     before_value_json: Mapped[object] = mapped_column(JSONB, nullable=False)
@@ -198,6 +203,7 @@ class MarkdownSourceMapping(Base):
             "md_char_end",
             "block_id",
             name="uq_markdown_source_mapping_identity",
+            postgresql_nulls_not_distinct=True,
         ),
         Index("idx_markdown_source_mapping_version", "markdown_version_id", "md_char_start"),
     )
@@ -217,8 +223,8 @@ class MarkdownSourceMapping(Base):
     page_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("document_pages.id"), nullable=False
     )
-    block_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("document_blocks.id"), nullable=False
+    block_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("document_blocks.id")
     )
     bbox_json: Mapped[dict[str, object] | None] = mapped_column(JSONB(none_as_null=True))
     coverage_status: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -280,10 +286,19 @@ class PolicyDocument(Base):
         CheckConstraint("jsonb_typeof(scope_json) = 'object'", name="scope_object"),
         CheckConstraint("row_version > 0", name="row_version_positive"),
         CheckConstraint(
-            "(status IN ('published','superseded') AND business_approved_by IS NOT NULL "
+            "(status IN ('published','superseded','revoked') "
+            "AND business_approved_by IS NOT NULL "
             "AND business_approved_at IS NOT NULL AND technical_published_by IS NOT NULL "
-            "AND technical_published_at IS NOT NULL) OR status NOT IN ('published','superseded')",
+            "AND technical_published_at IS NOT NULL) "
+            "OR status NOT IN ('published','superseded','revoked')",
             name="publication_matrix",
+        ),
+        CheckConstraint(
+            "(status = 'revoked' AND revoked_at IS NOT NULL AND revoked_by IS NOT NULL "
+            "AND btrim(revoke_reason) <> '') OR "
+            "(status <> 'revoked' AND revoked_at IS NULL AND revoked_by IS NULL "
+            "AND revoke_reason IS NULL)",
+            name="revocation_matrix",
         ),
         UniqueConstraint(
             "knowledge_base_id", "policy_code", "version", name="uq_policy_code_version"
@@ -353,9 +368,36 @@ class PolicyDocument(Base):
 class PolicyApprovalRecord(Base):
     __tablename__ = "policy_approval_records"
     __table_args__ = (
-        CheckConstraint("btrim(action) <> '' AND btrim(to_status) <> ''", name="action_nonempty"),
+        CheckConstraint(
+            "(action = 'submit' AND from_status = 'draft' AND to_status = 'submitted' "
+            "AND actor_role_code = 'audit_reviewer' AND related_record_id IS NULL) OR "
+            "(action = 'approve' AND from_status = 'submitted' "
+            "AND to_status = 'business_approved' AND actor_role_code = 'audit_reviewer' "
+            "AND related_record_id IS NULL) OR "
+            "(action = 'publish' AND from_status = 'business_approved' "
+            "AND to_status = 'published' AND actor_role_code = 'system_admin' "
+            "AND related_record_id IS NULL) OR "
+            "(action = 'revoke_request' AND from_status = 'published' "
+            "AND to_status = 'revoked' AND actor_role_code = 'audit_reviewer' "
+            "AND related_record_id IS NULL) OR "
+            "(action = 'revoke' AND from_status = 'published' AND to_status = 'revoked' "
+            "AND actor_role_code = 'system_admin' AND related_record_id IS NOT NULL)",
+            name="action_matrix",
+        ),
         CheckConstraint("btrim(actor_role_code) <> ''", name="role_nonempty"),
         Index("idx_policy_approval_timeline", "policy_document_id", "created_at"),
+        Index(
+            "uq_policy_revocation_request",
+            "policy_document_id",
+            unique=True,
+            postgresql_where=text("action = 'revoke_request'"),
+        ),
+        Index(
+            "uq_policy_revocation_execution",
+            "related_record_id",
+            unique=True,
+            postgresql_where=text("related_record_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -371,6 +413,10 @@ class PolicyApprovalRecord(Base):
         PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     actor_role_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    related_record_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("policy_approval_records.id", name="fk_policy_approval_related_record"),
+    )
     reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -225,6 +226,138 @@ def test_repository_publishes_complete_parse_then_database_blocks_append(
                     ),
                     {"parse_id": parse_id, "sha": "b" * 64},
                 )
+    finally:
+        _clear_subjects(engine, organization_id, file_id)
+        engine.dispose()
+
+
+def test_cr005_r2_storage_constraints_fail_closed_without_job_and_outbox(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine, factory, organization_id, file_id = _setup(monkeypatch)
+    try:
+        with factory.begin() as session:
+            source_parse_id = DocumentProcessingRepository(session).append_result(
+                organization_id=organization_id,
+                file_id=file_id,
+                trace_id=uuid4(),
+                result=ParseVersionWrite(
+                    source_type="parser",
+                    parser_name="synthetic-parser",
+                    parser_version="1",
+                    ocr_name=None,
+                    ocr_version=None,
+                    average_confidence=None,
+                    pages=(
+                        ParsePageWrite(
+                            page_no=1,
+                            width=Decimal("100"),
+                            height=Decimal("200"),
+                            unit="point",
+                            text="Contract body",
+                            confidence=None,
+                            blocks=(
+                                ParseBlockWrite(
+                                    block_index=0,
+                                    block_type="paragraph",
+                                    text="Contract body",
+                                    bbox=None,
+                                    confidence=None,
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        with engine.connect() as connection:
+            source_block_id = connection.scalar(
+                text("SELECT id FROM document_blocks WHERE parse_version_id=:parse_version_id"),
+                {"parse_version_id": source_parse_id},
+            )
+            actor_id = connection.scalar(
+                text("SELECT uploaded_by FROM files WHERE id=:file_id"),
+                {"file_id": file_id},
+            )
+            assert source_block_id is not None and actor_id is not None
+            result_nullable = connection.scalar(
+                text(
+                    "SELECT is_nullable FROM information_schema.columns "
+                    "WHERE table_schema='public' AND table_name='document_block_corrections' "
+                    "AND column_name='result_parse_version_id'"
+                )
+            )
+            mapping_definition = connection.scalar(
+                text(
+                    "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                    "WHERE conname='uq_markdown_source_mapping_identity'"
+                )
+            )
+            asset_columns = set(
+                connection.scalars(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_schema='public' AND table_name='document_assets' "
+                        "AND column_name LIKE 'security_%'"
+                    )
+                )
+            )
+        assert result_nullable == "NO"
+        assert mapping_definition is not None and "NULLS NOT DISTINCT" in mapping_definition
+        assert {
+            "security_policy_version",
+            "security_policy_hash",
+            "security_checked_at",
+            "security_error_code",
+            "security_scanner_profile_class",
+            "security_scanner_registry_version",
+            "security_scanner_registry_hash",
+            "security_scanner_adapter_code",
+            "security_scanner_version",
+            "security_scanner_definition_version",
+            "security_scanner_invoked",
+        } <= asset_columns
+
+        result_parse_id = uuid4()
+        correction_id = uuid4()
+        with pytest.raises(DBAPIError) as exc_info:
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "INSERT INTO document_parse_versions "
+                        "(id,file_id,version_no,parent_version_id,source_type,parser_name,"
+                        "parser_version,code_version,status,page_count,created_by,trace_id) "
+                        "VALUES (:id,:file_id,2,:parent,'manual_correction','synthetic-parser',"
+                        "'1','manual-correction-snapshot-v1','queued',0,:actor,:trace_id)"
+                    ),
+                    {
+                        "id": result_parse_id,
+                        "file_id": file_id,
+                        "parent": source_parse_id,
+                        "actor": actor_id,
+                        "trace_id": uuid4(),
+                    },
+                )
+                connection.execute(
+                    text(
+                        "INSERT INTO document_block_corrections "
+                        "(id,source_parse_version_id,source_block_id,result_parse_version_id,"
+                        "field_name,before_value_json,after_value_json,reason,"
+                        "corrected_by,trace_id) "
+                        "VALUES (:id,:source_parse,:source_block,:result_parse,'text_content',"
+                        "CAST(:before AS jsonb),CAST(:after AS jsonb),'fix OCR',:actor,:trace_id)"
+                    ),
+                    {
+                        "id": correction_id,
+                        "source_parse": source_parse_id,
+                        "source_block": source_block_id,
+                        "result_parse": result_parse_id,
+                        "before": json.dumps("Contract body"),
+                        "after": json.dumps("Corrected contract body"),
+                        "actor": actor_id,
+                        "trace_id": uuid4(),
+                    },
+                )
+        assert getattr(exc_info.value.orig, "sqlstate", None) == "23514"
     finally:
         _clear_subjects(engine, organization_id, file_id)
         engine.dispose()

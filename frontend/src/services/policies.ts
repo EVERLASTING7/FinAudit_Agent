@@ -31,7 +31,34 @@ export interface PolicyDocument {
   businessApprovedAt: string | null
   technicalPublishedBy: string | null
   technicalPublishedAt: string | null
+  revokedAt: string | null
+  revokedBy: string | null
+  revokeReason: string | null
   rowVersion: string
+}
+
+export interface PolicyRevocationRequestData {
+  revocationRequestId: string
+  policyId: string
+  status: 'pending_execution'
+  requestedBy: string
+  requestedAt: string
+}
+
+export interface PendingPolicyRevocationItem {
+  revocationRequestId: string
+  policyId: string
+  policyCode: string
+  policyName: string
+  policyRowVersion: string
+  requestedBy: string
+  requestedAt: string
+}
+
+export interface PendingPolicyRevocationListData {
+  items: PendingPolicyRevocationItem[]
+  pageSize: number
+  nextCursor: string | null
 }
 
 export interface PolicyChunkSet {
@@ -136,7 +163,8 @@ export function decodePolicy(value: unknown): PolicyDocument {
     'id', 'knowledge_base_id', 'source_file_id', 'policy_code', 'name', 'version',
     'issuing_department', 'effective_from', 'effective_to', 'scope', 'status',
     'submitted_by', 'submitted_at', 'business_approved_by', 'business_approved_at',
-    'technical_published_by', 'technical_published_at', 'row_version',
+    'technical_published_by', 'technical_published_at', 'revoked_at', 'revoked_by',
+    'revoke_reason', 'row_version',
   ])
   if (typeof value.status !== 'string' || !policyStatuses.includes(value.status as PolicyStatus)) {
     throw new TypeError('policy status is invalid')
@@ -149,6 +177,9 @@ export function decodePolicy(value: unknown): PolicyDocument {
   const approvedAt = nullableTimestamp(value.business_approved_at, 'business_approved_at')
   const publishedBy = nullableUuid(value.technical_published_by, 'technical_published_by')
   const publishedAt = nullableTimestamp(value.technical_published_at, 'technical_published_at')
+  const revokedAt = nullableTimestamp(value.revoked_at, 'revoked_at')
+  const revokedBy = nullableUuid(value.revoked_by, 'revoked_by')
+  const revokeReason = value.revoke_reason === null ? null : text(value.revoke_reason, 'revoke_reason')
   const submitted = submittedBy !== null && submittedAt !== null
   const approved = approvedBy !== null && approvedAt !== null
   const published = publishedBy !== null && publishedAt !== null
@@ -159,7 +190,10 @@ export function decodePolicy(value: unknown): PolicyDocument {
     (status === 'draft' && (submitted || approved || published)) ||
     (status === 'submitted' && (!submitted || approved || published)) ||
     (status === 'business_approved' && (!submitted || !approved || published)) ||
-    ((status === 'published' || status === 'superseded') && (!submitted || !approved || !published))
+    ((status === 'published' || status === 'superseded' || status === 'revoked') && (!submitted || !approved || !published)) ||
+    ((revokedAt === null) !== (revokedBy === null)) ||
+    ((revokedAt === null) !== (revokeReason === null)) ||
+    ((status === 'revoked') !== (revokedAt !== null))
   ) {
     throw new TypeError('policy lifecycle is inconsistent')
   }
@@ -183,8 +217,79 @@ export function decodePolicy(value: unknown): PolicyDocument {
     businessApprovedAt: approvedAt,
     technicalPublishedBy: publishedBy,
     technicalPublishedAt: publishedAt,
+    revokedAt,
+    revokedBy,
+    revokeReason,
     rowVersion,
   }
+}
+
+export function decodePolicyRevocationRequest(value: unknown): PolicyRevocationRequestData {
+  if (!isRecord(value)) throw new TypeError('policy revocation request must be an object')
+  exact(value, ['revocation_request_id', 'policy_id', 'status', 'requested_by', 'requested_at'])
+  if (value.status !== 'pending_execution') throw new TypeError('policy revocation request status is invalid')
+  return {
+    revocationRequestId: uuid(value.revocation_request_id, 'revocation_request_id'),
+    policyId: uuid(value.policy_id, 'policy_id'),
+    status: 'pending_execution',
+    requestedBy: uuid(value.requested_by, 'requested_by'),
+    requestedAt: timestamp(value.requested_at, 'requested_at'),
+  }
+}
+
+function decodePendingPolicyRevocation(value: unknown): PendingPolicyRevocationItem {
+  if (!isRecord(value)) throw new TypeError('pending policy revocation must be an object')
+  exact(value, [
+    'revocation_request_id',
+    'policy_id',
+    'policy_code',
+    'policy_name',
+    'policy_row_version',
+    'requested_by',
+    'requested_at',
+  ])
+  const policyRowVersion = text(value.policy_row_version, 'policy_row_version')
+  if (!POSITIVE_INTEGER_PATTERN.test(policyRowVersion)) {
+    throw new TypeError('policy_row_version is invalid')
+  }
+  return {
+    revocationRequestId: uuid(value.revocation_request_id, 'revocation_request_id'),
+    policyId: uuid(value.policy_id, 'policy_id'),
+    policyCode: text(value.policy_code, 'policy_code'),
+    policyName: text(value.policy_name, 'policy_name'),
+    policyRowVersion,
+    requestedBy: uuid(value.requested_by, 'requested_by'),
+    requestedAt: timestamp(value.requested_at, 'requested_at'),
+  }
+}
+
+export function decodePendingPolicyRevocationList(
+  value: unknown,
+): PendingPolicyRevocationListData {
+  if (!isRecord(value)) throw new TypeError('pending policy revocation list must be an object')
+  exact(value, ['items', 'page_size', 'next_cursor'])
+  if (!Array.isArray(value.items) || !Number.isInteger(value.page_size)) {
+    throw new TypeError('pending policy revocation page is invalid')
+  }
+  const pageSize = Number(value.page_size)
+  if (pageSize < 1 || pageSize > 100) throw new TypeError('page_size is invalid')
+  const nextCursor = value.next_cursor === null ? null : text(value.next_cursor, 'next_cursor')
+  if (nextCursor !== null && !CURSOR_PATTERN.test(nextCursor)) {
+    throw new TypeError('next_cursor is invalid')
+  }
+  const items = value.items.map(decodePendingPolicyRevocation)
+  const identities = items.map(
+    (item) => `${new Date(item.requestedAt).toISOString()}:${item.revocationRequestId}`,
+  )
+  if (
+    items.length > pageSize ||
+    (nextCursor !== null && items.length !== pageSize) ||
+    new Set(identities).size !== identities.length ||
+    identities.some((identity, index) => index > 0 && identities[index - 1]! >= identity)
+  ) {
+    throw new TypeError('pending policy revocation page shape is invalid')
+  }
+  return { items, pageSize, nextCursor }
 }
 
 function decodeChunkSet(value: unknown): PolicyChunkSet {
@@ -261,6 +366,32 @@ export class PolicyApi {
     return (await this.client.request(`/policy-documents/${policyId}`, { signal, decode: decodePolicy })).data
   }
 
+  async listPendingRevocations(
+    knowledgeBaseId: string,
+    pageSize = 50,
+    cursor?: string,
+    signal?: AbortSignal,
+  ): Promise<PendingPolicyRevocationListData> {
+    validateUuid(knowledgeBaseId, 'knowledgeBaseId')
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+      throw new TypeError('pageSize is invalid')
+    }
+    if (cursor !== undefined && !CURSOR_PATTERN.test(cursor)) {
+      throw new TypeError('cursor is invalid')
+    }
+    const params = new URLSearchParams({
+      knowledge_base_id: knowledgeBaseId,
+      page_size: String(pageSize),
+    })
+    if (cursor !== undefined) params.set('cursor', cursor)
+    return (
+      await this.client.request(`/policy-documents/revocation-requests?${params}`, {
+        signal,
+        decode: decodePendingPolicyRevocationList,
+      })
+    ).data
+  }
+
   async create(input: PolicyCreateInput, idempotencyKey: string, signal?: AbortSignal): Promise<PolicyWriteData> {
     validateUuid(input.knowledgeBaseId, 'knowledgeBaseId')
     validateUuid(input.sourceFileId, 'sourceFileId')
@@ -297,6 +428,48 @@ export class PolicyApi {
       await this.client.request(`/policy-documents/${policyId}/${action}`, {
         method: 'POST', idempotencyKey, signal,
         body: { row_version: rowVersion, reason },
+        decode: decodePolicyWrite,
+      })
+    ).data
+  }
+
+  async requestRevocation(
+    policyId: string,
+    rowVersion: string,
+    reason: string,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<PolicyRevocationRequestData> {
+    validateUuid(policyId, 'policyId')
+    if (!POSITIVE_INTEGER_PATTERN.test(rowVersion)) throw new TypeError('rowVersion is invalid')
+    return (
+      await this.client.request(`/policy-documents/${policyId}/revocation-requests`, {
+        method: 'POST', idempotencyKey, signal,
+        body: { row_version: rowVersion, reason },
+        decode: decodePolicyRevocationRequest,
+      })
+    ).data
+  }
+
+  async revoke(
+    policyId: string,
+    rowVersion: string,
+    revocationRequestId: string,
+    reason: string,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<PolicyWriteData> {
+    validateUuid(policyId, 'policyId')
+    validateUuid(revocationRequestId, 'revocationRequestId')
+    if (!POSITIVE_INTEGER_PATTERN.test(rowVersion)) throw new TypeError('rowVersion is invalid')
+    return (
+      await this.client.request(`/policy-documents/${policyId}/revoke`, {
+        method: 'POST', idempotencyKey, signal,
+        body: {
+          row_version: rowVersion,
+          revocation_request_id: revocationRequestId,
+          reason,
+        },
         decode: decodePolicyWrite,
       })
     ).data

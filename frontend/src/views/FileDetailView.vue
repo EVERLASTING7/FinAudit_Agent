@@ -3,9 +3,16 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import PageHeader from '@/components/PageHeader.vue'
+import DocumentCorrectionPanel from '@/components/DocumentCorrectionPanel.vue'
 import SectionCard from '@/components/SectionCard.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { ApiError, UUID_PATTERN } from '@/services/api'
+import {
+  documentCorrectionApi,
+  type DocumentCorrectionBlockPage,
+  type DocumentCorrectionBusinessType,
+  type DocumentCorrectionEvidence,
+} from '@/services/documentCorrections'
 import {
   fileApi,
   type FileBusinessType,
@@ -27,6 +34,11 @@ const previewMimeType = ref<FileOriginalArtifact['mimeType'] | ''>('')
 const previewError = ref('')
 const textPreview = ref<FileTextPreviewData | null>(null)
 const textPreviewError = ref('')
+const correctionPage = ref<DocumentCorrectionBlockPage | null>(null)
+const correctionEvidence = ref<DocumentCorrectionEvidence[]>([])
+const correctionLoading = ref(false)
+const correctionError = ref('')
+const correctionTraceId = ref('')
 const archiveReason = ref('')
 const retryReason = ref('')
 const archiveConfirmationPending = ref(false)
@@ -36,6 +48,7 @@ const actionError = ref('')
 const actionTraceId = ref('')
 let requestController: AbortController | null = null
 let previewController: AbortController | null = null
+let correctionController: AbortController | null = null
 let actionController: AbortController | null = null
 let archiveIdempotencyKey = ''
 let retryIdempotencyKey = ''
@@ -47,6 +60,7 @@ const businessTypeLabels: Readonly<Record<FileBusinessType, string>> = {
   policy: '制度',
 }
 const canManage = computed(() => auth.hasAllPermissions(['files.manage']))
+const canReadFile = computed(() => auth.hasAllPermissions(['files.read']))
 const canPreview = computed(
   () =>
     file.value !== null &&
@@ -57,8 +71,41 @@ const canArchive = computed(
   () => canManage.value && file.value?.status === 'stored' && file.value.securityScanStatus === 'clean',
 )
 const canRetry = computed(
-  () => canManage.value && file.value?.jobStatus === 'failed' && file.value.status !== 'archived',
+  () =>
+    canManage.value &&
+    file.value?.job?.retryable === true &&
+    file.value.status !== 'archived',
 )
+const correctionBusinessType = computed<DocumentCorrectionBusinessType | null>(
+  () => file.value?.intendedBusinessType ?? correctionPage.value?.businessType ?? null,
+)
+const correctionOnlyMode = computed(
+  () =>
+    !canReadFile.value &&
+    auth.hasAllPermissions(['system.configure']) &&
+    auth.user?.roles.includes('system_admin') === true,
+)
+const canLoadCorrectionBlocks = computed(() => {
+  const businessType = correctionBusinessType.value
+  const roles = auth.user?.roles ?? []
+  const hasPermission =
+    auth.user?.permissions.some((permission) =>
+      ['files.manage', 'system.configure'].includes(permission),
+    ) ?? false
+  if (!hasPermission) return false
+  if (businessType === null) return correctionOnlyMode.value
+  const allowed: Readonly<Record<DocumentCorrectionBusinessType, readonly string[]>> = {
+    contract: ['finance_reviewer', 'contract_admin', 'system_admin'],
+    supplementary_agreement: ['contract_admin', 'system_admin'],
+    invoice: ['finance_reviewer', 'system_admin'],
+    policy: ['audit_reviewer', 'system_admin'],
+  }
+  return (
+    roles.some((role) => allowed[businessType].includes(role)) &&
+    (file.value === null ||
+      (file.value.status === 'stored' && file.value.securityScanStatus === 'clean'))
+  )
+})
 
 function formatBytes(raw: string): string {
   const size = Number(raw)
@@ -100,6 +147,82 @@ function previewMessage(error: unknown, kind: 'original' | 'text'): string {
   if (error.status === 401) return '登录状态已失效，请重新登录。'
   if (error.status === 403) return '当前账号无权预览该文件。'
   return '文件预览加载失败，请稍后重试。'
+}
+
+function clearCorrectionBlocks(): void {
+  correctionController?.abort()
+  correctionController = null
+  correctionPage.value = null
+  correctionEvidence.value = []
+  correctionLoading.value = false
+  correctionError.value = ''
+  correctionTraceId.value = ''
+}
+
+function correctionErrorMessage(error: unknown): string {
+  correctionTraceId.value = error instanceof ApiError ? error.traceId : ''
+  if (!(error instanceof ApiError)) return '文档纠错来源响应校验失败，请刷新后重试。'
+  if (error.code === 'PARSE_VERSION_CHANGED') return '活动解析版本已变化，请重新加载纠错来源。'
+  if (error.code === 'DOCUMENT_PARSE_NOT_READY') return '当前文件尚无可纠错的活动解析版本。'
+  if (error.status === 403) return '当前账号缺少文档纠错权限或对应业务角色。'
+  if (error.status === 404) return '文件不存在，或当前账号不可见。'
+  if (error.status === 409) return '当前文件状态不能读取纠错来源。'
+  return '文档纠错来源加载失败，请稍后重试。'
+}
+
+async function loadCorrectionBlocks(reset: boolean): Promise<void> {
+  const fileId = String(route.params.fileId ?? '')
+  if (!UUID_PATTERN.test(fileId) || !canLoadCorrectionBlocks.value) {
+    if (reset) clearCorrectionBlocks()
+    return
+  }
+  const cursor = reset ? undefined : correctionPage.value?.nextCursor ?? undefined
+  if (!reset && cursor === undefined) return
+  correctionController?.abort()
+  const controller = new AbortController()
+  correctionController = controller
+  correctionLoading.value = true
+  correctionError.value = ''
+  correctionTraceId.value = ''
+  if (reset) {
+    correctionPage.value = null
+    correctionEvidence.value = []
+  }
+  try {
+    const page = await documentCorrectionApi.listBlocks(fileId, 50, cursor, controller.signal)
+    if (correctionController !== controller || controller.signal.aborted) return
+    if (
+      !reset &&
+      correctionPage.value !== null &&
+      correctionPage.value.parseVersionId !== page.parseVersionId
+    ) {
+      throw new TypeError('document correction parse version changed within pagination')
+    }
+    correctionPage.value = page
+    const nextEvidence = page.items.map((item) => ({
+      blockId: item.blockId,
+      parseVersionId: page.parseVersionId,
+      pageNo: item.pageNo,
+      quoteText: item.textContent,
+    }))
+    correctionEvidence.value = reset
+      ? nextEvidence
+      : [...correctionEvidence.value, ...nextEvidence]
+  } catch (error) {
+    if (correctionController === controller && !controller.signal.aborted) {
+      correctionError.value = correctionErrorMessage(error)
+    }
+  } finally {
+    if (correctionController === controller) {
+      correctionController = null
+      correctionLoading.value = false
+    }
+  }
+}
+
+async function correctionActivated(): Promise<void> {
+  await loadCorrectionBlocks(true)
+  if (file.value !== null) await loadPreviews(file.value)
 }
 
 async function loadPreviews(current: FileListItem): Promise<void> {
@@ -144,6 +267,7 @@ async function loadPreviews(current: FileListItem): Promise<void> {
 async function loadFile(fileId: string): Promise<void> {
   requestController?.abort()
   previewController?.abort()
+  clearCorrectionBlocks()
   revokePreviewUrl()
   file.value = null
   archiveConfirmationPending.value = false
@@ -157,11 +281,23 @@ async function loadFile(fileId: string): Promise<void> {
   const controller = new AbortController()
   requestController = controller
   loading.value = true
+  if (!canReadFile.value) {
+    try {
+      await loadCorrectionBlocks(true)
+    } finally {
+      if (requestController === controller) {
+        requestController = null
+        loading.value = false
+      }
+    }
+    return
+  }
   try {
     const response = await fileApi.get(fileId, controller.signal)
     if (requestController === controller && !controller.signal.aborted) {
       file.value = response
       await loadPreviews(response)
+      await loadCorrectionBlocks(true)
     }
   } catch (error) {
     if (requestController === controller && !controller.signal.aborted) formatError(error)
@@ -209,6 +345,7 @@ async function archiveFile(): Promise<void> {
     )
     if (actionController !== controller || controller.signal.aborted) return
     file.value = updated
+    clearCorrectionBlocks()
     archiveReason.value = ''
     archiveConfirmationPending.value = false
     archiveIdempotencyKey = ''
@@ -248,6 +385,7 @@ async function retryJob(): Promise<void> {
       current.fileId,
       current.rowVersion,
       current.jobId,
+      current.job?.rowVersion ?? '',
       reason,
       retryIdempotencyKey,
       controller.signal,
@@ -282,6 +420,7 @@ watch(archiveReason, () => {
 onUnmounted(() => {
   requestController?.abort()
   previewController?.abort()
+  correctionController?.abort()
   actionController?.abort()
   revokePreviewUrl()
 })
@@ -291,15 +430,15 @@ onUnmounted(() => {
   <section class="page page-stack">
     <PageHeader
       ui-code="UI-003"
-      :title="file?.originalName ?? '文件详情'"
+      :title="file?.originalName ?? (correctionPage ? '文档纠错' : '文件详情')"
       description="查看持久化文件元数据、安全扫描状态和当前受理任务。"
     >
       <template #meta>
         <span>文件 ID：<strong class="mono-text">{{ String(route.params.fileId ?? '') }}</strong></span>
-        <span v-if="file">业务类型：<strong>{{ businessTypeLabels[file.intendedBusinessType] }}</strong></span>
+        <span v-if="correctionBusinessType">业务类型：<strong>{{ businessTypeLabels[correctionBusinessType] }}</strong></span>
       </template>
       <template #actions>
-        <RouterLink class="button button-secondary" :to="{ name: 'files' }">返回列表</RouterLink>
+        <RouterLink v-if="canReadFile" class="button button-secondary" :to="{ name: 'files' }">返回列表</RouterLink>
       </template>
     </PageHeader>
 
@@ -342,6 +481,17 @@ onUnmounted(() => {
         <div v-if="canPreview" class="form-actions"><button class="button button-secondary" type="button" :disabled="previewLoading" @click="file && loadPreviews(file)">重新加载预览</button></div>
       </SectionCard>
 
+      <SectionCard v-if="canLoadCorrectionBlocks || correctionLoading || correctionError" title="文档结构块纠错" description="来源身份由当前活动 Parse 提供；纠错先创建候选，完成后仍须显式激活。">
+        <div v-if="correctionLoading && !correctionPage" role="status" aria-live="polite">正在加载可纠错文本块…</div>
+        <div v-if="correctionError" class="callout callout-danger" role="alert"><div><strong>{{ correctionError }}</strong><span v-if="correctionTraceId" class="mono-text"> Trace ID：{{ correctionTraceId }}</span></div></div>
+        <DocumentCorrectionPanel v-if="correctionPage && correctionBusinessType" :business-type="correctionBusinessType" :evidence-items="correctionEvidence" @activated="correctionActivated" />
+        <div v-else-if="!correctionLoading && !correctionError" class="empty-inline">当前活动解析版本没有可纠错文本块。</div>
+        <div class="form-actions">
+          <button class="button button-secondary" type="button" :disabled="correctionLoading" data-testid="reload-document-correction-blocks" @click="loadCorrectionBlocks(true)">重新加载</button>
+          <button v-if="correctionPage?.nextCursor" class="button button-secondary" type="button" :disabled="correctionLoading" data-testid="load-more-document-correction-blocks" @click="loadCorrectionBlocks(false)">加载更多</button>
+        </div>
+      </SectionCard>
+
       <SectionCard v-if="canManage" title="文件操作" description="归档不可恢复；失败重试复用当前 Job 和既有事实。">
         <form v-if="canRetry" class="form-grid" @submit.prevent="retryJob">
           <div class="form-field form-field-full"><label for="file-retry-reason">重试原因</label><input id="file-retry-reason" v-model="retryReason" class="text-input" minlength="3" maxlength="500" required /></div>
@@ -381,6 +531,19 @@ onUnmounted(() => {
           <div class="summary-item"><dt>任务范围</dt><dd>{{ file.jobScope === 'full' ? '安全扫描后完整处理' : '仅安全扫描' }}</dd></div>
           <div class="summary-item"><dt>业务类型</dt><dd>{{ businessTypeLabels[file.intendedBusinessType] }}</dd></div>
         </dl>
+      </SectionCard>
+    </template>
+
+    <template v-else-if="correctionOnlyMode">
+      <SectionCard title="文档结构块纠错" description="系统管理员仅获得获准的纠错来源投影，不获得文件原文预览或其他业务读取权限。">
+        <div v-if="correctionLoading && !correctionPage" role="status" aria-live="polite">正在加载可纠错文本块…</div>
+        <div v-if="correctionError" class="callout callout-danger" role="alert"><div><strong>{{ correctionError }}</strong><span v-if="correctionTraceId" class="mono-text"> Trace ID：{{ correctionTraceId }}</span></div></div>
+        <DocumentCorrectionPanel v-if="correctionPage && correctionBusinessType" :business-type="correctionBusinessType" :evidence-items="correctionEvidence" @activated="correctionActivated" />
+        <div v-else-if="!correctionLoading && !correctionError" class="empty-inline">当前活动解析版本没有可纠错文本块。</div>
+        <div class="form-actions">
+          <button class="button button-secondary" type="button" :disabled="correctionLoading" data-testid="reload-document-correction-blocks" @click="loadCorrectionBlocks(true)">重新加载</button>
+          <button v-if="correctionPage?.nextCursor" class="button button-secondary" type="button" :disabled="correctionLoading" data-testid="load-more-document-correction-blocks" @click="loadCorrectionBlocks(false)">加载更多</button>
+        </div>
       </SectionCard>
     </template>
   </section>

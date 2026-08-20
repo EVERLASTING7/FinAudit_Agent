@@ -4,7 +4,7 @@ param(
     [int]$Port = 4173,
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$')]
     [string]$PostgresImage = 'postgres:16-alpine',
-    [ValidateSet('Report', 'FileUpload', 'FinancialLoop', 'SupplementaryAgreement')]
+    [ValidateSet('Report', 'FileUpload', 'FinancialLoop', 'SupplementaryAgreement', 'InvoiceDuplicate', 'DocumentCorrection')]
     [string]$Mode = 'Report',
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$')]
     [string]$RedisImage = 'redis:7.4.9-alpine'
@@ -19,7 +19,9 @@ $stopMinioPath = Join-Path $projectRoot 'scripts\stop-local-minio.ps1'
 $fileUploadMode = $Mode -ceq 'FileUpload'
 $financialLoopMode = $Mode -ceq 'FinancialLoop'
 $supplementaryMode = $Mode -ceq 'SupplementaryAgreement'
-$workerMode = $fileUploadMode -or $financialLoopMode
+$invoiceDuplicateMode = $Mode -ceq 'InvoiceDuplicate'
+$documentCorrectionMode = $Mode -ceq 'DocumentCorrection'
+$workerMode = $fileUploadMode -or $financialLoopMode -or $documentCorrectionMode
 $gateSlug = if ($financialLoopMode) {
     'financial-loop-browser'
 }
@@ -28,6 +30,12 @@ elseif ($fileUploadMode) {
 }
 elseif ($supplementaryMode) {
     'supplementary-agreement-browser'
+}
+elseif ($invoiceDuplicateMode) {
+    'invoice-duplicate-browser'
+}
+elseif ($documentCorrectionMode) {
+    'document-correction-browser'
 }
 else {
     'report-browser'
@@ -40,6 +48,12 @@ elseif ($fileUploadMode) {
 }
 elseif ($supplementaryMode) {
     'finaudit_supplementary_agreement_browser_test'
+}
+elseif ($invoiceDuplicateMode) {
+    'finaudit_invoice_duplicate_browser_test'
+}
+elseif ($documentCorrectionMode) {
+    'finaudit_document_correction_browser_test'
 }
 else {
     'finaudit_report_browser_test'
@@ -361,6 +375,12 @@ try {
     elseif ($supplementaryMode) {
         'RUN_DISPOSABLE_SUPPLEMENTARY_AGREEMENT_BROWSER_V1'
     }
+    elseif ($invoiceDuplicateMode) {
+        'RUN_DISPOSABLE_INVOICE_DUPLICATE_BROWSER_V1'
+    }
+    elseif ($documentCorrectionMode) {
+        'RUN_DISPOSABLE_DOCUMENT_CORRECTION_BROWSER_V1'
+    }
     else {
         'RUN_DISPOSABLE_REPORT_BROWSER_V1'
     }
@@ -488,6 +508,15 @@ finally {
 if ($supplementaryMode) {
     Write-Output "POSTGRESQL_IMAGE_ID=$postgresImageId"
     Write-Output 'SUPPLEMENTARY_AGREEMENT_BROWSER_GATE=PASS'
+}
+elseif ($invoiceDuplicateMode) {
+    Write-Output "POSTGRESQL_IMAGE_ID=$postgresImageId"
+    Write-Output 'INVOICE_DUPLICATE_BROWSER_GATE=PASS'
+}
+elseif ($documentCorrectionMode) {
+    Write-Output "POSTGRESQL_IMAGE_ID=$postgresImageId"
+    Write-Output "REDIS_IMAGE_ID=$redisImageId"
+    Write-Output 'DOCUMENT_CORRECTION_BROWSER_GATE=PASS'
 }
 elseif ($financialLoopMode) {
     Write-Output "POSTGRESQL_IMAGE_ID=$postgresImageId"

@@ -12,6 +12,7 @@ import {
   knowledgeApi,
 } from '@/services/knowledge'
 import {
+  decodePendingPolicyRevocationList,
   decodePolicy,
   PolicyApi,
   policyApi,
@@ -32,6 +33,8 @@ const markdownId = '67000000-0000-4000-8000-000000000001'
 const chunkId = '68000000-0000-4000-8000-000000000001'
 const blockId = '69000000-0000-4000-8000-000000000001'
 const userId = '6a000000-0000-4000-8000-000000000001'
+const adminId = '6a000000-0000-4000-8000-000000000002'
+const revocationRequestId = '6a000000-0000-4000-8000-000000000003'
 const traceId = '6b000000-0000-4000-8000-000000000001'
 
 const rawKnowledgeBase = {
@@ -63,6 +66,9 @@ const rawPolicy = {
   business_approved_at: null,
   technical_published_by: null,
   technical_published_at: null,
+  revoked_at: null,
+  revoked_by: null,
+  revoke_reason: null,
   row_version: '1',
 }
 const draftPolicy = decodePolicy(rawPolicy)
@@ -72,6 +78,32 @@ const submittedPolicy: PolicyDocument = {
   submittedBy: userId,
   submittedAt: '2026-08-15T08:00:00Z',
   rowVersion: '2',
+}
+const publishedPolicy: PolicyDocument = {
+  ...submittedPolicy,
+  status: 'published',
+  businessApprovedBy: userId,
+  businessApprovedAt: '2026-08-15T08:01:00Z',
+  technicalPublishedBy: adminId,
+  technicalPublishedAt: '2026-08-15T08:02:00Z',
+  rowVersion: '4',
+}
+const revokedPolicy: PolicyDocument = {
+  ...publishedPolicy,
+  status: 'revoked',
+  revokedAt: '2026-08-15T08:03:00Z',
+  revokedBy: adminId,
+  revokeReason: '执行独立撤销确认',
+  rowVersion: '5',
+}
+const pendingRevocation = {
+  revocationRequestId,
+  policyId,
+  policyCode: publishedPolicy.policyCode,
+  policyName: publishedPolicy.name,
+  policyRowVersion: publishedPolicy.rowVersion,
+  requestedBy: userId,
+  requestedAt: '2026-08-15T08:03:00Z',
 }
 
 const rawQaQuery = {
@@ -110,11 +142,14 @@ function jsonResponse(data: unknown): Response {
   )
 }
 
-function authenticatedPinia(permissions: string[]) {
+function authenticatedPinia(
+  permissions: string[],
+  roles: Array<'audit_reviewer' | 'system_admin'> = ['audit_reviewer'],
+) {
   const pinia = createPinia()
   setActivePinia(pinia)
   useAuthStore(pinia).setAuthenticatedSession(
-    { id: userId, displayName: '知识管理员', roles: ['audit_reviewer'], permissions: permissions as never[] },
+    { id: userId, displayName: '知识管理员', roles, permissions: permissions as never[] },
     'test-token',
   )
   return pinia
@@ -124,6 +159,7 @@ beforeEach(() => {
   vi.spyOn(knowledgeApi, 'list').mockResolvedValue({ items: [knowledgeBase], pageSize: 20, nextCursor: null })
   vi.spyOn(knowledgeApi, 'getDetail').mockResolvedValue(knowledgeBase)
   vi.spyOn(policyApi, 'list').mockResolvedValue({ items: [draftPolicy], pageSize: 20, nextCursor: null })
+  vi.spyOn(policyApi, 'listPendingRevocations').mockResolvedValue({ items: [], pageSize: 50, nextCursor: null })
   vi.spyOn(fileApi, 'list').mockResolvedValue({ items: [], pageSize: 100, nextCursor: null })
 })
 
@@ -161,23 +197,98 @@ describe('知识服务合同', () => {
     expect(new Headers(fetcher.mock.calls[2]?.[1]?.headers).get('Idempotency-Key')).toBe('qa-feedback.12345678')
   })
 
-  it('制度列表过滤、创建与状态推进使用现有合同', async () => {
+  it('制度列表、创建、状态推进与两阶段撤销使用冻结合同', async () => {
     const fetcher = vi.fn<typeof fetch>(async (input) => {
       const path = String(input)
+      if (path.includes('/policy-documents/revocation-requests?')) {
+        return jsonResponse({
+          items: [
+            {
+              revocation_request_id: revocationRequestId,
+              policy_id: policyId,
+              policy_code: publishedPolicy.policyCode,
+              policy_name: publishedPolicy.name,
+              policy_row_version: publishedPolicy.rowVersion,
+              requested_by: userId,
+              requested_at: '2026-08-15T08:03:00Z',
+            },
+          ],
+          page_size: 50,
+          next_cursor: null,
+        })
+      }
       if (path.includes('?')) return jsonResponse({ items: [rawPolicy], page_size: 20, next_cursor: null })
       if (path.endsWith('/submit-review')) {
         return jsonResponse({ policy: { ...rawPolicy, status: 'submitted', submitted_by: userId, submitted_at: '2026-08-15T08:00:00Z', row_version: '2' }, chunk_set: null })
+      }
+      if (path.endsWith('/revocation-requests')) {
+        return jsonResponse({
+          revocation_request_id: revocationRequestId,
+          policy_id: policyId,
+          status: 'pending_execution',
+          requested_by: userId,
+          requested_at: '2026-08-15T08:03:00Z',
+        })
+      }
+      if (path.endsWith('/revoke')) {
+        return jsonResponse({
+          policy: {
+            ...rawPolicy,
+            status: 'revoked',
+            submitted_by: userId,
+            submitted_at: '2026-08-15T08:00:00Z',
+            business_approved_by: userId,
+            business_approved_at: '2026-08-15T08:01:00Z',
+            technical_published_by: adminId,
+            technical_published_at: '2026-08-15T08:02:00Z',
+            revoked_at: '2026-08-15T08:03:00Z',
+            revoked_by: adminId,
+            revoke_reason: '执行独立撤销确认',
+            row_version: '5',
+          },
+          chunk_set: null,
+        })
       }
       return jsonResponse({ policy: rawPolicy, chunk_set: null })
     })
     const api = new PolicyApi(new ApiClient({ fetcher }))
 
     await api.list(20, undefined, knowledgeBaseId)
+    const pending = await api.listPendingRevocations(knowledgeBaseId)
     await api.create({ knowledgeBaseId, sourceFileId: fileId, policyCode: 'POL-FIN-001', name: '财务审核办法', version: 'v1.0', issuingDepartment: null, effectiveFrom: '2026-01-01', effectiveTo: null, scope: {} }, 'policy-create.12345678')
     await api.transition(policyId, 'submit-review', '1', '提交业务审批', 'policy-transition.12345678')
+    await api.requestRevocation(policyId, '4', '申请撤销', 'policy-revoke-request.12345678')
+    await api.revoke(policyId, '4', revocationRequestId, '执行独立撤销确认', 'policy-revoke.12345678')
 
     expect(String(fetcher.mock.calls[0]?.[0])).toContain(`knowledge_base_id=${knowledgeBaseId}`)
-    expect(String(fetcher.mock.calls[2]?.[0])).toBe(`/api/v1/policy-documents/${policyId}/submit-review`)
+    expect(String(fetcher.mock.calls[1]?.[0])).toContain(
+      `/api/v1/policy-documents/revocation-requests?knowledge_base_id=${knowledgeBaseId}`,
+    )
+    expect(pending.items).toEqual([pendingRevocation])
+    expect(() =>
+      decodePendingPolicyRevocationList({
+        items: [
+          {
+            revocation_request_id: revocationRequestId,
+            policy_id: policyId,
+            policy_code: publishedPolicy.policyCode,
+            policy_name: publishedPolicy.name,
+            policy_row_version: '0',
+            requested_by: userId,
+            requested_at: '2026-08-15T08:03:00Z',
+          },
+        ],
+        page_size: 50,
+        next_cursor: null,
+      }),
+    ).toThrow(TypeError)
+    expect(String(fetcher.mock.calls[3]?.[0])).toBe(`/api/v1/policy-documents/${policyId}/submit-review`)
+    expect(String(fetcher.mock.calls[4]?.[0])).toBe(`/api/v1/policy-documents/${policyId}/revocation-requests`)
+    expect(JSON.parse(String(fetcher.mock.calls[5]?.[1]?.body))).toEqual({
+      row_version: '4',
+      revocation_request_id: revocationRequestId,
+      reason: '执行独立撤销确认',
+    })
   })
 })
 
@@ -234,5 +345,59 @@ describe('知识页面', () => {
     await flushPromises()
     expect(policyApi.transition).toHaveBeenCalledWith(policyId, 'submit-review', '1', '提交独立业务审批', expect.stringMatching(/^policy-transition\./), expect.any(AbortSignal))
     expect(wrapper.text()).toContain('待业务批准')
+  })
+
+  it('审计复核角色只提交撤销确认，不自动执行撤销', async () => {
+    vi.spyOn(policyApi, 'list').mockResolvedValue({ items: [publishedPolicy], pageSize: 20, nextCursor: null })
+    const requestRevocation = vi.spyOn(policyApi, 'requestRevocation').mockResolvedValue({
+      revocationRequestId,
+      policyId,
+      status: 'pending_execution',
+      requestedBy: userId,
+      requestedAt: '2026-08-15T08:03:00Z',
+    })
+    const revoke = vi.spyOn(policyApi, 'revoke')
+    const router = createRouter({ history: createMemoryHistory(), routes: [
+      { path: '/knowledge-bases', name: 'knowledge-bases', component: { template: '<div />' } },
+      { path: '/knowledge-bases/:kbId', name: 'knowledge-base-detail', component: KnowledgeBaseDetailView },
+      { path: '/qa', name: 'qa', component: { template: '<div />' } },
+      { path: '/files/:fileId', name: 'file-detail', component: { template: '<div />' } },
+    ] })
+    await router.push(`/knowledge-bases/${knowledgeBaseId}`)
+    await router.isReady()
+    wrapper = mount(KnowledgeBaseDetailView, { global: { plugins: [router, authenticatedPinia(['knowledge.use', 'knowledge.approve'])] } })
+    await flushPromises()
+    await wrapper.findAll('[role="tab"]')[1]!.trigger('click')
+    await wrapper.get(`[aria-label="POL-FIN-001 操作原因"]`).setValue('制度已由新版本替代')
+    await wrapper.get(`[data-testid="request-policy-revocation-${policyId}"]`).trigger('click')
+    await flushPromises()
+    expect(requestRevocation).toHaveBeenCalledWith(policyId, '4', '制度已由新版本替代', expect.stringMatching(/^policy-revocation-request\./), expect.any(AbortSignal))
+    expect(revoke).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('等待系统管理员独立执行')
+  })
+
+  it('系统管理员从待办列表执行撤销并采用后端 revoked 投影', async () => {
+    vi.spyOn(policyApi, 'list').mockResolvedValue({ items: [publishedPolicy], pageSize: 20, nextCursor: null })
+    vi.mocked(policyApi.listPendingRevocations)
+      .mockResolvedValueOnce({ items: [pendingRevocation], pageSize: 50, nextCursor: null })
+      .mockResolvedValue({ items: [], pageSize: 50, nextCursor: null })
+    const revoke = vi.spyOn(policyApi, 'revoke').mockResolvedValue({ policy: revokedPolicy, chunkSet: null })
+    const router = createRouter({ history: createMemoryHistory(), routes: [
+      { path: '/knowledge-bases', name: 'knowledge-bases', component: { template: '<div />' } },
+      { path: '/knowledge-bases/:kbId', name: 'knowledge-base-detail', component: KnowledgeBaseDetailView },
+      { path: '/qa', name: 'qa', component: { template: '<div />' } },
+      { path: '/files/:fileId', name: 'file-detail', component: { template: '<div />' } },
+    ] })
+    await router.push(`/knowledge-bases/${knowledgeBaseId}`)
+    await router.isReady()
+    wrapper = mount(KnowledgeBaseDetailView, { global: { plugins: [router, authenticatedPinia(['knowledge.publish'], ['system_admin'])] } })
+    await flushPromises()
+    await wrapper.findAll('[role="tab"]')[1]!.trigger('click')
+    await wrapper.get(`[aria-label="POL-FIN-001 撤销执行原因"]`).setValue('执行独立撤销确认')
+    await wrapper.get(`[data-testid="revoke-policy-form-${policyId}"]`).trigger('submit')
+    await flushPromises()
+    expect(revoke).toHaveBeenCalledWith(policyId, '4', revocationRequestId, '执行独立撤销确认', expect.stringMatching(/^policy-revoke\./), expect.any(AbortSignal))
+    expect(wrapper.text()).toContain('已撤销，新检索将立即排除该制度')
+    expect(wrapper.text()).toContain('执行独立撤销确认')
   })
 })

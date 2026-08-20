@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import io
+import json
 import sys
 from pathlib import Path
 from uuid import UUID
@@ -114,6 +116,81 @@ def test_prompt_injection_pdf_preserves_attack_text_and_canary() -> None:
     assert subject._PROMPT_INJECTION_CANARY in extracted
 
 
+def test_knowledge_performance_pdf_is_clean_and_run_scoped() -> None:
+    run_id = "e" * 32
+    payload = subject._knowledge_performance_pdf(run_id)
+    extracted = "\n".join(
+        page.extract_text() or "" for page in PdfReader(io.BytesIO(payload)).pages
+    )
+
+    assert "Travel allowance requires manager approval." in extracted
+    assert run_id in extracted
+    assert "Ignore all previous instructions" not in extracted
+    assert subject._PROMPT_INJECTION_CANARY not in extracted
+
+
+def test_knowledge_performance_p95_uses_nearest_rank() -> None:
+    assert subject._p95([float(value) for value in range(1, 21)]) == 19.0
+    with pytest.raises(subject.SecurityGateError, match="KNOWLEDGE_PERFORMANCE_SAMPLES_EMPTY"):
+        subject._p95([])
+
+
+def test_knowledge_performance_runtime_evidence_is_bounded_and_preserves_source_identity() -> None:
+    evidence = json.loads(
+        (_PROJECT_ROOT / "tests/evaluation/local-knowledge-performance-v5.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert evidence["schema_version"] == "local-knowledge-performance-v5"
+    assert evidence["acceptance_boundary"] == {
+        "business_representative": False,
+        "formal_ac": False,
+        "production": False,
+        "provider": False,
+        "reference_environment_capacity": False,
+    }
+    assert evidence["thresholds"] == {
+        "all_rounds_passed": True,
+        "p95_method": "nearest_rank",
+        "rag_limit_ms": 15000,
+        "round_count": 3,
+        "samples_per_round": 20,
+        "top5_limit_ms": 2000,
+        "top5_measurement": "end_to_end_rag_p95_upper_bound",
+    }
+    assert evidence["environment"]["embedding_dimension"] == 1024
+    assert evidence["workload"]["retrieval_limit"] == 5
+    assert evidence["workload"]["total_queries"] == 60
+    assert len(evidence["rounds"]) == 3
+    assert all(
+        round_evidence["samples"] == 20
+        and round_evidence["rag_p95_ms"] == round_evidence["top5_p95_upper_bound_ms"]
+        and 0 < round_evidence["rag_p95_ms"] <= 2000
+        and round_evidence["rag_p95_ms"] <= 15000
+        for round_evidence in evidence["rounds"]
+    )
+    assert all(value == "passed" for value in evidence["gates"].values())
+    assert evidence["cleanup"] == {
+        "container_count": 0,
+        "image_tag_count": 0,
+        "network_count": 0,
+        "process_env_count": 0,
+        "runtime_directory_present": False,
+        "runtime_secrets_present": False,
+        "volume_count": 0,
+    }
+    security_path = _PROJECT_ROOT / evidence["source_binding"]["security_smoke_path"]
+    security_payload = security_path.read_bytes()
+    assert len(security_payload) == evidence["source_binding"]["security_smoke_bytes"]
+    assert (
+        hashlib.sha256(security_payload).hexdigest()
+        == evidence["source_binding"]["security_smoke_sha256"]
+    )
+    assert evidence["source_binding"]["wrapper_bytes"] > 0
+    assert len(evidence["source_binding"]["wrapper_sha256"]) == 64
+
+
 def test_prompt_injection_refusal_contract_rejects_response_leakage() -> None:
     index_id = UUID("12345678-1234-4234-8234-123456789abc")
     result: dict[str, object] = {
@@ -167,6 +244,31 @@ def test_main_dispatches_prompt_injection_browser_database_verification(
     assert called is True
 
 
+@pytest.mark.parametrize(
+    ("mode", "function_name"),
+    [
+        ("knowledge-performance-client", "run_knowledge_performance_client"),
+        ("knowledge-performance-database", "verify_knowledge_performance_database"),
+    ],
+)
+def test_main_dispatches_knowledge_performance_modes(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    function_name: str,
+) -> None:
+    called = False
+
+    def run() -> None:
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr(subject, function_name, run)
+    monkeypatch.setattr(sys, "argv", ["smoke_local_security.py", mode])
+
+    assert subject.main() == 0
+    assert called is True
+
+
 def test_main_rejects_unknown_mode_without_touching_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -184,3 +286,5 @@ def test_security_wrapper_uses_an_observable_worker_restart_probe() -> None:
     assert "'exec', $workerBeforeRestart.Id" in probe
     assert "'exec', '--detach', $workerBeforeRestart.Id" not in probe
     assert "os.kill(1, signal.SIGTERM)" in probe
+    assert "LOCAL_SECURITY_KNOWLEDGE_TOP5_PERFORMANCE_GATE" in verifier
+    assert "LOCAL_SECURITY_KNOWLEDGE_PERFORMANCE_DATABASE_GATE" in verifier

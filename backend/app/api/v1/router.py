@@ -6,6 +6,7 @@ from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.break_glass import router as break_glass_router
 from app.api.v1.endpoints.contracts import router as contract_router
 from app.api.v1.endpoints.dashboard import router as dashboard_router
+from app.api.v1.endpoints.document_corrections import router as document_correction_router
 from app.api.v1.endpoints.files import router as file_router
 from app.api.v1.endpoints.invoices import router as invoice_router
 from app.api.v1.endpoints.knowledge import feedback_router as qa_feedback_router
@@ -23,6 +24,7 @@ api_router.include_router(auth_router)
 api_router.include_router(break_glass_router)
 api_router.include_router(contract_router)
 api_router.include_router(dashboard_router)
+api_router.include_router(document_correction_router)
 api_router.include_router(file_router)
 api_router.include_router(invoice_router)
 api_router.include_router(knowledge_router)

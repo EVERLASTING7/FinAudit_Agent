@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, JsonValue
@@ -50,16 +50,20 @@ from app.repositories.audit_runtime import (
     LockedAuditCluster,
 )
 from app.repositories.financial_read import FinancialReadRepository, InvoiceReadView
+from app.repositories.job_runtime import JobRuntimeRepository
 from app.repositories.operation_log import OperationLogRepository
 from app.repositories.user_write import IdempotencyClaim
 from app.schemas.audits import (
     AiArtifactStatus,
+    AuditCancelData,
     AuditCancelRequest,
     AuditExecutionCreateRequest,
     AuditExecutionData,
     AuditExecutionMutationData,
     AuditExecutionStatus,
     AuditFinanceReviewRequest,
+    AuditRetryData,
+    AuditRetryRequest,
     AuditReviewDecisionRequest,
     AuditRiskData,
     AuditRiskExplanationCitationData,
@@ -79,8 +83,10 @@ from app.schemas.audits import (
 )
 from app.services.auth import AuthenticatedActor
 from app.services.effective_contract_query import project_effective_contract
+from app.services.job_projection import project_job_action
 from app.services.report_queue import queue_formal_report
 from app.workers.audit_handler_registry import AUDIT_INPUT_SCHEMA_VERSION, load_audit_handler
+from app.workers.handler_registry import HandlerRegistryError
 
 _IDEMPOTENCY_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._~-]{8,128}$")
 _IDEMPOTENCY_TTL = timedelta(hours=24)
@@ -96,6 +102,18 @@ class AuditTaskMutationResult:
 @dataclass(frozen=True, slots=True)
 class AuditExecutionMutationResult:
     data: AuditExecutionMutationData
+    replayed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class AuditRetryMutationResult:
+    data: AuditRetryData
+    replayed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class AuditCancelMutationResult:
+    data: AuditCancelData
     replayed: bool
 
 
@@ -158,7 +176,20 @@ def _project_task(task: AuditTask) -> AuditTaskData:
     )
 
 
-def _project_execution(execution: AuditTaskExecution) -> AuditExecutionData:
+def _project_execution(
+    execution: AuditTaskExecution,
+    job: AsyncJob | None,
+    database_now: datetime,
+) -> AuditExecutionData:
+    if (execution.job_id is None) != (job is None):
+        raise RuntimeError("audit execution Job projection is inconsistent")
+    if job is not None and (
+        execution.job_id != job.id
+        or job.resource_type != "audit_task_execution"
+        or job.resource_id != execution.id
+        or job.organization_id != execution.organization_id
+    ):
+        raise RuntimeError("audit execution Job identity is inconsistent")
     return AuditExecutionData(
         id=execution.id,
         audit_task_id=execution.audit_task_id,
@@ -167,6 +198,7 @@ def _project_execution(execution: AuditTaskExecution) -> AuditExecutionData:
         status=cast(AuditExecutionStatus, execution.status),
         snapshot_sha256=execution.snapshot_sha256,
         job_id=execution.job_id,
+        job=None if job is None else project_job_action(job, database_now),
         finance_reviewer_id=execution.finance_reviewer_id,
         finance_reviewed_at=execution.finance_reviewed_at,
         audit_reviewer_id=execution.audit_reviewer_id,
@@ -180,6 +212,31 @@ def _project_execution(execution: AuditTaskExecution) -> AuditExecutionData:
         started_at=execution.started_at,
         finished_at=execution.finished_at,
         outdated_at=execution.outdated_at,
+    )
+
+
+def _project_cancel(execution: AuditTaskExecution, job: AsyncJob | None) -> AuditCancelData:
+    if execution.status != "cancelled" or execution.finished_at is None:
+        raise RuntimeError("audit cancellation projection is not terminal")
+    if (execution.job_id is None) != (job is None):
+        raise RuntimeError("audit cancellation Job projection is inconsistent")
+    if job is not None and (
+        job.id != execution.job_id
+        or job.status not in {"cancel_requested", "cancelled", "succeeded"}
+    ):
+        raise RuntimeError("audit cancellation Job state is inconsistent")
+    return AuditCancelData(
+        execution_id=execution.id,
+        execution_status="cancelled",
+        cancelled_at=execution.finished_at,
+        execution_row_version=str(execution.row_version),
+        job_id=None if job is None else job.id,
+        job_status=(
+            None
+            if job is None
+            else cast(Literal["cancel_requested", "cancelled", "succeeded"], job.status)
+        ),
+        job_row_version=None if job is None else str(job.row_version),
     )
 
 
@@ -407,11 +464,17 @@ class AuditManagementService:
             execution = repository.get_execution(organization_id, task.current_execution_id)
             if execution is None:
                 raise RuntimeError("audit task current execution is missing")
+            database_now = repository.database_now()
+            job = (
+                None
+                if execution.job_id is None
+                else repository.job_for_execution(execution.id, lock=False)
+            )
             rules = repository.execution_rules(execution.id)
             risks = repository.execution_risks(execution.id)
             return AuditTaskDetailData(
                 task=_project_task(task),
-                execution=_project_execution(execution),
+                execution=_project_execution(execution, job, database_now),
                 rules=tuple(_project_rule(rule) for rule in rules),
                 risks=tuple(_project_risk(risk) for risk in risks),
             )
@@ -420,10 +483,18 @@ class AuditManagementService:
         self, organization_id: UUID, execution_id: UUID
     ) -> AuditExecutionMutationData:
         with self._session_factory() as session:
-            execution = AuditRuntimeRepository(session).get_execution(organization_id, execution_id)
+            repository = AuditRuntimeRepository(session)
+            execution = repository.get_execution(organization_id, execution_id)
             if execution is None:
                 raise _not_found()
-            return AuditExecutionMutationData(execution=_project_execution(execution))
+            job = (
+                None
+                if execution.job_id is None
+                else repository.job_for_execution(execution.id, lock=False)
+            )
+            return AuditExecutionMutationData(
+                execution=_project_execution(execution, job, repository.database_now())
+            )
 
     def create_task(
         self,
@@ -516,7 +587,12 @@ class AuditManagementService:
                     now,
                 )
                 data = AuditTaskMutationData(
-                    task=_project_task(task), execution=_project_execution(execution)
+                    task=_project_task(task),
+                    execution=_project_execution(
+                        execution,
+                        repository.job_for_execution(execution.id),
+                        now,
+                    ),
                 )
                 self._append_log(
                     session,
@@ -625,7 +701,12 @@ class AuditManagementService:
                     now,
                 )
                 data = AuditTaskMutationData(
-                    task=_project_task(task), execution=_project_execution(execution)
+                    task=_project_task(task),
+                    execution=_project_execution(
+                        execution,
+                        repository.job_for_execution(execution.id),
+                        now,
+                    ),
                 )
                 self._append_log(
                     session,
@@ -778,15 +859,15 @@ class AuditManagementService:
             lane="audit",
         )
 
-    def cancel_execution(
+    def retry_execution(
         self,
         actor: AuthenticatedActor,
         execution_id: UUID,
-        payload: AuditCancelRequest,
+        payload: AuditRetryRequest,
         idempotency_key: str,
         trace_id: UUID,
-    ) -> AuditExecutionMutationResult:
-        path = f"/api/v1/audit-executions/{execution_id}/cancel"
+    ) -> AuditRetryMutationResult:
+        path = f"/api/v1/audit-executions/{execution_id}/retry"
         digest = self._write_digest("POST", path, payload, idempotency_key)
         with self._session_factory.begin() as session:
             repository, claim, now, _organization = self._claim(
@@ -795,13 +876,124 @@ class AuditManagementService:
             if claim.conflict:
                 raise _conflict("IDEMPOTENCY_KEY_REUSED", "幂等键已用于其他请求")
             if claim.is_replay:
-                return self._replay_execution(claim)
+                if claim.replay_body is None:
+                    raise RuntimeError("audit retry replay body is missing")
+                return AuditRetryMutationResult(
+                    AuditRetryData.model_validate(claim.replay_body, strict=False),
+                    True,
+                )
             cluster = repository.lock_cluster(actor.organization_id, execution_id)
             if cluster is None:
                 raise _not_found()
             execution = cluster.execution
-            if execution.row_version != int(payload.row_version):
-                raise _conflict("ROW_VERSION_CONFLICT", "审核执行版本已变化")
+            if execution.row_version != int(payload.execution_row_version):
+                raise _conflict("RESOURCE_VERSION_CONFLICT", "审核执行版本已变化")
+            job = repository.job_for_execution(execution.id)
+            if job is None or execution.job_id != job.id:
+                raise _conflict("AUDIT_JOB_CONFLICT", "审核执行任务已变化")
+            if job.row_version != int(payload.job_row_version):
+                raise _conflict("JOB_VERSION_CONFLICT", "审核执行任务版本已变化")
+            if (
+                execution.status != "failed"
+                or not execution.retryable
+                or job.job_type != "audit_execute"
+                or job.status != "failed"
+                or job.current_attempt_start_step_code != "evaluate"
+                or job.next_retry_at is None
+                or job.attempt_no >= job.max_attempts
+            ):
+                raise _conflict("AUDIT_EXECUTION_NOT_RETRYABLE", "当前审核执行不可重试")
+            if job.next_retry_at > now:
+                raise _conflict("JOB_RETRY_NOT_READY", "审核执行尚未到达重试时间")
+            try:
+                handler = load_audit_handler()
+                handler.validate_input(job.input_json)
+            except (HandlerRegistryError, ValueError):
+                raise _conflict("AUDIT_EXECUTION_NOT_RETRYABLE", "当前审核执行不可重试") from None
+            if (
+                job.handler_registry_version != handler.registry_version
+                or job.handler_registry_hash != handler.registry_hash
+                or job.max_attempts != handler.handler.max_attempts
+                or not any(
+                    scope.start_step_code == "evaluate" for scope in handler.handler.retry_scopes
+                )
+            ):
+                raise _conflict("AUDIT_EXECUTION_NOT_RETRYABLE", "当前审核执行不可重试")
+            attempt_no = job.attempt_no
+            if not JobRuntimeRepository(session).requeue_failed_audit_job(
+                job_id=job.id,
+                start_step_code="evaluate",
+            ):
+                raise _conflict("AUDIT_EXECUTION_NOT_RETRYABLE", "当前审核执行不可重试")
+            refreshed = repository.job_for_execution(execution.id)
+            if (
+                refreshed is None
+                or refreshed.id != job.id
+                or refreshed.status != "queued"
+                or execution.status != "queued"
+            ):
+                raise RuntimeError("audit retry projection is inconsistent")
+            data = AuditRetryData(
+                execution_id=execution.id,
+                status="queued",
+                preserved_results=True,
+                execution_row_version=str(execution.row_version),
+                job_id=refreshed.id,
+                job_status="queued",
+                attempt_no=attempt_no,
+                scheduled_attempt_no=attempt_no + 1,
+                stage="evaluate",
+                job_row_version=str(refreshed.row_version),
+            )
+            self._append_log(
+                session,
+                actor,
+                "audits.execution_retry_queued",
+                "audit_task_execution",
+                execution.id,
+                trace_id,
+                {
+                    "attempt_no": attempt_no,
+                    "scheduled_attempt_no": attempt_no + 1,
+                    "status": "queued",
+                },
+            )
+            repository.complete_idempotency(
+                claim,
+                response_status=202,
+                response_body=data.model_dump(mode="json"),
+                resource_type="audit_task_execution",
+                resource_id=execution.id,
+            )
+            return AuditRetryMutationResult(data, False)
+
+    def cancel_execution(
+        self,
+        actor: AuthenticatedActor,
+        execution_id: UUID,
+        payload: AuditCancelRequest,
+        idempotency_key: str,
+        trace_id: UUID,
+    ) -> AuditCancelMutationResult:
+        path = f"/api/v1/audit-executions/{execution_id}/cancel"
+        digest = self._write_digest("POST", path, payload, idempotency_key)
+        with self._session_factory.begin() as session:
+            repository, claim, now, _organization = self._claim(
+                session, actor, idempotency_key, "POST", path, digest
+            )
+            if claim.conflict:
+                raise _conflict("IDEMPOTENCY_KEY_REUSED", "幂等键已用于其他请求")
+            cluster = repository.lock_cluster(actor.organization_id, execution_id)
+            if cluster is None:
+                raise _not_found()
+            execution = cluster.execution
+            job = None if execution.job_id is None else repository.job_for_execution(execution.id)
+            if claim.is_replay:
+                if claim.record.resource_id != execution.id:
+                    raise RuntimeError("audit cancel replay resource is inconsistent")
+                return AuditCancelMutationResult(_project_cancel(execution, job), True)
+            if execution.row_version != int(payload.execution_row_version):
+                raise _conflict("RESOURCE_VERSION_CONFLICT", "审核执行版本已变化")
             if execution.status not in {
                 "draft",
                 "validating",
@@ -811,12 +1003,27 @@ class AuditManagementService:
                 "pending_audit_review",
             }:
                 raise _conflict("AUDIT_EXECUTION_STATE_CONFLICT", "当前审核执行不可取消")
+            if execution.status in {"draft", "validating"}:
+                if job is not None or payload.job_row_version is not None:
+                    raise _conflict("JOB_VERSION_CONFLICT", "审核执行不应存在任务版本")
+            else:
+                if job is None or payload.job_row_version is None:
+                    raise _conflict("JOB_VERSION_CONFLICT", "审核执行任务版本缺失")
+                if job.row_version != int(payload.job_row_version):
+                    raise _conflict("JOB_VERSION_CONFLICT", "审核执行任务版本已变化")
+                expected_job_status = {
+                    "queued": "queued",
+                    "running": "running",
+                    "pending_finance_review": "succeeded",
+                    "pending_audit_review": "succeeded",
+                }[execution.status]
+                if job.status != expected_job_status:
+                    raise _conflict("AUDIT_JOB_CONFLICT", "审核执行任务状态已变化")
             execution.status = "cancelled"
             execution.cancel_reason = payload.reason
             execution.finished_at = now
             execution.retryable = False
             execution.row_version += 1
-            job = repository.job_for_execution(execution.id)
             if job is not None and job.status == "queued":
                 job.status = "cancelled"
                 job.finished_at = now
@@ -827,7 +1034,7 @@ class AuditManagementService:
                 job.status = "cancel_requested"
                 job.row_version += 1
             repository.flush()
-            data = AuditExecutionMutationData(execution=_project_execution(execution))
+            data = _project_cancel(execution, job)
             self._append_log(
                 session,
                 actor,
@@ -844,7 +1051,7 @@ class AuditManagementService:
                 resource_type="audit_task_execution",
                 resource_id=execution.id,
             )
-            return AuditExecutionMutationResult(data, False)
+            return AuditCancelMutationResult(data, False)
 
     def _execution_decision(
         self,
@@ -952,7 +1159,13 @@ class AuditManagementService:
                         "status": report.status,
                     },
                 )
-            data = AuditExecutionMutationData(execution=_project_execution(execution))
+            data = AuditExecutionMutationData(
+                execution=_project_execution(
+                    execution,
+                    repository.job_for_execution(execution.id),
+                    now,
+                )
+            )
             self._append_log(
                 session,
                 actor,
@@ -1343,8 +1556,10 @@ class AuditManagementService:
 
 
 __all__ = [
+    "AuditCancelMutationResult",
     "AuditExecutionMutationResult",
     "AuditManagementService",
+    "AuditRetryMutationResult",
     "AuditRiskMutationResult",
     "AuditTaskMutationResult",
 ]

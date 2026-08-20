@@ -1075,7 +1075,7 @@
         {
           "properties": {
             "api_path_delta": {
-              "const": 1
+              "const": 3
             },
             "core_table_delta": {
               "const": 0
@@ -12949,7 +12949,7 @@
           "const": "CR-005"
         },
         "source_revision": {
-          "const": "CR-005-R1"
+          "const": "CR-005-R2"
         },
         "approval_scope": {
           "const": "contract_only"
@@ -12958,7 +12958,7 @@
           "const": "## 8. 当前状态"
         },
         "decision_snapshot_sha256": {
-          "const": "739f2004bd6cc785d0a06a69445af2c35a373bbe1746d9ed1b194cb3f94dd029"
+          "const": "c47944096f7ad143044a2347b8b0656190e9f49f0854c5f31a898b4b70872f65"
         },
         "approver_role": {
           "$ref": "#/$defs/DepApproverRole"

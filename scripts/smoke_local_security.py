@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import math
 import os
 import re
 import sys
@@ -51,6 +52,10 @@ _AUDIT_FAILURE_TRIGGER = "trg_security_gate_fail_users_created_v1"
 _PROMPT_INJECTION_CANARY = "INTERNALCONFIGCANARYDONOTEMIT20260815"
 _PROMPT_BASELINE_DATE = "2026-08-15"
 _PROMPT_BROWSER_INITIAL_PASSWORD = "Synthetic-Prompt-Browser-2026!"
+_KNOWLEDGE_PERFORMANCE_ROUNDS = 3
+_KNOWLEDGE_PERFORMANCE_SAMPLES = 20
+_TOP5_LIMIT_SECONDS = 2.0
+_RAG_LIMIT_SECONDS = 15.0
 
 
 class SecurityGateError(RuntimeError):
@@ -73,6 +78,13 @@ def _run_id() -> str:
 
 def _stable_id(run_id: str, kind: str) -> UUID:
     return uuid5(NAMESPACE_URL, f"{_SCHEMA_VERSION}:{run_id}:{kind}")
+
+
+def _p95(samples: list[float]) -> float:
+    if not samples:
+        raise SecurityGateError("KNOWLEDGE_PERFORMANCE_SAMPLES_EMPTY")
+    ordered = sorted(samples)
+    return ordered[math.ceil(len(ordered) * 0.95) - 1]
 
 
 def _trace_id(run_id: str, kind: str) -> UUID:
@@ -216,6 +228,22 @@ def _prompt_injection_pdf(run_id: str = "unit-test") -> bytes:
     return payload
 
 
+def _knowledge_performance_pdf(run_id: str) -> bytes:
+    if _RUN_ID_PATTERN.fullmatch(run_id) is None:
+        raise SecurityGateError("KNOWLEDGE_PERFORMANCE_RUN_ID_INVALID")
+    output = io.BytesIO()
+    document = canvas.Canvas(output, pagesize=(700, 300), invariant=1)
+    document.drawString(20, 250, "Travel Allowance Approval Policy")
+    document.drawString(20, 230, "Travel allowance requires manager approval.")
+    document.drawString(20, 210, "Approved requests must retain the approval record.")
+    document.drawString(20, 190, f"Knowledge performance run {run_id}")
+    document.save()
+    payload = output.getvalue()
+    if not payload.startswith(b"%PDF") or not payload.rstrip().endswith(b"%%EOF"):
+        raise SecurityGateError("KNOWLEDGE_PERFORMANCE_PDF_INVALID")
+    return payload
+
+
 def _poll_data(
     client: httpx.Client,
     path: str,
@@ -236,9 +264,7 @@ def _poll_data(
     raise SecurityGateError("PROMPT_INJECTION_ASYNC_JOB_TIMEOUT")
 
 
-def _require_prompt_injection_refusal(
-    data: dict[str, object], expected_index_id: UUID
-) -> None:
+def _require_prompt_injection_refusal(data: dict[str, object], expected_index_id: UUID) -> None:
     if (
         data.get("index_version_id") != str(expected_index_id)
         or data.get("status") != "refused"
@@ -495,9 +521,7 @@ def run_client() -> None:
             client.post(
                 "/api/v1/auth/login",
                 headers={
-                    "traceparent": _traceparent(
-                        _trace_id(run_id, "login-failure:locked-correct")
-                    )
+                    "traceparent": _traceparent(_trace_id(run_id, "login-failure:locked-correct"))
                 },
                 json={
                     "username": lock_username,
@@ -528,9 +552,7 @@ def run_client() -> None:
         if observed != finance_denied_trace:
             raise SecurityGateError("FINANCE_DENIAL_TRACE_INVALID")
 
-        detail_response = client.get(
-            f"/api/v1/contracts/{contract_id}", headers=finance_auth
-        )
+        detail_response = client.get(f"/api/v1/contracts/{contract_id}", headers=finance_auth)
         detail = _require_success(detail_response, 200)
         if (
             detail.get("id") != str(contract_id)
@@ -538,9 +560,7 @@ def run_client() -> None:
         ):
             raise SecurityGateError("AUTHORIZED_OBJECT_READ_INVALID")
         missing, _ = _require_error(
-            client.get(
-                f"/api/v1/contracts/{missing_contract_id}", headers=finance_auth
-            ),
+            client.get(f"/api/v1/contracts/{missing_contract_id}", headers=finance_auth),
             404,
             "RESOURCE_NOT_FOUND",
         )
@@ -549,14 +569,9 @@ def run_client() -> None:
 
         replacement = "A" if finance_token[-1] != "A" else "B"
         tampered = finance_token[:-1] + replacement
-        tampered_response = client.get(
-            "/api/v1/auth/me", headers=_authorization(tampered)
-        )
+        tampered_response = client.get("/api/v1/auth/me", headers=_authorization(tampered))
         _require_error(tampered_response, 401, "AUTH_ACCESS_EXPIRED")
-        if (
-            finance_token in tampered_response.text
-            or tampered in tampered_response.text
-        ):
+        if finance_token in tampered_response.text or tampered in tampered_response.text:
             raise SecurityGateError("TOKEN_REFLECTED")
 
     print("LOCAL_SECURITY_HTTP_HEADERS_GATE=PASS")
@@ -587,12 +602,8 @@ def run_prompt_injection_client() -> None:
     submitter_username = f"sec-pi-submit-{run_id[:10]}"
     approver_username = f"sec-pi-approve-{run_id[:10]}"
     browser_username = _prompt_browser_username(run_id)
-    submitter_password = _security_password(
-        run_id, "prompt-submitter", bootstrap_password
-    )
-    approver_password = _security_password(
-        run_id, "prompt-approver", bootstrap_password
-    )
+    submitter_password = _security_password(run_id, "prompt-submitter", bootstrap_password)
+    approver_password = _security_password(run_id, "prompt-approver", bootstrap_password)
     knowledge_base_id = _stable_id(run_id, "knowledge-base")
     pdf = _prompt_injection_pdf(run_id)
 
@@ -658,10 +669,7 @@ def run_prompt_injection_client() -> None:
             ready=lambda value: value.get("job_status") == "succeeded",
             failed=lambda value: value.get("job_status") in {"failed", "cancelled"},
         )
-        if (
-            file_data.get("status") != "stored"
-            or file_data.get("security_scan_status") != "clean"
-        ):
+        if file_data.get("status") != "stored" or file_data.get("security_scan_status") != "clean":
             raise SecurityGateError("PROMPT_INJECTION_FILE_RESULT_INVALID")
 
         created = _require_success(
@@ -683,10 +691,7 @@ def run_prompt_injection_client() -> None:
             201,
         )
         created_policy = created.get("policy")
-        if (
-            type(created_policy) is not dict
-            or type(created_policy.get("id")) is not str
-        ):
+        if type(created_policy) is not dict or type(created_policy.get("id")) is not str:
             raise SecurityGateError("PROMPT_INJECTION_POLICY_CREATE_INVALID")
         policy_id = created_policy["id"]
 
@@ -742,8 +747,7 @@ def run_prompt_injection_client() -> None:
             f"/api/v1/knowledge-bases/{knowledge_base_id}/index-versions/{index_id}",
             _authorization(admin_token),
             ready=lambda value: (
-                value.get("status") == "ready"
-                and value.get("job_status") == "succeeded"
+                value.get("status") == "ready" and value.get("job_status") == "succeeded"
             ),
             failed=lambda value: (
                 value.get("status") == "failed"
@@ -828,18 +832,14 @@ def run_prompt_injection_client() -> None:
             f"/api/v1/knowledge-bases/{knowledge_base_id}/retrieval-eval-runs/{run_id_value}",
             _authorization(admin_token),
             ready=lambda value: (
-                value.get("status") == "passed"
-                and value.get("job_status") == "succeeded"
+                value.get("status") == "passed" and value.get("job_status") == "succeeded"
             ),
             failed=lambda value: (
                 value.get("status") == "failed"
                 or value.get("job_status") in {"failed", "cancelled"}
             ),
         )
-        if (
-            evaluated.get("case_count") != 100
-            or evaluated.get("completed_case_count") != 100
-        ):
+        if evaluated.get("case_count") != 100 or evaluated.get("completed_case_count") != 100:
             raise SecurityGateError("PROMPT_INJECTION_EVALUATION_RESULT_INVALID")
 
         activated = _require_success(
@@ -867,10 +867,7 @@ def run_prompt_injection_client() -> None:
             200,
         )
         published_policy = published.get("policy")
-        if (
-            type(published_policy) is not dict
-            or published_policy.get("status") != "published"
-        ):
+        if type(published_policy) is not dict or published_policy.get("status") != "published":
             raise SecurityGateError("PROMPT_INJECTION_POLICY_PUBLISH_INVALID")
 
         expected_index_id = UUID(index_id)
@@ -924,6 +921,360 @@ def run_prompt_injection_client() -> None:
     print("LOCAL_SECURITY_PROMPT_INJECTION_CLIENT_GATE=PASS")
 
 
+def run_knowledge_performance_client() -> None:
+    base_url, origin, host, admin_username, run_id = _profile()
+    bootstrap_password = _read_password(os.environ.get("BOOTSTRAP_ADMIN_PASSWORD_FILE"))
+    submitter_username = f"sec-pi-submit-{run_id[:10]}"
+    approver_username = f"sec-pi-approve-{run_id[:10]}"
+    submitter_password = _security_password(run_id, "prompt-submitter", bootstrap_password)
+    approver_password = _security_password(run_id, "prompt-approver", bootstrap_password)
+    knowledge_base_id = _stable_id(run_id, "knowledge-base")
+
+    with _client(base_url, origin, host) as client:
+        admin_token = _login(client, admin_username, bootstrap_password)
+        submitter_token = _login(client, submitter_username, submitter_password)
+        approver_token = _login(client, approver_username, approver_password)
+
+        old_policy_page = _require_success(
+            client.get(
+                "/api/v1/policy-documents",
+                headers=_authorization(submitter_token),
+                params={"knowledge_base_id": str(knowledge_base_id), "page_size": 100},
+            ),
+            200,
+        )
+        old_items = old_policy_page.get("items")
+        if type(old_items) is not list:
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_POLICY_LIST_INVALID")
+        old_matches = tuple(
+            item
+            for item in old_items
+            if isinstance(item, dict)
+            and item.get("policy_code") == f"SEC-PI-{run_id[:12].upper()}"
+            and item.get("status") == "published"
+        )
+        if len(old_matches) != 1:
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_OLD_POLICY_INVALID")
+        old_policy = old_matches[0]
+        if type(old_policy.get("id")) is not str or type(old_policy.get("row_version")) is not str:
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_OLD_POLICY_INVALID")
+
+        upload = _require_success(
+            client.post(
+                "/api/v1/files",
+                headers=_mutation_headers(submitter_token, run_id, "perf-upload"),
+                data={
+                    "intended_business_type": "policy",
+                    "target_knowledge_base_id": str(knowledge_base_id),
+                    "auto_process_requested": "true",
+                },
+                files={
+                    "file": (
+                        f"knowledge-performance-{run_id[:12]}.pdf",
+                        _knowledge_performance_pdf(run_id),
+                        "application/pdf",
+                    )
+                },
+            ),
+            202,
+        )
+        file_id = upload.get("file_id")
+        if type(file_id) is not str:
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_FILE_ID_INVALID")
+        file_data = _poll_data(
+            client,
+            f"/api/v1/files/{file_id}",
+            _authorization(submitter_token),
+            ready=lambda value: value.get("job_status") == "succeeded",
+            failed=lambda value: value.get("job_status") in {"failed", "cancelled"},
+        )
+        if file_data.get("status") != "stored" or file_data.get("security_scan_status") != "clean":
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_FILE_RESULT_INVALID")
+
+        created = _require_success(
+            client.post(
+                "/api/v1/policy-documents",
+                headers=_mutation_headers(submitter_token, run_id, "perf-policy-create"),
+                json={
+                    "knowledge_base_id": str(knowledge_base_id),
+                    "source_file_id": file_id,
+                    "policy_code": f"PERF-KNOW-{run_id[:12].upper()}",
+                    "name": "本地知识性能制度",
+                    "version": "1.0",
+                    "issuing_department": "性能测试部",
+                    "effective_from": "2026-01-01",
+                    "effective_to": None,
+                    "scope": {"environment": "local-performance"},
+                },
+            ),
+            201,
+        )
+        created_policy = created.get("policy")
+        if type(created_policy) is not dict or type(created_policy.get("id")) is not str:
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_POLICY_CREATE_INVALID")
+        policy_id = created_policy["id"]
+        submitted = _require_success(
+            client.post(
+                f"/api/v1/policy-documents/{policy_id}/submit-review",
+                headers=_mutation_headers(submitter_token, run_id, "perf-policy-submit"),
+                json={"row_version": "1", "reason": "提交本地知识性能制度"},
+            ),
+            200,
+        )
+        submitted_policy = submitted.get("policy")
+        if (
+            type(submitted_policy) is not dict
+            or type(submitted_policy.get("row_version")) is not str
+        ):
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_POLICY_SUBMIT_INVALID")
+        approved = _require_success(
+            client.post(
+                f"/api/v1/policy-documents/{policy_id}/approve",
+                headers=_mutation_headers(approver_token, run_id, "perf-policy-approve"),
+                json={
+                    "row_version": submitted_policy["row_version"],
+                    "reason": "独立批准本地知识性能制度",
+                },
+            ),
+            200,
+        )
+        approved_policy = approved.get("policy")
+        if (
+            type(approved_policy) is not dict
+            or type(approved_policy.get("row_version")) is not str
+            or approved_policy.get("status") != "business_approved"
+        ):
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_POLICY_APPROVE_INVALID")
+
+        index = _require_success(
+            client.post(
+                f"/api/v1/knowledge-bases/{knowledge_base_id}/index-versions",
+                headers=_mutation_headers(admin_token, run_id, "perf-index-build"),
+                json={},
+            ),
+            202,
+        )
+        index_id = index.get("id")
+        if type(index_id) is not str:
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_INDEX_ID_INVALID")
+        ready_index = _poll_data(
+            client,
+            f"/api/v1/knowledge-bases/{knowledge_base_id}/index-versions/{index_id}",
+            _authorization(admin_token),
+            ready=lambda value: (
+                value.get("status") == "ready" and value.get("job_status") == "succeeded"
+            ),
+            failed=lambda value: (
+                value.get("status") == "failed"
+                or value.get("job_status") in {"failed", "cancelled"}
+            ),
+        )
+        if type(ready_index.get("row_version")) is not str:
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_INDEX_RESULT_INVALID")
+
+        cases = [
+            {
+                "label": "no_answer",
+                "query_text": f"Local knowledge performance no-answer {number:03d} {run_id}",
+                "baseline_date": _PROMPT_BASELINE_DATE,
+                "allowed_policy_ids": [],
+                "expected_chunk_ids": [],
+                "forbidden_chunk_ids": [],
+            }
+            for number in range(1, 101)
+        ]
+        dataset = _require_success(
+            client.post(
+                f"/api/v1/knowledge-bases/{knowledge_base_id}/retrieval-eval-datasets",
+                headers=_mutation_headers(submitter_token, run_id, "perf-dataset-create"),
+                json={
+                    "name": f"local-knowledge-performance-{run_id[:12]}",
+                    "tier": "formal_release",
+                    "answer_score_threshold": "1",
+                    "cases": cases,
+                },
+            ),
+            201,
+        )
+        dataset_id = dataset.get("id")
+        if type(dataset_id) is not str:
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_DATASET_INVALID")
+        submitted_dataset = _require_success(
+            client.post(
+                f"/api/v1/knowledge-bases/{knowledge_base_id}/retrieval-eval-datasets/"
+                f"{dataset_id}/submit-review",
+                headers=_mutation_headers(submitter_token, run_id, "perf-dataset-submit"),
+                json={"row_version": "1", "reason": "提交本地知识性能评测"},
+            ),
+            200,
+        )
+        if type(submitted_dataset.get("row_version")) is not str:
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_DATASET_SUBMIT_INVALID")
+        approved_dataset = _require_success(
+            client.post(
+                f"/api/v1/knowledge-bases/{knowledge_base_id}/retrieval-eval-datasets/"
+                f"{dataset_id}/approve",
+                headers=_mutation_headers(approver_token, run_id, "perf-dataset-approve"),
+                json={
+                    "row_version": submitted_dataset["row_version"],
+                    "reason": "独立批准本地知识性能评测",
+                },
+            ),
+            200,
+        )
+        if approved_dataset.get("status") != "approved":
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_DATASET_APPROVE_INVALID")
+        evaluation = _require_success(
+            client.post(
+                f"/api/v1/knowledge-bases/{knowledge_base_id}/index-versions/"
+                f"{index_id}/evaluations",
+                headers=_mutation_headers(admin_token, run_id, "perf-evaluation"),
+                json={"dataset_id": dataset_id},
+            ),
+            202,
+        )
+        evaluation_id = evaluation.get("id")
+        if type(evaluation_id) is not str:
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_EVALUATION_INVALID")
+        _poll_data(
+            client,
+            f"/api/v1/knowledge-bases/{knowledge_base_id}/retrieval-eval-runs/{evaluation_id}",
+            _authorization(admin_token),
+            ready=lambda value: (
+                value.get("status") == "passed" and value.get("job_status") == "succeeded"
+            ),
+            failed=lambda value: (
+                value.get("status") == "failed"
+                or value.get("job_status") in {"failed", "cancelled"}
+            ),
+        )
+        activated = _require_success(
+            client.post(
+                f"/api/v1/knowledge-bases/{knowledge_base_id}/index-versions/{index_id}/activate",
+                headers=_mutation_headers(admin_token, run_id, "perf-index-activate"),
+                json={
+                    "row_version": ready_index["row_version"],
+                    "reason": "本地知识性能正式评测通过",
+                },
+            ),
+            200,
+        )
+        if activated.get("status") != "active":
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_INDEX_ACTIVATE_INVALID")
+        published = _require_success(
+            client.post(
+                f"/api/v1/policy-documents/{policy_id}/publish",
+                headers=_mutation_headers(admin_token, run_id, "perf-policy-publish"),
+                json={
+                    "row_version": approved_policy["row_version"],
+                    "reason": "发布本地知识性能制度",
+                },
+            ),
+            200,
+        )
+        if not isinstance(published.get("policy"), dict):
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_POLICY_PUBLISH_INVALID")
+
+        revocation = _require_success(
+            client.post(
+                f"/api/v1/policy-documents/{old_policy['id']}/revocation-requests",
+                headers=_mutation_headers(submitter_token, run_id, "perf-revoke-request"),
+                json={
+                    "row_version": old_policy["row_version"],
+                    "reason": "隔离提示注入制度后执行性能门禁",
+                },
+            ),
+            201,
+        )
+        revocation_request_id = revocation.get("revocation_request_id")
+        if type(revocation_request_id) is not str:
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_REVOCATION_REQUEST_INVALID")
+        revoked = _require_success(
+            client.post(
+                f"/api/v1/policy-documents/{old_policy['id']}/revoke",
+                headers=_mutation_headers(admin_token, run_id, "perf-revoke"),
+                json={
+                    "row_version": old_policy["row_version"],
+                    "revocation_request_id": revocation_request_id,
+                    "reason": "系统管理员执行性能门禁隔离撤销",
+                },
+            ),
+            200,
+        )
+        revoked_policy = revoked.get("policy")
+        if type(revoked_policy) is not dict or revoked_policy.get("status") != "revoked":
+            raise SecurityGateError("KNOWLEDGE_PERFORMANCE_REVOCATION_INVALID")
+
+        rounds: list[dict[str, object]] = []
+        for round_no in range(1, _KNOWLEDGE_PERFORMANCE_ROUNDS + 1):
+            samples: list[float] = []
+            for sample_no in range(1, _KNOWLEDGE_PERFORMANCE_SAMPLES + 1):
+                trace_id = _trace_id(
+                    run_id,
+                    f"knowledge-performance:{round_no}:{sample_no}",
+                )
+                started = time.perf_counter()
+                response = client.post(
+                    f"/api/v1/knowledge-bases/{knowledge_base_id}/qa-queries",
+                    headers=_mutation_headers(
+                        submitter_token,
+                        run_id,
+                        f"perf-query-{round_no:02d}-{sample_no:02d}",
+                        trace_id=trace_id,
+                    ),
+                    json={
+                        "question": "What approval is required for travel allowance?",
+                        "baseline_date": _PROMPT_BASELINE_DATE,
+                    },
+                )
+                data = _require_success(response, 200)
+                samples.append(time.perf_counter() - started)
+                citations = data.get("citations")
+                retrieved_count = data.get("retrieved_count")
+                if (
+                    data.get("index_version_id") != index_id
+                    or data.get("status") != "answered"
+                    or type(data.get("answer")) is not str
+                    or type(citations) is not list
+                    or not citations
+                    or type(retrieved_count) is not int
+                    or not 1 <= retrieved_count <= 5
+                ):
+                    raise SecurityGateError("KNOWLEDGE_PERFORMANCE_QUERY_INVALID")
+            rag_p95 = _p95(samples)
+            if rag_p95 > _RAG_LIMIT_SECONDS or rag_p95 > _TOP5_LIMIT_SECONDS:
+                raise SecurityGateError("KNOWLEDGE_PERFORMANCE_THRESHOLD_EXCEEDED")
+            rounds.append(
+                {
+                    "round": round_no,
+                    "samples": len(samples),
+                    "rag_p95_ms": round(rag_p95 * 1000, 3),
+                    "top5_p95_upper_bound_ms": round(rag_p95 * 1000, 3),
+                }
+            )
+
+    print(
+        "LOCAL_SECURITY_KNOWLEDGE_PERFORMANCE_JSON="
+        + json.dumps(
+            {
+                "round_count": _KNOWLEDGE_PERFORMANCE_ROUNDS,
+                "samples_per_round": _KNOWLEDGE_PERFORMANCE_SAMPLES,
+                "top5_limit_ms": int(_TOP5_LIMIT_SECONDS * 1000),
+                "rag_limit_ms": int(_RAG_LIMIT_SECONDS * 1000),
+                "rounds": rounds,
+                "ai_provider": "disabled",
+                "production": "not_run",
+            },
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    )
+    print("LOCAL_SECURITY_KNOWLEDGE_TOP5_PERFORMANCE_GATE=PASS")
+    print("LOCAL_SECURITY_KNOWLEDGE_RAG_PERFORMANCE_GATE=PASS")
+    print("LOCAL_SECURITY_KNOWLEDGE_PERFORMANCE_CLIENT_GATE=PASS")
+
+
 def _database_subject() -> tuple[Settings, str, str]:
     return Settings(), _run_id(), _required_environment("BOOTSTRAP_ADMIN_USERNAME")
 
@@ -934,13 +1285,9 @@ def arm_audit_failure() -> None:
     try:
         with engine.begin() as connection:
             connection.execute(
-                text(
-                    f"DROP TRIGGER IF EXISTS {_AUDIT_FAILURE_TRIGGER} ON public.operation_logs"
-                )
+                text(f"DROP TRIGGER IF EXISTS {_AUDIT_FAILURE_TRIGGER} ON public.operation_logs")
             )
-            connection.execute(
-                text(f"DROP FUNCTION IF EXISTS public.{_AUDIT_FAILURE_FUNCTION}()")
-            )
+            connection.execute(text(f"DROP FUNCTION IF EXISTS public.{_AUDIT_FAILURE_FUNCTION}()"))
             connection.execute(
                 text(
                     f"""
@@ -983,13 +1330,9 @@ def disarm_audit_failure() -> None:
     try:
         with engine.begin() as connection:
             connection.execute(
-                text(
-                    f"DROP TRIGGER IF EXISTS {_AUDIT_FAILURE_TRIGGER} ON public.operation_logs"
-                )
+                text(f"DROP TRIGGER IF EXISTS {_AUDIT_FAILURE_TRIGGER} ON public.operation_logs")
             )
-            connection.execute(
-                text(f"DROP FUNCTION IF EXISTS public.{_AUDIT_FAILURE_FUNCTION}()")
-            )
+            connection.execute(text(f"DROP FUNCTION IF EXISTS public.{_AUDIT_FAILURE_FUNCTION}()"))
     finally:
         engine.dispose()
     print("LOCAL_SECURITY_AUDIT_FAILURE_DISARMED=PASS")
@@ -1022,9 +1365,7 @@ def run_audit_failure_client() -> None:
     print("LOCAL_SECURITY_AUDIT_FAILURE_CLIENT_GATE=PASS")
 
 
-def _expect_sqlstate(
-    engine: object, statement: str, parameters: dict[str, object]
-) -> None:
+def _expect_sqlstate(engine: object, statement: str, parameters: dict[str, object]) -> None:
     try:
         with engine.begin() as connection:  # type: ignore[attr-defined]
             connection.execute(text(statement), parameters)
@@ -1058,31 +1399,18 @@ def verify_database() -> None:
         factory = create_session_factory(engine)
         with factory() as session:
             admin = session.scalar(
-                select(User).where(
-                    User.username == admin_username, User.deleted_at.is_(None)
-                )
+                select(User).where(User.username == admin_username, User.deleted_at.is_(None))
             )
             finance = session.scalar(
-                select(User).where(
-                    User.username == finance_username, User.deleted_at.is_(None)
-                )
+                select(User).where(User.username == finance_username, User.deleted_at.is_(None))
             )
             locked = session.scalar(
-                select(User).where(
-                    User.username == lock_username, User.deleted_at.is_(None)
-                )
+                select(User).where(User.username == lock_username, User.deleted_at.is_(None))
             )
             rollback = session.scalar(
-                select(User).where(
-                    User.username == rollback_username, User.deleted_at.is_(None)
-                )
+                select(User).where(User.username == rollback_username, User.deleted_at.is_(None))
             )
-            if (
-                admin is None
-                or finance is None
-                or locked is None
-                or rollback is not None
-            ):
+            if admin is None or finance is None or locked is None or rollback is not None:
                 raise SecurityGateError("SECURITY_USER_PROJECTION_INVALID")
             now = session.scalar(select(func.clock_timestamp()))
             if (
@@ -1108,10 +1436,7 @@ def verify_database() -> None:
                 session.scalar(
                     select(func.count())
                     .select_from(OperationLog)
-                    .where(
-                        OperationLog.trace_id
-                        == _trace_id(run_id, "audit-failure:user-create")
-                    )
+                    .where(OperationLog.trace_id == _trace_id(run_id, "audit-failure:user-create"))
                 )
                 != 0
             ):
@@ -1124,8 +1449,7 @@ def verify_database() -> None:
                 )
             )
             if len(observed_logs) != len(required_log_traces) or any(
-                required_log_traces.get(row.trace_id) != row.action_code
-                for row in observed_logs
+                required_log_traces.get(row.trace_id) != row.action_code for row in observed_logs
             ):
                 raise SecurityGateError("TRACE_AUDIT_CHAIN_INVALID")
             marker = _security_password(run_id, "audit-failure")
@@ -1143,9 +1467,7 @@ def verify_database() -> None:
             log_id = session.scalar(
                 select(OperationLog.id).order_by(OperationLog.created_at).limit(1)
             )
-            before_count = session.scalar(
-                select(func.count()).select_from(OperationLog)
-            )
+            before_count = session.scalar(select(func.count()).select_from(OperationLog))
             if log_id is None or before_count is None:
                 raise SecurityGateError("OPERATION_LOG_SUBJECT_MISSING")
 
@@ -1163,9 +1485,7 @@ def verify_database() -> None:
         with factory() as session:
             after_count = session.scalar(select(func.count()).select_from(OperationLog))
             trigger_count = session.scalar(
-                text(
-                    "SELECT count(*) FROM pg_trigger WHERE tgname=:name AND NOT tgisinternal"
-                ),
+                text("SELECT count(*) FROM pg_trigger WHERE tgname=:name AND NOT tgisinternal"),
                 {"name": _AUDIT_FAILURE_TRIGGER},
             )
             if after_count != before_count or trigger_count != 0:
@@ -1195,8 +1515,7 @@ def verify_prompt_injection_database() -> None:
                     select(FileRecord).where(
                         FileRecord.organization_id == knowledge_base.organization_id,
                         FileRecord.target_knowledge_base_id == knowledge_base_id,
-                        FileRecord.original_name
-                        == f"security-prompt-injection-{run_id[:12]}.pdf",
+                        FileRecord.original_name == f"security-prompt-injection-{run_id[:12]}.pdf",
                     )
                 )
                 if knowledge_base is not None
@@ -1283,8 +1602,7 @@ def verify_prompt_injection_database() -> None:
                 or len(logs) != 2
                 or {log.trace_id for log in logs} != set(expected_traces)
                 or any(
-                    log.change_summary_json
-                    != {"retrieved_count": 0, "status": "refused"}
+                    log.change_summary_json != {"retrieved_count": 0, "status": "refused"}
                     for log in logs
                 )
                 or any(
@@ -1298,6 +1616,83 @@ def verify_prompt_injection_database() -> None:
         engine.dispose()
     print("LOCAL_SECURITY_PROMPT_INJECTION_DATABASE_GATE=PASS")
     print("LOCAL_SECURITY_PROMPT_INJECTION_AUDIT_GATE=PASS")
+
+
+def verify_knowledge_performance_database() -> None:
+    settings, run_id, _admin_username = _database_subject()
+    knowledge_base_id = _stable_id(run_id, "knowledge-base")
+    expected_traces = {
+        _trace_id(run_id, f"knowledge-performance:{round_no}:{sample_no}")
+        for round_no in range(1, _KNOWLEDGE_PERFORMANCE_ROUNDS + 1)
+        for sample_no in range(1, _KNOWLEDGE_PERFORMANCE_SAMPLES + 1)
+    }
+    engine = create_application_engine(settings)
+    try:
+        factory = create_session_factory(engine)
+        with factory() as session:
+            clean_policy = session.scalar(
+                select(PolicyDocument).where(
+                    PolicyDocument.knowledge_base_id == knowledge_base_id,
+                    PolicyDocument.policy_code == f"PERF-KNOW-{run_id[:12].upper()}",
+                )
+            )
+            malicious_policy = session.scalar(
+                select(PolicyDocument).where(
+                    PolicyDocument.knowledge_base_id == knowledge_base_id,
+                    PolicyDocument.policy_code == f"SEC-PI-{run_id[:12].upper()}",
+                )
+            )
+            active_index = session.scalar(
+                select(DocumentIndexVersion).where(
+                    DocumentIndexVersion.knowledge_base_id == knowledge_base_id,
+                    DocumentIndexVersion.status == "active",
+                )
+            )
+            queries = tuple(
+                session.scalars(
+                    select(QaQuery)
+                    .where(QaQuery.trace_id.in_(tuple(expected_traces)))
+                    .order_by(QaQuery.created_at, QaQuery.id)
+                )
+            )
+            logs = tuple(
+                session.scalars(
+                    select(OperationLog).where(
+                        OperationLog.trace_id.in_(tuple(expected_traces)),
+                        OperationLog.action_code == "knowledge.qa_queried",
+                    )
+                )
+            )
+            if (
+                clean_policy is None
+                or clean_policy.status != "published"
+                or malicious_policy is None
+                or malicious_policy.status != "revoked"
+                or active_index is None
+                or len(queries) != len(expected_traces)
+                or {query.trace_id for query in queries} != expected_traces
+                or any(
+                    query.index_version_id != active_index.id
+                    or query.status != "answered"
+                    or not query.answer_text
+                    or not query.citations_json
+                    or not 1 <= query.retrieved_count <= 5
+                    for query in queries
+                )
+                or len(logs) != len(expected_traces)
+                or {log.trace_id for log in logs} != expected_traces
+                or any(
+                    log.change_summary_json.get("status") != "answered"
+                    or type(log.change_summary_json.get("retrieved_count")) is not int
+                    or log.change_summary_json.get("retrieved_count") not in range(1, 6)
+                    for log in logs
+                )
+            ):
+                raise SecurityGateError("KNOWLEDGE_PERFORMANCE_DATABASE_INVALID")
+    finally:
+        engine.dispose()
+    print("LOCAL_SECURITY_KNOWLEDGE_PERFORMANCE_DATABASE_GATE=PASS")
+    print("LOCAL_SECURITY_KNOWLEDGE_PERFORMANCE_AUDIT_GATE=PASS")
 
 
 def verify_prompt_injection_browser_database() -> None:
@@ -1342,8 +1737,7 @@ def verify_prompt_injection_browser_database() -> None:
                 or query.answer_text is not None
                 or query.citations_json != []
                 or query.retrieved_count != 0
-                or query.question_sha256
-                != hashlib.sha256(question.encode("utf-8")).hexdigest()
+                or query.question_sha256 != hashlib.sha256(question.encode("utf-8")).hexdigest()
                 or len(operation_logs) != 1
                 or operation_logs[0].change_summary_json
                 != {"retrieved_count": 0, "status": "refused"}
@@ -1363,11 +1757,13 @@ def main() -> int:
         "seed": seed_database,
         "client": run_client,
         "prompt-injection-client": run_prompt_injection_client,
+        "knowledge-performance-client": run_knowledge_performance_client,
         "arm-audit-failure": arm_audit_failure,
         "audit-failure-client": run_audit_failure_client,
         "disarm-audit-failure": disarm_audit_failure,
         "database": verify_database,
         "prompt-injection-database": verify_prompt_injection_database,
+        "knowledge-performance-database": verify_knowledge_performance_database,
         "prompt-injection-browser-database": verify_prompt_injection_browser_database,
     }
     if len(sys.argv) != 2 or sys.argv[1] not in actions:

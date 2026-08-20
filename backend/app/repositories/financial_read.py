@@ -734,70 +734,85 @@ class FinancialReadRepository:
         if cursor_id is not None and type(cursor_id) is not UUID:
             raise ValueError("cursor_id must be an exact uuid.UUID")
 
-        source = self._session.execute(
+        source = (
             select(
-                Invoice.invoice_code,
-                Invoice.invoice_number,
-                Invoice.seller_tax_no,
-                Invoice.status,
+                Invoice.invoice_code.label("invoice_code"),
+                Invoice.invoice_number.label("invoice_number"),
+                Invoice.seller_tax_no.label("seller_tax_no"),
+                Invoice.status.label("status"),
             ).where(
                 Invoice.id == invoice_id,
                 Invoice.organization_id == organization_id,
                 Invoice.deleted_at.is_(None),
             )
-        ).one_or_none()
-        if source is None:
-            return None
-        if source.status == "voided":
-            return "source_voided", (), False
-        if None in (source.invoice_code, source.invoice_number, source.seller_tax_no):
-            return "incomplete_identity", (), False
-
-        statement = select(
-            Invoice.id,
-            Invoice.invoice_code,
-            Invoice.invoice_number,
-            Invoice.invoice_date,
-            Invoice.seller_name,
-            Invoice.total_amount,
-            Invoice.currency,
-            Invoice.confirmation_status,
-            Invoice.duplicate_status,
-            Invoice.status,
-        ).where(
-            Invoice.organization_id == organization_id,
-            Invoice.id != invoice_id,
-            Invoice.deleted_at.is_(None),
-            Invoice.status != "voided",
-            Invoice.invoice_code == source.invoice_code,
-            Invoice.invoice_number == source.invoice_number,
-            Invoice.seller_tax_no == source.seller_tax_no,
-        )
+        ).cte("duplicate_source")
+        candidate = aliased(Invoice, name="candidate_invoice")
+        candidate_conditions = [
+            source.c.status != "voided",
+            candidate.organization_id == organization_id,
+            candidate.id != invoice_id,
+            candidate.deleted_at.is_(None),
+            candidate.status != "voided",
+            candidate.invoice_code == source.c.invoice_code,
+            candidate.invoice_number == source.c.invoice_number,
+            candidate.seller_tax_no == source.c.seller_tax_no,
+        ]
         if cursor_id is not None:
-            statement = statement.where(Invoice.id > cursor_id)
+            candidate_conditions.append(candidate.id > cursor_id)
         rows = self._session.execute(
-            statement.order_by(Invoice.id.asc()).limit(page_size + 1)
+            select(
+                source.c.invoice_code.label("source_invoice_code"),
+                source.c.invoice_number.label("source_invoice_number"),
+                source.c.seller_tax_no.label("source_seller_tax_no"),
+                source.c.status.label("source_status"),
+                candidate.id.label("candidate_id"),
+                candidate.invoice_code.label("candidate_invoice_code"),
+                candidate.invoice_number.label("candidate_invoice_number"),
+                candidate.invoice_date.label("candidate_invoice_date"),
+                candidate.seller_name.label("candidate_seller_name"),
+                candidate.total_amount.label("candidate_total_amount"),
+                candidate.currency.label("candidate_currency"),
+                candidate.confirmation_status.label("candidate_confirmation_status"),
+                candidate.duplicate_status.label("candidate_duplicate_status"),
+                candidate.status.label("candidate_status"),
+            )
+            .select_from(source)
+            .outerjoin(candidate, and_(*candidate_conditions))
+            .order_by(candidate.id.asc().nulls_last())
+            .limit(page_size + 1)
         ).all()
-        has_more = len(rows) > page_size
+        if not rows:
+            return None
+        anchor = rows[0]
+        if anchor.source_status == "voided":
+            return "source_voided", (), False
+        if None in (
+            anchor.source_invoice_code,
+            anchor.source_invoice_number,
+            anchor.source_seller_tax_no,
+        ):
+            return "incomplete_identity", (), False
+        candidate_rows = tuple(row for row in rows if row.candidate_id is not None)
+        has_more = len(candidate_rows) > page_size
         return (
             "ready",
             tuple(
                 InvoiceDuplicateCandidateReadView(
-                    id=row.id,
-                    invoice_code=row.invoice_code,
-                    invoice_number=row.invoice_number,
-                    invoice_date=row.invoice_date,
-                    seller_name=row.seller_name,
+                    id=row.candidate_id,
+                    invoice_code=row.candidate_invoice_code,
+                    invoice_number=row.candidate_invoice_number,
+                    invoice_date=row.candidate_invoice_date,
+                    seller_name=row.candidate_seller_name,
                     total_amount=_finite_decimal(
-                        row.total_amount,
+                        row.candidate_total_amount,
                         path="invoices.total_amount",
                     ),
-                    currency=row.currency,
-                    confirmation_status=row.confirmation_status,
-                    duplicate_status=row.duplicate_status,
-                    status=row.status,
+                    currency=row.candidate_currency,
+                    confirmation_status=row.candidate_confirmation_status,
+                    duplicate_status=row.candidate_duplicate_status,
+                    status=row.candidate_status,
                 )
-                for row in rows[:page_size]
+                for row in candidate_rows[:page_size]
             ),
             has_more,
         )

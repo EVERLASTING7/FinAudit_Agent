@@ -1,6 +1,23 @@
 {
-  "registry_version": "file-handler-registry-v2",
+  "registry_version": "file-handler-registry-v4",
   "handlers": [
+    {
+      "job_type": "asset_security_revalidation",
+      "input_schema_version": 1,
+      "input_schema_id": "asset_security_revalidation.input.v1",
+      "input_schema_sha256": "7907a8639233a9c9435cc2e3d7e6b35cc20c17e15bed51e1ced764d6f72d57f5",
+      "handler_code_version": "asset-security-revalidation-v1",
+      "logical_queue": "document",
+      "max_attempts": 1,
+      "retry_scopes": [],
+      "steps": [
+        {
+          "step_code": "asset_security_revalidation",
+          "summary_schema_id": "asset_security_revalidation.summary.v1",
+          "summary_schema_sha256": "c73d98a60319cdc77bb0db64df28da45d79226bad08b98edec210093a0c667cf"
+        }
+      ]
+    },
     {
       "job_type": "file_process",
       "input_schema_version": 1,
@@ -47,6 +64,23 @@
           "step_code": "scan",
           "summary_schema_id": "file.summary.scan.v1",
           "summary_schema_sha256": "c8fd865d11473d444d1d63120dea71a2b7f7b9cffa13c4883cf0c9be058de52c"
+        }
+      ]
+    },
+    {
+      "job_type": "manual_correction_snapshot",
+      "input_schema_version": 1,
+      "input_schema_id": "manual_correction_snapshot.input.v1",
+      "input_schema_sha256": "011200c148f92a147aab179d2b63a635c1bd29ba0c33821752fda53ed9957002",
+      "handler_code_version": "manual-correction-snapshot-v1",
+      "logical_queue": "document",
+      "max_attempts": 1,
+      "retry_scopes": [],
+      "steps": [
+        {
+          "step_code": "snapshot_rebuild",
+          "summary_schema_id": "manual_correction_snapshot.summary.v1",
+          "summary_schema_sha256": "5ae66666fac90c705b64a362e2d8bb503622745f9381da6df0ce95ef8865c25b"
         }
       ]
     }

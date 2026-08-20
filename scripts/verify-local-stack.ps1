@@ -9,6 +9,8 @@ param(
 
     [switch]$WorkerCrashRecovery,
 
+    [switch]$DocumentCorrectionCrashRecovery,
+
     [switch]$ContractExtractionCrashRecovery,
 
     [switch]$InvoiceExtractionCrashRecovery,
@@ -31,6 +33,24 @@ $markerName = '.finaudit-local-runtime.json'
 
 if ($ContractExtractionCrashRecovery -and $InvoiceExtractionCrashRecovery) {
     throw 'Contract and invoice extraction crash recovery gates must run separately.'
+}
+
+if (
+    $DocumentCorrectionCrashRecovery -and
+    (
+        $FileUpload -or
+        $WorkerCrashRecovery -or
+        $ContractExtractionCrashRecovery -or
+        $InvoiceExtractionCrashRecovery -or
+        $AuditExecutionCrashRecovery -or
+        $ReportGenerationCrashRecovery -or
+        $KnowledgeIndexCrashRecovery -or
+        $AiAuditCrashRecovery -or
+        $PerformanceBaseline -or
+        $SecurityBaseline
+    )
+) {
+    throw 'Document correction crash recovery must run as an isolated gate.'
 }
 
 if (
@@ -68,6 +88,7 @@ if (
     (
         $FileUpload -or
         $WorkerCrashRecovery -or
+        $DocumentCorrectionCrashRecovery -or
         $ContractExtractionCrashRecovery -or
         $InvoiceExtractionCrashRecovery -or
         $AuditExecutionCrashRecovery -or
@@ -642,9 +663,15 @@ if ($WorkerCrashRecovery) {
     }
 }
 
-if ($ContractExtractionCrashRecovery -or $InvoiceExtractionCrashRecovery) {
+if (
+    $DocumentCorrectionCrashRecovery -or
+    $ContractExtractionCrashRecovery -or
+    $InvoiceExtractionCrashRecovery
+) {
+    $isDocumentCorrection = $DocumentCorrectionCrashRecovery
     if ($ContractExtractionCrashRecovery) {
         $extractionKind = 'contract'
+        $extractionLabel = 'contract extraction'
         $extractionTable = 'contracts'
         $extractionScript = 'smoke_local_contract_extraction_crash_recovery.py'
         $extractionStateSchema = 'finaudit-local-contract-extract-crash-v1'
@@ -661,9 +688,11 @@ if ($ContractExtractionCrashRecovery -or $InvoiceExtractionCrashRecovery) {
         $attemptGate = 'LOCAL_CONTRACT_EXTRACT_ATTEMPT_TWO_GATE=PASS'
         $factsGate = 'LOCAL_CONTRACT_EXTRACT_UNIQUE_FACTS_GATE=PASS'
         $restoredGate = 'LOCAL_CONTRACT_EXTRACT_CRASH_STACK_RESTORED=PASS'
+        $expectedMaintenanceOutcome = 'claimed_and_succeeded'
     }
-    else {
+    elseif ($InvoiceExtractionCrashRecovery) {
         $extractionKind = 'invoice'
+        $extractionLabel = 'invoice extraction'
         $extractionTable = 'invoices'
         $extractionScript = 'smoke_local_invoice_extraction_crash_recovery.py'
         $extractionStateSchema = 'finaudit-local-invoice-extract-crash-v1'
@@ -680,8 +709,30 @@ if ($ContractExtractionCrashRecovery -or $InvoiceExtractionCrashRecovery) {
         $attemptGate = 'LOCAL_INVOICE_EXTRACT_ATTEMPT_TWO_GATE=PASS'
         $factsGate = 'LOCAL_INVOICE_EXTRACT_UNIQUE_FACTS_GATE=PASS'
         $restoredGate = 'LOCAL_INVOICE_EXTRACT_CRASH_STACK_RESTORED=PASS'
+        $expectedMaintenanceOutcome = 'claimed_and_succeeded'
     }
-    $extractionLabel = "$extractionKind extraction"
+    else {
+        $extractionKind = 'correction'
+        $extractionLabel = 'document correction'
+        $extractionTable = 'document_content_exclusions'
+        $extractionScript = 'smoke_local_document_correction_crash_recovery.py'
+        $extractionStateSchema = 'finaudit-local-document-correction-crash-v1'
+        $extractionPurpose = 'local-document-correction-crash-recovery'
+        $prepareGate = 'LOCAL_DOCUMENT_CORRECTION_CRASH_PREPARE_GATE=PASS'
+        $requestGate = 'LOCAL_DOCUMENT_CORRECTION_CRASH_REQUEST_GATE=PASS'
+        $runningGate = 'LOCAL_DOCUMENT_CORRECTION_RUNNING_GATE=PASS'
+        $runningJobPrefix = 'LOCAL_DOCUMENT_CORRECTION_RUNNING_JOB_ID='
+        $zeroFactsGate = 'LOCAL_DOCUMENT_CORRECTION_ZERO_CANDIDATE_FACTS_GATE=PASS'
+        $clientGate = 'LOCAL_DOCUMENT_CORRECTION_CRASH_CLIENT_GATE=PASS'
+        $databaseGate = 'LOCAL_DOCUMENT_CORRECTION_CRASH_DATABASE_GATE=PASS'
+        $sigkillGate = 'LOCAL_DOCUMENT_CORRECTION_SIGKILL_GATE=PASS'
+        $restartGate = 'LOCAL_DOCUMENT_CORRECTION_MANAGED_RESTART_GATE=PASS'
+        $leaseGate = 'LOCAL_DOCUMENT_CORRECTION_LEASE_EXHAUSTION_GATE=PASS'
+        $attemptGate = 'LOCAL_DOCUMENT_CORRECTION_TERMINAL_FAILURE_GATE=PASS'
+        $factsGate = 'LOCAL_DOCUMENT_CORRECTION_OLD_ACTIVE_PRESERVED_GATE=PASS'
+        $restoredGate = 'LOCAL_DOCUMENT_CORRECTION_CRASH_STACK_RESTORED=PASS'
+        $expectedMaintenanceOutcome = 'exhausted'
+    }
     $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
     $composePath = Join-Path $projectRoot 'infra\compose\compose.local.yml'
     $composeArguments = @(
@@ -750,39 +801,41 @@ if ($ContractExtractionCrashRecovery -or $InvoiceExtractionCrashRecovery) {
 
     try {
         $null = New-Item -ItemType Directory -Path $stateDirectory
-        $lockQuery = (
-            "BEGIN; LOCK TABLE public.$extractionTable IN ACCESS EXCLUSIVE MODE; " +
-            'SELECT pg_sleep(600); COMMIT;'
-        )
-        $null = Invoke-Docker @(
-            'exec', '--detach', '--env', "PGAPPNAME=$lockApplicationName",
-            $postgresqlId,
-            'psql', '--username', 'finaudit', '--dbname', 'finaudit',
-            '--set', 'ON_ERROR_STOP=1', '--command', $lockQuery
-        ) "Unable to start the owned $extractionLabel database lock."
-        $lockProcessStarted = $true
+        if (-not $isDocumentCorrection) {
+            $lockQuery = (
+                "BEGIN; LOCK TABLE public.$extractionTable IN ACCESS EXCLUSIVE MODE; " +
+                'SELECT pg_sleep(600); COMMIT;'
+            )
+            $null = Invoke-Docker @(
+                'exec', '--detach', '--env', "PGAPPNAME=$lockApplicationName",
+                $postgresqlId,
+                'psql', '--username', 'finaudit', '--dbname', 'finaudit',
+                '--set', 'ON_ERROR_STOP=1', '--command', $lockQuery
+            ) "Unable to start the owned $extractionLabel database lock."
+            $lockProcessStarted = $true
 
-        $lockCountQuery = (
-            'SELECT count(*) FROM pg_stat_activity AS activity ' +
-            'JOIN pg_locks AS held ON held.pid = activity.pid ' +
-            "WHERE activity.application_name = '$lockApplicationName' " +
-            "AND held.relation = 'public.$extractionTable'::regclass " +
-            "AND held.mode = 'AccessExclusiveLock' AND held.granted;"
-        )
-        $lockDeadline = [DateTimeOffset]::UtcNow.AddSeconds(30)
-        while ([DateTimeOffset]::UtcNow -lt $lockDeadline) {
-            $lockCount = Read-PostgresScalar $postgresqlId $lockCountQuery
-            if ($lockCount -ceq '1') {
-                $lockHeld = $true
-                break
+            $lockCountQuery = (
+                'SELECT count(*) FROM pg_stat_activity AS activity ' +
+                'JOIN pg_locks AS held ON held.pid = activity.pid ' +
+                "WHERE activity.application_name = '$lockApplicationName' " +
+                "AND held.relation = 'public.$extractionTable'::regclass " +
+                "AND held.mode = 'AccessExclusiveLock' AND held.granted;"
+            )
+            $lockDeadline = [DateTimeOffset]::UtcNow.AddSeconds(30)
+            while ([DateTimeOffset]::UtcNow -lt $lockDeadline) {
+                $lockCount = Read-PostgresScalar $postgresqlId $lockCountQuery
+                if ($lockCount -ceq '1') {
+                    $lockHeld = $true
+                    break
+                }
+                if ($lockCount -cne '0') {
+                    throw "The owned $extractionLabel database lock is ambiguous."
+                }
+                Start-Sleep -Milliseconds 250
             }
-            if ($lockCount -cne '0') {
-                throw "The owned $extractionLabel database lock is ambiguous."
+            if (-not $lockHeld) {
+                throw "The owned $extractionLabel database lock was not acquired."
             }
-            Start-Sleep -Milliseconds 250
-        }
-        if (-not $lockHeld) {
-            throw "The owned $extractionLabel database lock was not acquired."
         }
 
         $prepareOutput = Invoke-Docker @(
@@ -817,16 +870,114 @@ if ($ContractExtractionCrashRecovery -or $InvoiceExtractionCrashRecovery) {
             $state.run_id -cne $runId -or
             $state.file_id -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' -or
             $state.file_job_id -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' -or
-            $state.file_sha256 -notmatch '^[0-9a-f]{64}$'
+            $state.file_sha256 -notmatch '^[0-9a-f]{64}$' -or
+            (
+                $isDocumentCorrection -and
+                (
+                    $state.source_parse_version_id -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' -or
+                    $state.source_block_id -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' -or
+                    $state.source_text_sha256 -notmatch '^[0-9a-f]{64}$' -or
+                    "$($state.source_block_count)" -notmatch '^[1-9][0-9]*$'
+                )
+            )
         ) {
             throw "The $extractionLabel crash state manifest is invalid."
         }
 
+        if ($isDocumentCorrection) {
+            $lockQuery = (
+                "BEGIN; LOCK TABLE public.$extractionTable IN ACCESS EXCLUSIVE MODE; " +
+                'SELECT pg_sleep(600); COMMIT;'
+            )
+            $null = Invoke-Docker @(
+                'exec', '--detach', '--env', "PGAPPNAME=$lockApplicationName",
+                $postgresqlId,
+                'psql', '--username', 'finaudit', '--dbname', 'finaudit',
+                '--set', 'ON_ERROR_STOP=1', '--command', $lockQuery
+            ) "Unable to start the owned $extractionLabel database lock."
+            $lockProcessStarted = $true
+            $lockCountQuery = (
+                'SELECT count(*) FROM pg_stat_activity AS activity ' +
+                'JOIN pg_locks AS held ON held.pid = activity.pid ' +
+                "WHERE activity.application_name = '$lockApplicationName' " +
+                "AND held.relation = 'public.$extractionTable'::regclass " +
+                "AND held.mode = 'AccessExclusiveLock' AND held.granted;"
+            )
+            $lockDeadline = [DateTimeOffset]::UtcNow.AddSeconds(30)
+            while ([DateTimeOffset]::UtcNow -lt $lockDeadline) {
+                $lockCount = Read-PostgresScalar $postgresqlId $lockCountQuery
+                if ($lockCount -ceq '1') {
+                    $lockHeld = $true
+                    break
+                }
+                if ($lockCount -cne '0') {
+                    throw "The owned $extractionLabel database lock is ambiguous."
+                }
+                Start-Sleep -Milliseconds 250
+            }
+            if (-not $lockHeld) {
+                throw "The owned $extractionLabel database lock was not acquired."
+            }
+
+            $requestOutput = Invoke-Docker @(
+                'run', '--rm', '--network', $network[0], '--read-only',
+                '--tmpfs', '/tmp:size=32m,mode=1777', '--cap-drop', 'ALL',
+                '--security-opt', 'no-new-privileges:true',
+                '--label', "com.finaudit.test-purpose=$extractionPurpose",
+                '--label', "com.finaudit.run-id=$runId",
+                '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
+                '--mount', "type=bind,src=$stateMount,dst=/state",
+                '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+                '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
+                '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
+                '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
+                '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
+                '--env', 'FINAUDIT_CRASH_STATE_PATH=/state/status.json',
+                "finaudit-backend-local:$imageRevision",
+                'python', "/app/scripts/$extractionScript",
+                'request'
+            ) 'The document correction request helper failed.'
+            Write-Output $requestOutput
+            if ($requestOutput -notmatch "(?m)^$requestGate\r?$") {
+                throw 'The document correction request helper did not return PASS.'
+            }
+            $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+            if (
+                $state.schema_version -cne $extractionStateSchema -or
+                $state.phase -cne 'correction_requested' -or
+                $state.run_id -cne $runId -or
+                $state.correction_id -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' -or
+                $state.result_parse_version_id -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' -or
+                $state.correction_job_id -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' -or
+                $state.correction_trace_id -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+            ) {
+                throw 'The document correction requested-state manifest is invalid.'
+            }
+        }
+
+        $databaseIdentityArguments = @(
+            '--env', "FINAUDIT_CRASH_FILE_ID=$($state.file_id)",
+            '--env', "FINAUDIT_CRASH_RUN_ID=$runId"
+        )
+        if ($isDocumentCorrection) {
+            $databaseIdentityArguments += @(
+                '--env', "FINAUDIT_CRASH_FILE_JOB_ID=$($state.file_job_id)",
+                '--env', "FINAUDIT_CRASH_FILE_SHA256=$($state.file_sha256)",
+                '--env', "FINAUDIT_CRASH_SOURCE_PARSE_ID=$($state.source_parse_version_id)",
+                '--env', "FINAUDIT_CRASH_SOURCE_BLOCK_ID=$($state.source_block_id)",
+                '--env', "FINAUDIT_CRASH_SOURCE_TEXT_SHA256=$($state.source_text_sha256)",
+                '--env', "FINAUDIT_CRASH_SOURCE_BLOCK_COUNT=$($state.source_block_count)",
+                '--env', "FINAUDIT_CRASH_CORRECTION_ID=$($state.correction_id)",
+                '--env', "FINAUDIT_CRASH_RESULT_PARSE_ID=$($state.result_parse_version_id)",
+                '--env', "FINAUDIT_CRASH_CORRECTION_JOB_ID=$($state.correction_job_id)",
+                '--env', "FINAUDIT_CRASH_CORRECTION_TRACE_ID=$($state.correction_trace_id)"
+            )
+        }
+
         $runningOutput = Invoke-Docker (
             $composeArguments + @(
-                'exec', '--no-TTY',
-                '--env', "FINAUDIT_CRASH_FILE_ID=$($state.file_id)",
-                '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
+                'exec', '--no-TTY'
+            ) + $databaseIdentityArguments + @(
                 'maintenance', 'python',
                 "/app/scripts/$extractionScript",
                 'wait-running'
@@ -847,6 +998,12 @@ if ($ContractExtractionCrashRecovery -or $InvoiceExtractionCrashRecovery) {
             throw "The $extractionLabel running Job identity is invalid."
         }
         $extractionJobId = $jobMatch.Groups[1].Value
+        if (
+            $isDocumentCorrection -and
+            $extractionJobId -cne [string]$state.correction_job_id
+        ) {
+            throw 'The running document correction Job identity drifted.'
+        }
 
         $worker = Read-ComposeContainer $ProjectName 'worker'
         if ($worker.Id -cne $workerId -or $worker.State.Status -cne 'running') {
@@ -880,12 +1037,16 @@ if ($ContractExtractionCrashRecovery -or $InvoiceExtractionCrashRecovery) {
         }
         $lockProcessStarted = $false
 
+        $recoveryDatabaseArguments = @($databaseIdentityArguments)
+        if (-not $isDocumentCorrection) {
+            $recoveryDatabaseArguments += @(
+                '--env', "FINAUDIT_CRASH_EXTRACTION_JOB_ID=$extractionJobId"
+            )
+        }
         $beforeRecoveryOutput = Invoke-Docker (
             $composeArguments + @(
-                'exec', '--no-TTY',
-                '--env', "FINAUDIT_CRASH_FILE_ID=$($state.file_id)",
-                '--env', "FINAUDIT_CRASH_EXTRACTION_JOB_ID=$extractionJobId",
-                '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
+                'exec', '--no-TTY'
+            ) + $recoveryDatabaseArguments + @(
                 'maintenance', 'python',
                 "/app/scripts/$extractionScript",
                 'before-recovery'
@@ -919,50 +1080,86 @@ if ($ContractExtractionCrashRecovery -or $InvoiceExtractionCrashRecovery) {
             throw "The local Worker did not recover after the $extractionLabel crash."
         }
 
-        $clientOutput = Invoke-Docker @(
-            'run', '--rm', '--network', $network[0], '--read-only',
-            '--tmpfs', '/tmp:size=32m,mode=1777', '--cap-drop', 'ALL',
-            '--security-opt', 'no-new-privileges:true',
-            '--label', "com.finaudit.test-purpose=$extractionPurpose",
-            '--label', "com.finaudit.run-id=$runId",
-            '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
-            '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
-            '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
-            '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
-            '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password',
+        $clientIdentityArguments = @(
             '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
             '--env', "FINAUDIT_CRASH_FILE_ID=$($state.file_id)",
-            '--env', "FINAUDIT_CRASH_FILE_SHA256=$($state.file_sha256)",
-            "finaudit-backend-local:$imageRevision",
-            'python', "/app/scripts/$extractionScript",
-            'verify-client'
-        ) "The client-visible $extractionLabel crash recovery gate failed."
-        Write-Output $clientOutput
-        if ($clientOutput -notmatch "(?m)^$clientGate\r?$") {
-            throw "The client-visible $extractionLabel crash recovery gate did not return PASS."
+            '--env', "FINAUDIT_CRASH_FILE_SHA256=$($state.file_sha256)"
+        )
+        if ($isDocumentCorrection) {
+            $clientIdentityArguments += @(
+                '--env', "FINAUDIT_CRASH_FILE_JOB_ID=$($state.file_job_id)",
+                '--env', "FINAUDIT_CRASH_SOURCE_PARSE_ID=$($state.source_parse_version_id)",
+                '--env', "FINAUDIT_CRASH_SOURCE_BLOCK_ID=$($state.source_block_id)",
+                '--env', "FINAUDIT_CRASH_SOURCE_TEXT_SHA256=$($state.source_text_sha256)",
+                '--env', "FINAUDIT_CRASH_SOURCE_BLOCK_COUNT=$($state.source_block_count)",
+                '--env', "FINAUDIT_CRASH_CORRECTION_ID=$($state.correction_id)",
+                '--env', "FINAUDIT_CRASH_RESULT_PARSE_ID=$($state.result_parse_version_id)",
+                '--env', "FINAUDIT_CRASH_CORRECTION_JOB_ID=$($state.correction_job_id)",
+                '--env', "FINAUDIT_CRASH_CORRECTION_TRACE_ID=$($state.correction_trace_id)"
+            )
         }
 
-        $databaseOutput = Invoke-Docker (
-            $composeArguments + @(
-                'exec', '--no-TTY',
-                '--env', "FINAUDIT_CRASH_FILE_ID=$($state.file_id)",
-                '--env', "FINAUDIT_CRASH_EXTRACTION_JOB_ID=$extractionJobId",
-                '--env', "FINAUDIT_CRASH_RUN_ID=$runId",
+        $clientGateAction = {
+            Invoke-Docker (
+                @(
+                    'run', '--rm', '--network', $network[0], '--read-only',
+                    '--tmpfs', '/tmp:size=32m,mode=1777', '--cap-drop', 'ALL',
+                    '--security-opt', 'no-new-privileges:true',
+                    '--label', "com.finaudit.test-purpose=$extractionPurpose",
+                    '--label', "com.finaudit.run-id=$runId",
+                    '--mount', "type=bind,src=$passwordMount,dst=/run/secrets/bootstrap_admin_password,readonly",
+                    '--env', 'FINAUDIT_SMOKE_BASE_URL=http://frontend:8443',
+                    '--env', "AUTH_PUBLIC_ORIGIN=http://localhost:$httpPort",
+                    '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
+                    '--env', 'BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/bootstrap_admin_password'
+                ) + $clientIdentityArguments + @(
+                    "finaudit-backend-local:$imageRevision",
+                    'python', "/app/scripts/$extractionScript",
+                    'verify-client'
+                )
+            ) "The client-visible $extractionLabel crash recovery gate failed."
+        }
+        $databaseGateAction = {
+            Invoke-Docker (
+                $composeArguments + @(
+                    'exec', '--no-TTY'
+                ) + $recoveryDatabaseArguments + @(
                 'maintenance', 'python',
                 "/app/scripts/$extractionScript",
                 'database'
-            )
-        ) "The database $extractionLabel crash recovery gate failed."
-        Write-Output $databaseOutput
-        if ($databaseOutput -notmatch "(?m)^$databaseGate\r?$") {
-            throw "The database $extractionLabel crash recovery gate did not return PASS."
+                )
+            ) "The database $extractionLabel crash recovery gate failed."
+        }
+        if ($isDocumentCorrection) {
+            $databaseOutput = & $databaseGateAction
+            Write-Output $databaseOutput
+            if ($databaseOutput -notmatch "(?m)^$databaseGate\r?$") {
+                throw "The database $extractionLabel crash recovery gate did not return PASS."
+            }
+            $clientOutput = & $clientGateAction
+            Write-Output $clientOutput
+            if ($clientOutput -notmatch "(?m)^$clientGate\r?$") {
+                throw "The client-visible $extractionLabel crash recovery gate did not return PASS."
+            }
+        }
+        else {
+            $clientOutput = & $clientGateAction
+            Write-Output $clientOutput
+            if ($clientOutput -notmatch "(?m)^$clientGate\r?$") {
+                throw "The client-visible $extractionLabel crash recovery gate did not return PASS."
+            }
+            $databaseOutput = & $databaseGateAction
+            Write-Output $databaseOutput
+            if ($databaseOutput -notmatch "(?m)^$databaseGate\r?$") {
+                throw "The database $extractionLabel crash recovery gate did not return PASS."
+            }
         }
 
         $maintenanceLogs = Invoke-Docker @(
             'logs', '--since', $gateStartedAt.ToString('O'), $maintenance.Id
         ) "Unable to read the Maintenance $extractionLabel recovery logs."
         $expectedOutcome = (
-            'MAINTENANCE_OUTCOME outcome=claimed_and_succeeded job_id=' +
+            "MAINTENANCE_OUTCOME outcome=$expectedMaintenanceOutcome job_id=" +
             [regex]::Escape($extractionJobId)
         )
         if ($maintenanceLogs -notmatch $expectedOutcome) {
@@ -2880,7 +3077,9 @@ if ($PerformanceBaseline) {
         'LOCAL_PERFORMANCE_BATCH_MAX_GATE',
         'LOCAL_PERFORMANCE_BATCH_REPLAY_GATE',
         'LOCAL_PERFORMANCE_BATCH_PARTIAL_FAILURE_GATE',
-        'LOCAL_PERFORMANCE_BATCH_LIMIT_GATE'
+        'LOCAL_PERFORMANCE_BATCH_LIMIT_GATE',
+        'LOCAL_PERFORMANCE_TWENTY_PAGE_CONTRACT_GATE',
+        'LOCAL_PERFORMANCE_CLEAR_INVOICE_GATE'
     )) {
         if ($clientOutput -notmatch "(?m)^$requiredGate=PASS\r?$") {
             throw "The local performance client did not return $requiredGate=PASS."
@@ -2903,6 +3102,18 @@ if ($PerformanceBaseline) {
     if ($databaseOutput -notmatch '(?m)^LOCAL_PERFORMANCE_BATCH_DATABASE_GATE=PASS\r?$') {
         throw 'The local performance database gate did not verify batch facts.'
     }
+    if (
+        $databaseOutput -notmatch
+        '(?m)^LOCAL_PERFORMANCE_TWENTY_PAGE_CONTRACT_DATABASE_GATE=PASS\r?$'
+    ) {
+        throw 'The local performance database gate did not verify the twenty-page contract.'
+    }
+    if (
+        $databaseOutput -notmatch
+        '(?m)^LOCAL_PERFORMANCE_CLEAR_INVOICE_DATABASE_GATE=PASS\r?$'
+    ) {
+        throw 'The local performance database gate did not verify the clear invoice.'
+    }
 
     $dockerVersion = Invoke-Docker @('info', '--format', '{{.ServerVersion}}') `
         'Unable to read the Docker Server version.'
@@ -2910,7 +3121,7 @@ if ($PerformanceBaseline) {
         'Unable to read the Docker CPU allocation.'
     $dockerMemory = Invoke-Docker @('info', '--format', '{{.MemTotal}}') `
         'Unable to read the Docker memory allocation.'
-    Write-Output 'LOCAL_PERFORMANCE_ENV_SCHEMA=finaudit-local-performance-v2'
+    Write-Output 'LOCAL_PERFORMANCE_ENV_SCHEMA=finaudit-local-performance-v4'
     Write-Output "LOCAL_PERFORMANCE_DOCKER_SERVER_VERSION=$dockerVersion"
     Write-Output "LOCAL_PERFORMANCE_DOCKER_CPUS=$dockerCpus"
     Write-Output "LOCAL_PERFORMANCE_DOCKER_MEMORY_BYTES=$dockerMemory"
@@ -2919,6 +3130,10 @@ if ($PerformanceBaseline) {
     Write-Output 'LOCAL_PERFORMANCE_ROUNDS=3'
     Write-Output 'LOCAL_PERFORMANCE_LIST_SAMPLES_PER_ROUND=20'
     Write-Output 'LOCAL_PERFORMANCE_UPLOAD_SAMPLES_PER_ROUND=20'
+    Write-Output 'LOCAL_PERFORMANCE_TWENTY_PAGE_CONTRACTS_PER_ROUND=1'
+    Write-Output 'LOCAL_PERFORMANCE_TWENTY_PAGE_CONTRACT_LIMIT_MS=120000'
+    Write-Output 'LOCAL_PERFORMANCE_CLEAR_INVOICES_PER_ROUND=1'
+    Write-Output 'LOCAL_PERFORMANCE_CLEAR_INVOICE_LIMIT_MS=30000'
     Write-Output 'LOCAL_PERFORMANCE_BATCH_FILES_PER_ROUND=20'
     Write-Output 'LOCAL_PERFORMANCE_BATCH_REPLAY_PER_ROUND=1'
     Write-Output 'LOCAL_PERFORMANCE_PARTIAL_BATCH_FILES=2'
@@ -3173,6 +3388,37 @@ if ($SecurityBaseline) {
         throw 'The local Prompt Injection database gate did not return PASS.'
     }
 
+    $knowledgePerformanceOutput = Invoke-Docker (
+        $clientArguments + @('knowledge-performance-client')
+    ) 'The local knowledge performance client gate failed.'
+    Write-Output $knowledgePerformanceOutput
+    foreach ($requiredGate in @(
+        'LOCAL_SECURITY_KNOWLEDGE_TOP5_PERFORMANCE_GATE',
+        'LOCAL_SECURITY_KNOWLEDGE_RAG_PERFORMANCE_GATE',
+        'LOCAL_SECURITY_KNOWLEDGE_PERFORMANCE_CLIENT_GATE'
+    )) {
+        if ($knowledgePerformanceOutput -notmatch "(?m)^$requiredGate=PASS\r?$") {
+            throw "The local knowledge performance client did not return $requiredGate=PASS."
+        }
+    }
+
+    $knowledgePerformanceDatabaseOutput = Invoke-Docker (
+        $composeArguments + @(
+            'exec', '--no-TTY',
+            '--env', "FINAUDIT_SECURITY_RUN_ID=$runId",
+            '--env', "BOOTSTRAP_ADMIN_USERNAME=$($marker.adminUsername)",
+            'maintenance', 'python',
+            '/app/scripts/smoke_local_security.py', 'knowledge-performance-database'
+        )
+    ) 'The local knowledge performance database gate failed.'
+    Write-Output $knowledgePerformanceDatabaseOutput
+    if (
+        $knowledgePerformanceDatabaseOutput -notmatch
+            '(?m)^LOCAL_SECURITY_KNOWLEDGE_PERFORMANCE_DATABASE_GATE=PASS\r?$'
+    ) {
+        throw 'The local knowledge performance database gate did not return PASS.'
+    }
+
     $promptInjectionCanary = 'INTERNALCONFIGCANARYDONOTEMIT20260815'
     foreach ($service in @('backend', 'worker', 'dispatcher', 'maintenance', 'frontend')) {
         $container = Read-ComposeContainer $ProjectName $service
@@ -3224,6 +3470,7 @@ if ($SecurityBaseline) {
     Write-Output 'LOCAL_SECURITY_HOST_EXPOSURE_GATE=PASS'
     Write-Output 'LOCAL_SECURITY_AI_PROVIDER=DISABLED'
     Write-Output 'LOCAL_SECURITY_PROMPT_INJECTION_HTTP_QDRANT=PASS'
+    Write-Output 'LOCAL_SECURITY_KNOWLEDGE_PERFORMANCE=PASS'
     Write-Output 'LOCAL_SECURITY_PROMPT_INJECTION_BROWSER=NOT_RUN'
     Write-Output "LOCAL_SECURITY_PROMPT_INJECTION_BROWSER_ORIGIN=http://localhost:$httpPort"
     Write-Output "LOCAL_SECURITY_PROMPT_INJECTION_BROWSER_USERNAME=sec-pi-browser-$($runId.Substring(0, 10))"

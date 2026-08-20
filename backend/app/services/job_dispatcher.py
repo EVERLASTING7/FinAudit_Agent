@@ -174,7 +174,12 @@ class OutboxDispatcher:
             | AuditHandlerRuntime
             | ReportHandlerRuntime
         )
-        if claim.job.job_type in {"file_process", "file_scan"}:
+        if claim.job.job_type in {
+            "asset_security_revalidation",
+            "file_process",
+            "file_scan",
+            "manual_correction_snapshot",
+        }:
             handler = load_file_handler(claim.job.job_type)
         elif claim.job.job_type == "invoice_extract":
             handler = load_invoice_handler(claim.job.handler_registry_version)

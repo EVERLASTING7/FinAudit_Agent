@@ -1,13 +1,13 @@
 # 当前活跃 Request 清单
 
-基线日期：2026-08-18。此清单已同步 `CR-021` 的 local/test 百炼 Embedding Profile、`CR-022 / option-A / event-policy-v2 / USD-CNY-only / no-fx`、BOSS 确认的 Windows 本机 Local MVP Profile、`CR-023` 的全局 `auth-password-v2`、`CR-024` 的全局 HTTP 入口、`CR-025` 的四项 Local MVP AC 口径，以及 `CR-026` 的 local/test 批量检索评测证据；只校验 `Request/` 根目录的当前开发规格，归档文档不参与现行行为解释。
+基线日期：2026-08-19。此清单已同步 `CR-005-R2` 文档纠错、`CR-010-R2` 隔离 fixed_test Scanner Profile、`CR-027-R1` Job HTTP 双版本、`CR-028-R1` 制度撤销、`CR-029-R1` 通用纠错来源读取、`CR-030-R1` 撤销待执行读取合同、`local-knowledge-performance-v5`、`local-document-correction-crash-recovery-v1` 和 INV-004 single-statement/native-browser 当前工程证据，以及既有 `CR-021～026` local/test/Local MVP 决策；只校验 `Request/` 根目录的当前开发规格，归档文档不参与现行行为解释。Provider、production、真实数据迁移、提交和推送不在本次同步授权内。
 
 | 文件 | 字节 | SHA-256 |
 |---|---:|---|
-| `IMPLEMENTATION_PLAN.md` | 71098 | `9A87A328330F84068BC2A0E872BA756AE176C3B261F9079F7894C41787CB5168` |
-| `PRODUCT_REQUIREMENTS.md` | 40630 | `37E06DE415AEF12CB20252343EE03794A368D593FB4E214675D7900164ECD463` |
+| `IMPLEMENTATION_PLAN.md` | 75748 | `62F9092066990370A8D7703F3C3E332A740A0054DC67FBB2E212574BDAC80BD5` |
+| `PRODUCT_REQUIREMENTS.md` | 45504 | `DA094135578155D23F46133C8BB1B500ABD9DB8521A68B36C9766ACEFFDB19CB` |
 | `README.md` | 8733 | `6E7AE9E61CED4E681B24F38FC89FB8DFCAF9094A6CBC1D36EA3C0AF0C914ED66` |
-| `TECHNICAL_SPEC.md` | 139073 | `3BE0A839B15E3B8523B1D5FD887B7BADAE696A54FB5D128DFC4BD271EA06665F` |
+| `TECHNICAL_SPEC.md` | 155111 | `4E5CEA80F665A6FCCBF38245A5D65A1EA30C3130908988BC435F293C4B5661F8` |
 
 复核命令：
 

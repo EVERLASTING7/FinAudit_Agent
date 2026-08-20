@@ -8,6 +8,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.schemas.jobs import JobActionProjectionData
+
 PositiveIntegerString = Annotated[str, Field(pattern=r"^[1-9]\d*$")]
 AuditTaskStatus = Literal["open", "completed", "archived"]
 AuditExecutionStatus = Literal[
@@ -174,7 +176,21 @@ class AuditReviewDecisionRequest(BaseModel):
 class AuditCancelRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    row_version: PositiveIntegerString
+    execution_row_version: PositiveIntegerString
+    job_row_version: PositiveIntegerString | None
+    reason: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, value: str) -> str:
+        return _trimmed(value, "reason")
+
+
+class AuditRetryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    execution_row_version: PositiveIntegerString
+    job_row_version: PositiveIntegerString
     reason: str = Field(min_length=1, max_length=1000)
 
     @field_validator("reason")
@@ -220,6 +236,7 @@ class AuditExecutionData(BaseModel):
     status: AuditExecutionStatus
     snapshot_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     job_id: UUID | None
+    job: JobActionProjectionData | None = None
     finance_reviewer_id: UUID | None
     finance_reviewed_at: datetime | None
     audit_reviewer_id: UUID | None
@@ -324,6 +341,50 @@ class AuditExecutionMutationData(BaseModel):
     execution: AuditExecutionData
 
 
+class AuditRetryData(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    execution_id: UUID
+    status: Literal["queued"] = "queued"
+    preserved_results: Literal[True] = True
+    execution_row_version: PositiveIntegerString
+    job_id: UUID
+    job_status: Literal["queued"] = "queued"
+    attempt_no: int = Field(ge=0)
+    scheduled_attempt_no: int = Field(ge=1)
+    stage: Literal["evaluate"] = "evaluate"
+    job_row_version: PositiveIntegerString
+
+    @model_validator(mode="after")
+    def validate_attempts(self) -> AuditRetryData:
+        if self.scheduled_attempt_no != self.attempt_no + 1:
+            raise ValueError("scheduled attempt must follow current attempt")
+        return self
+
+
+class AuditCancelData(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    execution_id: UUID
+    execution_status: Literal["cancelled"] = "cancelled"
+    cancelled_at: datetime
+    execution_row_version: PositiveIntegerString
+    job_id: UUID | None
+    job_status: Literal["cancel_requested", "cancelled", "succeeded"] | None
+    job_row_version: PositiveIntegerString | None
+
+    @model_validator(mode="after")
+    def validate_job_projection(self) -> AuditCancelData:
+        populated = (
+            self.job_id is not None,
+            self.job_status is not None,
+            self.job_row_version is not None,
+        )
+        if len(set(populated)) != 1:
+            raise ValueError("cancel Job projection is incomplete")
+        return self
+
+
 class AuditRiskMutationData(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
@@ -337,11 +398,14 @@ class AuditWriteQuery(BaseModel):
 __all__ = [
     "AiArtifactStatus",
     "AuditCancelRequest",
+    "AuditCancelData",
     "AuditExecutionCreateRequest",
     "AuditExecutionData",
     "AuditExecutionMutationData",
     "AuditFinanceReviewRequest",
     "AuditReviewDecisionRequest",
+    "AuditRetryData",
+    "AuditRetryRequest",
     "AuditRiskData",
     "AuditRiskExplanationCitationData",
     "AuditRiskExplanationData",

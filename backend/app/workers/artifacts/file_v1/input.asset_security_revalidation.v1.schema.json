@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "asset_security_revalidation.input.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "file_id",
+    "source_parse_version_id",
+    "result_parse_version_id",
+    "security_policy_version",
+    "security_policy_hash",
+    "handler_code_version",
+    "handler_registry_version",
+    "handler_registry_hash",
+    "scanner_profile_class",
+    "scanner_registry_version",
+    "scanner_registry_hash",
+    "scanner_adapter_code",
+    "scanner_version",
+    "scanner_definition_version"
+  ],
+  "properties": {
+    "file_id": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "source_parse_version_id": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "result_parse_version_id": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "security_policy_version": {"const": "asset-security-v1"},
+    "security_policy_hash": {"const": "b074e9cb6af5e20b57cb14f042977417bcf6f9d9eb35c47abf6a13de3823efe0"},
+    "handler_code_version": {"const": "asset-security-revalidation-v1"},
+    "handler_registry_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"},
+    "handler_registry_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scanner_profile_class": {"enum": ["fixed_test", "production"]},
+    "scanner_registry_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,99}$"},
+    "scanner_registry_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scanner_adapter_code": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$"},
+    "scanner_version": {"type": "string", "minLength": 1, "maxLength": 100},
+    "scanner_definition_version": {"type": "string", "minLength": 1, "maxLength": 200}
+  }
+}

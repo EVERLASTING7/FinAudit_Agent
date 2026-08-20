@@ -396,15 +396,14 @@ class AuditRuntimeRepository:
             ).scalars()
         )
 
-    def job_for_execution(self, execution_id: UUID) -> AsyncJob | None:
-        return self._session.execute(
-            select(AsyncJob)
-            .where(
-                AsyncJob.resource_type == "audit_task_execution",
-                AsyncJob.resource_id == execution_id,
-            )
-            .with_for_update(of=AsyncJob)
-        ).scalar_one_or_none()
+    def job_for_execution(self, execution_id: UUID, *, lock: bool = True) -> AsyncJob | None:
+        statement = select(AsyncJob).where(
+            AsyncJob.resource_type == "audit_task_execution",
+            AsyncJob.resource_id == execution_id,
+        )
+        if lock:
+            statement = statement.with_for_update(of=AsyncJob)
+        return self._session.execute(statement).scalar_one_or_none()
 
     def outdate_current_executions_for_invoice(
         self,

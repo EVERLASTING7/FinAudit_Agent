@@ -30,6 +30,15 @@ const base = {
 } as const
 const item = {
   ...base,
+  job: {
+    id: jobId,
+    status: 'succeeded',
+    stage: 'markdown',
+    attempt_no: 1,
+    max_attempts: 3,
+    row_version: '4',
+    retryable: false,
+  },
   size_bytes: '128',
   created_at: '2026-08-14T08:00:00+00:00',
 }
@@ -175,7 +184,7 @@ describe('文件 API 合同', () => {
       'file-batch.unit-001',
     )
     await api.archive(fileId, '1', '测试文件归档', 'file-archive.unit-001')
-    await api.retry(fileId, '1', jobId, '测试任务重试', 'file-retry.unit-001')
+    await api.retry(fileId, '1', jobId, '4', '测试任务重试', 'file-retry.unit-001')
 
     const batchBody = fetcher.mock.calls[0]?.[1]?.body as FormData
     expect(fetcher.mock.calls[0]?.[0]).toBe('/api/v1/files/batch')
@@ -188,9 +197,10 @@ describe('文件 API 合同', () => {
     })
     expect(fetcher.mock.calls[2]?.[0]).toBe(`/api/v1/files/${fileId}/retry`)
     expect(JSON.parse(String(fetcher.mock.calls[2]?.[1]?.body))).toEqual({
-      row_version: '1',
+      file_row_version: '1',
       reason: '测试任务重试',
       job_id: jobId,
+      job_row_version: '4',
     })
   })
 

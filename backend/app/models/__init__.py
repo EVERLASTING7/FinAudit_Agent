@@ -122,6 +122,7 @@ from app.models.retrieval import (
     RetrievalEvalResult,
     RetrievalEvalRun,
 )
+from app.models.scanner_registry import ScannerRegistryProfile
 
 __all__ = [
     "ROLE_CODES",
@@ -222,6 +223,7 @@ __all__ = [
     "Role",
     "RiskCitation",
     "RuleExecution",
+    "ScannerRegistryProfile",
     "SupplementaryAgreement",
     "SupplementaryAgreementChange",
     "Supplier",

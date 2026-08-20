@@ -50,7 +50,7 @@ const routes: RouteRecordRaw[] = [
           title: '文件详情',
           uiCode: 'UI-003',
           description: '文件预览、解析与 Markdown 版本入口',
-          requiredPermissions: ['files.read'],
+          requiredAnyPermissions: ['files.read', 'system.configure'],
           parent: { title: '文件管理', name: 'files' },
         },
       },
@@ -158,7 +158,7 @@ const routes: RouteRecordRaw[] = [
           title: '制度知识库',
           uiCode: 'UI-009',
           description: '制度版本、分块、索引与评测入口',
-          requiredPermissions: ['knowledge.use'],
+          requiredAnyPermissions: ['knowledge.use', 'knowledge.publish'],
         },
       },
       {
@@ -169,7 +169,7 @@ const routes: RouteRecordRaw[] = [
           title: '知识库详情',
           uiCode: 'UI-009',
           description: '知识库版本与标签页入口',
-          requiredPermissions: ['knowledge.use'],
+          requiredAnyPermissions: ['knowledge.use', 'knowledge.publish'],
           parent: { title: '制度知识库', name: 'knowledge-bases' },
         },
       },
@@ -283,6 +283,17 @@ export function createAppRouter(history: RouterHistory = createWebHistory()): Ro
       !auth.hasAllPermissions(to.meta.requiredPermissions)
     ) {
       return { name: 'forbidden' }
+    }
+    if (
+      to.meta.requiredAnyPermissions &&
+      !to.meta.requiredAnyPermissions.some((permission) =>
+        auth.user?.permissions.includes(permission),
+      )
+    ) {
+      return {
+        name: 'forbidden',
+        query: { from: to.fullPath },
+      }
     }
 
     return true

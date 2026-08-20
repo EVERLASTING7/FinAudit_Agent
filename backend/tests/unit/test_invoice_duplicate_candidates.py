@@ -62,19 +62,32 @@ def _candidate(
     )
 
 
-def _candidate_row(identity: UUID) -> SimpleNamespace:
-    candidate = _candidate(identity)
+def _candidate_page_row(
+    identity: UUID | None,
+    *,
+    source_invoice_code: str | None = "INV-CODE",
+    source_invoice_number: str | None = "INV-NUMBER",
+    source_seller_tax_no: str | None = "91310000SELLER001X",
+    source_status: str = "confirmed",
+) -> SimpleNamespace:
+    candidate = None if identity is None else _candidate(identity)
     return SimpleNamespace(
-        id=candidate.id,
-        invoice_code=candidate.invoice_code,
-        invoice_number=candidate.invoice_number,
-        invoice_date=candidate.invoice_date,
-        seller_name=candidate.seller_name,
-        total_amount=candidate.total_amount,
-        currency=candidate.currency,
-        confirmation_status=candidate.confirmation_status,
-        duplicate_status=candidate.duplicate_status,
-        status=candidate.status,
+        source_invoice_code=source_invoice_code,
+        source_invoice_number=source_invoice_number,
+        source_seller_tax_no=source_seller_tax_no,
+        source_status=source_status,
+        candidate_id=None if candidate is None else candidate.id,
+        candidate_invoice_code=None if candidate is None else candidate.invoice_code,
+        candidate_invoice_number=None if candidate is None else candidate.invoice_number,
+        candidate_invoice_date=None if candidate is None else candidate.invoice_date,
+        candidate_seller_name=None if candidate is None else candidate.seller_name,
+        candidate_total_amount=None if candidate is None else candidate.total_amount,
+        candidate_currency=None if candidate is None else candidate.currency,
+        candidate_confirmation_status=(
+            None if candidate is None else candidate.confirmation_status
+        ),
+        candidate_duplicate_status=None if candidate is None else candidate.duplicate_status,
+        candidate_status=None if candidate is None else candidate.status,
     )
 
 
@@ -314,19 +327,12 @@ def test_duplicate_cursor_round_trips_canonical_uuid() -> None:
 
 def test_repository_uses_exact_bounded_minimal_projection() -> None:
     session = Mock(spec=Session)
-    source_result = Mock()
-    source_result.one_or_none.return_value = SimpleNamespace(
-        invoice_code="INV-CODE",
-        invoice_number="INV-NUMBER",
-        seller_tax_no="91310000SELLER001X",
-        status="confirmed",
-    )
-    candidate_result = Mock()
-    candidate_result.all.return_value = [
-        _candidate_row(CANDIDATE_ID),
-        _candidate_row(NEXT_ID),
+    result_rows = Mock()
+    result_rows.all.return_value = [
+        _candidate_page_row(CANDIDATE_ID),
+        _candidate_page_row(NEXT_ID),
     ]
-    session.execute.side_effect = [source_result, candidate_result]
+    session.execute.return_value = result_rows
 
     result = FinancialReadRepository(session).read_invoice_duplicate_candidate_page(
         ORGANIZATION_ID,
@@ -336,28 +342,23 @@ def test_repository_uses_exact_bounded_minimal_projection() -> None:
     )
 
     assert result == ("ready", (_candidate(CANDIDATE_ID),), True)
-    source_statement = cast(ClauseElement, session.execute.call_args_list[0].args[0])
-    candidate_statement = cast(ClauseElement, session.execute.call_args_list[1].args[0])
+    assert session.execute.call_count == 1
+    statement = cast(ClauseElement, session.execute.call_args.args[0])
     dialect = postgresql.dialect()  # type: ignore[no-untyped-call]
-    source_sql = str(
-        source_statement.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
-    )
-    candidate_sql = str(
-        candidate_statement.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
-    )
-    assert "invoices.organization_id" in source_sql
-    assert "invoices.deleted_at IS NULL" in source_sql
-    assert "invoices.id" in source_sql
-    assert "invoices.status" in source_sql
-    assert "invoices.id !=" in candidate_sql
-    assert "invoices.status != 'voided'" in candidate_sql
-    assert "invoices.invoice_code = 'INV-CODE'" in candidate_sql
-    assert "invoices.invoice_number = 'INV-NUMBER'" in candidate_sql
-    assert "invoices.seller_tax_no = '91310000SELLER001X'" in candidate_sql
-    assert "invoices.id >" in candidate_sql
-    assert "ORDER BY invoices.id ASC" in candidate_sql
-    assert "LIMIT 2" in candidate_sql
-    assert "OFFSET" not in candidate_sql
+    sql = str(statement.compile(dialect=dialect, compile_kwargs={"literal_binds": True}))
+    assert "WITH duplicate_source AS" in sql
+    assert "invoices.organization_id" in sql
+    assert "invoices.deleted_at IS NULL" in sql
+    assert "LEFT OUTER JOIN invoices AS candidate_invoice" in sql
+    assert "candidate_invoice.id !=" in sql
+    assert "candidate_invoice.status != 'voided'" in sql
+    assert "candidate_invoice.invoice_code = duplicate_source.invoice_code" in sql
+    assert "candidate_invoice.invoice_number = duplicate_source.invoice_number" in sql
+    assert "candidate_invoice.seller_tax_no = duplicate_source.seller_tax_no" in sql
+    assert "candidate_invoice.id >" in sql
+    assert "ORDER BY candidate_invoice.id ASC NULLS LAST" in sql
+    assert "LIMIT 2" in sql
+    assert "OFFSET" not in sql
     for private_column in (
         "invoices.supplier_id",
         "invoices.field_evidence_json",
@@ -366,42 +367,38 @@ def test_repository_uses_exact_bounded_minimal_projection() -> None:
         "invoices.created_by",
         "invoices.row_version",
     ):
-        assert private_column not in source_sql.split("FROM", 1)[0]
-        assert private_column not in candidate_sql.split("FROM", 1)[0]
-    assert "invoices.seller_tax_no" not in candidate_sql.split("FROM", 1)[0]
+        assert private_column not in sql
+    assert "candidate_invoice.seller_tax_no AS" not in sql
 
 
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
         (
-            SimpleNamespace(
-                invoice_code=None,
-                invoice_number="INV-NUMBER",
-                seller_tax_no="91310000SELLER001X",
-                status="voided",
+            _candidate_page_row(
+                None,
+                source_invoice_code=None,
+                source_status="voided",
             ),
             ("source_voided", (), False),
         ),
         (
-            SimpleNamespace(
-                invoice_code="INV-CODE",
-                invoice_number=None,
-                seller_tax_no="91310000SELLER001X",
-                status="confirmed",
+            _candidate_page_row(
+                None,
+                source_invoice_number=None,
             ),
             ("incomplete_identity", (), False),
         ),
     ],
 )
-def test_repository_non_ready_basis_skips_candidate_query(
+def test_repository_non_ready_basis_returns_from_single_statement(
     source: SimpleNamespace,
     expected: object,
 ) -> None:
     session = Mock(spec=Session)
-    source_result = Mock()
-    source_result.one_or_none.return_value = source
-    session.execute.return_value = source_result
+    statement_result = Mock()
+    statement_result.all.return_value = [source]
+    session.execute.return_value = statement_result
 
     result = FinancialReadRepository(session).read_invoice_duplicate_candidate_page(
         ORGANIZATION_ID,

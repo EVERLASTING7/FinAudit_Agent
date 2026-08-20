@@ -19,7 +19,11 @@ from app.adapters.ocr import NotConfiguredOcrEngine
 from app.core.config import Settings
 from app.models.document_processing import DocumentBlock, DocumentPage, DocumentParseVersion
 from app.models.documents import FileRecord
-from app.models.knowledge import DocumentMarkdownVersion, MarkdownSourceMapping
+from app.models.knowledge import (
+    DocumentMarkdownVersion,
+    MarkdownSourceMapping,
+    MarkdownValidationResult,
+)
 from app.models.operations import OperationLog
 from app.models.reliability import AsyncJob, AsyncJobStep, OutboxEvent
 from app.repositories.job_runtime import JobRuntimeRepository, OutboxClaim
@@ -178,6 +182,7 @@ def _clear_document_subjects(engine: Engine, file_id: UUID) -> None:
         "markdown_validation_results",
         "markdown_source_mappings",
         "document_markdown_versions",
+        "document_block_corrections",
         "document_content_exclusions",
         "document_blocks",
         "document_assets",
@@ -206,7 +211,17 @@ def _clear_document_subjects(engine: Engine, file_id: UUID) -> None:
                 text("DELETE FROM document_markdown_versions WHERE file_id=:file_id"),
                 {"file_id": file_id},
             )
-            for table_name in tables[3:-1]:
+            connection.execute(
+                text(
+                    "DELETE FROM document_block_corrections "
+                    "WHERE source_parse_version_id IN "
+                    "(SELECT id FROM document_parse_versions WHERE file_id=:file_id) "
+                    "OR result_parse_version_id IN "
+                    "(SELECT id FROM document_parse_versions WHERE file_id=:file_id)"
+                ),
+                {"file_id": file_id},
+            )
+            for table_name in tables[4:-1]:
                 connection.execute(
                     text(
                         f"DELETE FROM {table_name} WHERE parse_version_id IN "
@@ -321,12 +336,83 @@ def test_upload_dispatch_scan_promote_parse_and_duplicate_delivery_close_once(
             assert versions[0].status == "active"
             assert versions[0].page_count == 1
             assert session.scalar(select(func.count()).select_from(DocumentPage)) == 1
-            assert session.scalar(select(func.count()).select_from(DocumentBlock)) == 2
+            stored_blocks = session.scalars(
+                select(DocumentBlock).order_by(DocumentBlock.block_index)
+            ).all()
+            assert len(stored_blocks) == 2
+            assert all(block.bbox_json is None for block in stored_blocks)
+            assert all(
+                block.coordinate_unavailable_reason == "extractor_not_available"
+                for block in stored_blocks
+            )
             markdown = session.scalar(
                 select(DocumentMarkdownVersion).where(DocumentMarkdownVersion.file_id == file_id)
             )
             assert markdown is not None
             assert markdown.status == "active"
+            mappings = session.scalars(
+                select(MarkdownSourceMapping)
+                .where(MarkdownSourceMapping.markdown_version_id == markdown.id)
+                .order_by(MarkdownSourceMapping.md_char_start)
+            ).all()
+            assert len(mappings) == 2
+            assert markdown.quality_summary_json == {
+                "evidence_source_mapping": {"covered": 2, "total": 2},
+                "valid_structure_block": {"covered": 2, "total": 2},
+            }
+            token_types = markdown.document_metadata_json["parser_token_types"]
+            assert not any(
+                token_type.startswith(("html_", "link_", "image")) for token_type in token_types
+            )
+            for index, mapping in enumerate(mappings):
+                mapped_text = markdown.markdown_text[mapping.md_char_start : mapping.md_char_end]
+                assert mapped_text.strip()
+                assert mapping.md_line_start == (
+                    markdown.markdown_text[: mapping.md_char_start].count("\n") + 1
+                )
+                assert mapping.md_line_end == mapping.md_line_start + mapped_text.count("\n")
+                assert mapping.coverage_status == "full"
+                if index:
+                    previous = mappings[index - 1]
+                    assert (
+                        markdown.markdown_text[previous.md_char_end : mapping.md_char_start]
+                        == "\n\n"
+                    )
+            validation = session.scalar(
+                select(MarkdownValidationResult).where(
+                    MarkdownValidationResult.markdown_version_id == markdown.id
+                )
+            )
+            assert validation is not None
+            assert (
+                validation.validator_code,
+                validation.issue_code,
+                validation.is_blocking,
+                validation.details_json,
+            ) == (
+                "safe-commonmark-gfm-table",
+                "PASS",
+                False,
+                {"raw_html": False, "external_resources": False},
+            )
+
+            reused = MarkdownWriteRepository(session).generate_and_activate(
+                organization_id=file.organization_id,
+                file_id=file.id,
+                parse_version_id=versions[0].id,
+                trace_id=uuid4(),
+                actor_id=_actor().user_id,
+            )
+            assert reused.outcome == "reused"
+            assert reused.markdown_version_id == markdown.id
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(DocumentMarkdownVersion)
+                    .where(DocumentMarkdownVersion.file_id == file.id)
+                )
+                == 1
+            )
             assert (
                 session.scalar(
                     select(func.count())
@@ -334,6 +420,14 @@ def test_upload_dispatch_scan_promote_parse_and_duplicate_delivery_close_once(
                     .where(MarkdownSourceMapping.markdown_version_id == markdown.id)
                 )
                 == 2
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(MarkdownValidationResult)
+                    .where(MarkdownValidationResult.markdown_version_id == markdown.id)
+                )
+                == 1
             )
     finally:
         if file_id is not None:
@@ -454,16 +548,20 @@ def test_authorized_manual_retry_reuses_failed_file_job_and_outbox(
         assert failed.outcome == "failed"
         with factory() as session:
             source = session.get(FileRecord, file_id)
+            failed_job = session.get(AsyncJob, uploaded.data.job_id)
             assert source is not None
+            assert failed_job is not None
             row_version = str(source.row_version)
+            job_row_version = str(failed_job.row_version)
 
         service = _management_service(factory, runtime_storage.originals)
         retried = service.retry(
             _manager_actor(),
             file_id,
             FileRetryRequest(
-                row_version=row_version,
+                file_row_version=row_version,
                 job_id=uploaded.data.job_id,
+                job_row_version=job_row_version,
                 reason="人工确认依赖恢复后重试",
             ),
             "file-manage-retry-001",
@@ -473,8 +571,9 @@ def test_authorized_manual_retry_reuses_failed_file_job_and_outbox(
             _manager_actor(),
             file_id,
             FileRetryRequest(
-                row_version=row_version,
+                file_row_version=row_version,
                 job_id=uploaded.data.job_id,
+                job_row_version=job_row_version,
                 reason="人工确认依赖恢复后重试",
             ),
             "file-manage-retry-001",

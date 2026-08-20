@@ -1,0 +1,72 @@
+{
+  "acceptance_boundary": {
+    "business_representative": false,
+    "formal_ac": false,
+    "production": false,
+    "provider": false
+  },
+  "browser": {
+    "candidate_heading_visible": true,
+    "candidate_id_visible": true,
+    "console_warning_error_count": 0,
+    "pair_heading_visible": true,
+    "shared_identity_visible": true,
+    "source_id_visible": true,
+    "surface": "codex_in_app_browser",
+    "write_action_enabled": false
+  },
+  "cleanup": {
+    "browser_process_count_after_run": 0,
+    "docker_current_recheck": "passed_after_daemon_restart",
+    "managed_container_count_after_restart": 0,
+    "managed_network_count_after_restart": 0,
+    "managed_volume_count_after_restart": 0,
+    "managed_postgresql_cleanup": "passed_at_gate_exit",
+    "minio_data_volume": "preserved_by_existing_policy",
+    "minio_service_stop": "passed_at_gate_exit",
+    "port_listener_count_after_run": 0,
+    "test_tab_closed": true
+  },
+  "gates": {
+    "browser_dom": "passed",
+    "console": "passed",
+    "protected_completion": "passed",
+    "runtime": "passed"
+  },
+  "http_evidence": {
+    "completion_status": "accepted",
+    "distinct_required_read_count": 2,
+    "list_status": 200,
+    "pair_status": 200
+  },
+  "recorded_on": "2026-08-20",
+  "runtime_identity": {
+    "candidate_invoice_id": "7a000000-0000-4000-8000-00000000000a",
+    "http_port": 4711,
+    "postgresql_image_id": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+    "source_invoice_id": "7a000000-0000-4000-8000-000000000005"
+  },
+  "schema_version": "local-invoice-duplicate-browser-v1",
+  "source_binding": {
+    "entry_wrapper_bytes": 2563,
+    "entry_wrapper_path": "scripts/verify-invoice-duplicate-browser-gate.ps1",
+    "entry_wrapper_sha256": "f2d653209e21569fbd5908f5c30e0ec46a6dd192b7b5e41bbcc8a6f6aa46e42b",
+    "frontend_view_bytes": 27753,
+    "frontend_view_path": "frontend/src/views/InvoiceDetailView.vue",
+    "frontend_view_sha256": "fc0ef1b3dbb8480f0b7654fd9ae04329ec2f3ae142d5a9dbad669e87ad7fde6c",
+    "runner_bytes": 124977,
+    "runner_path": "backend/tests/manual_financial_read_browser.py",
+    "runner_sha256": "293ea481fec5a8a23dc7f63fd552afc4f2973bdd4bbc5edeb3f2d21ab85b5b8a",
+    "shared_wrapper_bytes": 18757,
+    "shared_wrapper_path": "scripts/verify-report-browser-gate.ps1",
+    "shared_wrapper_sha256": "ecc50c2d6f58740d4dc75ab7daa1717924c13ad70139181bdcf9bb85ae820170"
+  },
+  "workflow": [
+    "login",
+    "dashboard",
+    "invoice_list",
+    "source_invoice_detail",
+    "duplicate_candidate_list",
+    "exact_duplicate_pair"
+  ]
+}

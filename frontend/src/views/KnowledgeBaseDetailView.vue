@@ -15,6 +15,8 @@ import {
 } from '@/services/knowledge'
 import {
   policyApi,
+  type PendingPolicyRevocationItem,
+  type PendingPolicyRevocationListData,
   type PolicyCreateInput,
   type PolicyDocument,
   type PolicyListData,
@@ -26,6 +28,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const knowledgeBase = ref<KnowledgeBase | null>(null)
 const policyResult = ref<PolicyListData | null>(null)
+const pendingRevocations = ref<PendingPolicyRevocationListData | null>(null)
 const policyFiles = ref<FileListItem[]>([])
 const indexVersion = ref<KnowledgeIndexVersion | null>(null)
 const loading = ref(false)
@@ -34,6 +37,13 @@ const loadTraceId = ref('')
 const policyLoading = ref(false)
 const policyError = ref('')
 const policyTraceId = ref('')
+const pendingRevocationLoading = ref(false)
+const pendingRevocationError = ref('')
+const pendingRevocationTraceId = ref('')
+const currentPendingRevocationPage = ref(1)
+const requestedPendingRevocationPage = ref(1)
+const requestedPendingRevocationCursor = ref<string | undefined>()
+const pendingRevocationCursorStack = ref<Array<string | undefined>>([undefined])
 const currentPolicyPage = ref(1)
 const requestedPolicyPage = ref(1)
 const requestedPolicyCursor = ref<string | undefined>()
@@ -45,6 +55,7 @@ const mutationError = ref('')
 const mutationTraceId = ref('')
 const mutationSuccess = ref('')
 const transitionReasons = reactive<Record<string, string>>({})
+const revocationExecutionReasons = reactive<Record<string, string>>({})
 const createForm = reactive({
   sourceFileId: '',
   policyCode: '',
@@ -57,6 +68,7 @@ const createForm = reactive({
 const indexReason = ref('')
 let loadController: AbortController | null = null
 let policyController: AbortController | null = null
+let pendingRevocationController: AbortController | null = null
 let mutationController: AbortController | null = null
 let indexController: AbortController | null = null
 let pendingSignature = ''
@@ -66,6 +78,15 @@ const knowledgeBaseId = computed(() => typeof route.params.kbId === 'string' ? r
 const canSubmit = computed(() => auth.hasAllPermissions(['knowledge.submit']))
 const canApprove = computed(() => auth.hasAllPermissions(['knowledge.approve']))
 const canPublish = computed(() => auth.hasAllPermissions(['knowledge.publish']))
+const canRequestRevocation = computed(
+  () => canApprove.value && auth.user?.roles.includes('audit_reviewer') === true,
+)
+const canExecuteRevocation = computed(
+  () => canPublish.value && auth.user?.roles.includes('system_admin') === true,
+)
+const canReadPendingRevocations = computed(
+  () => canRequestRevocation.value || canExecuteRevocation.value,
+)
 const tabs = computed(() => [
   { id: 'overview', label: '概览' },
   { id: 'policies', label: '制度文档', count: policyResult.value?.items.length },
@@ -159,6 +180,46 @@ async function loadPolicyPage(cursor: string | undefined, page: number): Promise
   }
 }
 
+async function loadPendingRevocationPage(
+  cursor: string | undefined,
+  page: number,
+): Promise<void> {
+  pendingRevocationController?.abort()
+  pendingRevocations.value = null
+  pendingRevocationError.value = ''
+  pendingRevocationTraceId.value = ''
+  requestedPendingRevocationCursor.value = cursor
+  requestedPendingRevocationPage.value = page
+  const targetId = knowledgeBaseId.value
+  if (!canReadPendingRevocations.value || !UUID_PATTERN.test(targetId)) return
+  const controller = new AbortController()
+  pendingRevocationController = controller
+  pendingRevocationLoading.value = true
+  try {
+    const response = await policyApi.listPendingRevocations(targetId, 50, cursor, controller.signal)
+    if (
+      pendingRevocationController === controller &&
+      !controller.signal.aborted &&
+      knowledgeBaseId.value === targetId
+    ) {
+      pendingRevocations.value = response
+      currentPendingRevocationPage.value = page
+    }
+  } catch (error) {
+    if (pendingRevocationController !== controller || controller.signal.aborted) return
+    pendingRevocationTraceId.value = error instanceof ApiError ? error.traceId : ''
+    pendingRevocationError.value =
+      error instanceof ApiError && error.status === 403
+        ? '当前账号无权读取制度撤销待办。'
+        : '制度撤销待办加载失败，请稍后重试。'
+  } finally {
+    if (pendingRevocationController === controller) {
+      pendingRevocationController = null
+      pendingRevocationLoading.value = false
+    }
+  }
+}
+
 async function loadPolicyFiles(): Promise<void> {
   if (!canSubmit.value || !UUID_PATTERN.test(knowledgeBaseId.value)) return
   try {
@@ -208,6 +269,23 @@ function previousPolicyPage(): void {
   const page = currentPolicyPage.value - 1
   policyCursorStack.value = policyCursorStack.value.slice(0, page)
   void loadPolicyPage(policyCursorStack.value[page - 1], page)
+}
+
+function nextPendingRevocationPage(): void {
+  if (!pendingRevocations.value?.nextCursor) return
+  const cursor = pendingRevocations.value.nextCursor
+  pendingRevocationCursorStack.value = [
+    ...pendingRevocationCursorStack.value.slice(0, currentPendingRevocationPage.value),
+    cursor,
+  ]
+  void loadPendingRevocationPage(cursor, currentPendingRevocationPage.value + 1)
+}
+
+function previousPendingRevocationPage(): void {
+  if (currentPendingRevocationPage.value <= 1) return
+  const page = currentPendingRevocationPage.value - 1
+  pendingRevocationCursorStack.value = pendingRevocationCursorStack.value.slice(0, page)
+  void loadPendingRevocationPage(pendingRevocationCursorStack.value[page - 1], page)
 }
 
 function nextIdempotencyKey(signature: string, prefix: string): string {
@@ -311,6 +389,94 @@ async function transitionPolicy(policy: PolicyDocument, action: 'submit-review' 
   }
 }
 
+async function requestPolicyRevocation(policy: PolicyDocument): Promise<void> {
+  const reason = (transitionReasons[policy.id] ?? '').trim()
+  if (!canRequestRevocation.value || !reason || mutating.value) return
+  const signature = JSON.stringify({
+    action: 'request-revocation',
+    policyId: policy.id,
+    rowVersion: policy.rowVersion,
+    reason,
+  })
+  resetMutationMessages()
+  const controller = new AbortController()
+  mutationController = controller
+  mutating.value = true
+  try {
+    await policyApi.requestRevocation(
+      policy.id,
+      policy.rowVersion,
+      reason,
+      nextIdempotencyKey(signature, 'policy-revocation-request'),
+      controller.signal,
+    )
+    if (mutationController !== controller || controller.signal.aborted) return
+    pendingSignature = ''
+    pendingIdempotencyKey = ''
+    transitionReasons[policy.id] = ''
+    await loadPendingRevocationPage(undefined, 1)
+    mutationSuccess.value = `制度 ${policy.policyCode} 的撤销确认已提交，等待系统管理员独立执行。`
+  } catch (error) {
+    if (mutationController === controller && !controller.signal.aborted) formatMutationError(error)
+  } finally {
+    if (mutationController === controller) {
+      mutationController = null
+      mutating.value = false
+    }
+  }
+}
+
+async function revokePolicy(request: PendingPolicyRevocationItem): Promise<void> {
+  const reason = (revocationExecutionReasons[request.revocationRequestId] ?? '').trim()
+  if (
+    !canExecuteRevocation.value ||
+    !reason ||
+    mutating.value
+  ) return
+  const signature = JSON.stringify({
+    action: 'revoke',
+    policyId: request.policyId,
+    rowVersion: request.policyRowVersion,
+    revocationRequestId: request.revocationRequestId,
+    reason,
+  })
+  resetMutationMessages()
+  const controller = new AbortController()
+  mutationController = controller
+  mutating.value = true
+  try {
+    const response = await policyApi.revoke(
+      request.policyId,
+      request.policyRowVersion,
+      request.revocationRequestId,
+      reason,
+      nextIdempotencyKey(signature, 'policy-revoke'),
+      controller.signal,
+    )
+    if (mutationController !== controller || controller.signal.aborted) return
+    pendingSignature = ''
+    pendingIdempotencyKey = ''
+    revocationExecutionReasons[request.revocationRequestId] = ''
+    mutationSuccess.value = `制度 ${response.policy.policyCode} 已撤销，新检索将立即排除该制度。`
+    if (policyResult.value) {
+      policyResult.value = {
+        ...policyResult.value,
+        items: policyResult.value.items.map((item) =>
+          item.id === response.policy.id ? response.policy : item,
+        ),
+      }
+    }
+    await loadPendingRevocationPage(undefined, 1)
+  } catch (error) {
+    if (mutationController === controller && !controller.signal.aborted) formatMutationError(error)
+  } finally {
+    if (mutationController === controller) {
+      mutationController = null
+      mutating.value = false
+    }
+  }
+}
+
 async function buildIndex(): Promise<void> {
   if (!canPublish.value || mutating.value) return
   const signature = JSON.stringify({ action: 'build-index', knowledgeBaseId: knowledgeBaseId.value })
@@ -383,7 +549,14 @@ async function activateIndex(): Promise<void> {
 async function loadAll(): Promise<void> {
   policyCursorStack.value = [undefined]
   currentPolicyPage.value = 1
-  await Promise.all([loadKnowledgeBase(), loadPolicyPage(undefined, 1), loadPolicyFiles()])
+  pendingRevocationCursorStack.value = [undefined]
+  currentPendingRevocationPage.value = 1
+  await Promise.all([
+    loadKnowledgeBase(),
+    loadPolicyPage(undefined, 1),
+    loadPendingRevocationPage(undefined, 1),
+    loadPolicyFiles(),
+  ])
   await loadIndexFromRoute()
 }
 
@@ -392,6 +565,7 @@ watch(() => route.query.index_version_id, loadIndexFromRoute)
 onUnmounted(() => {
   loadController?.abort()
   policyController?.abort()
+  pendingRevocationController?.abort()
   mutationController?.abort()
   indexController?.abort()
 })
@@ -429,10 +603,68 @@ onUnmounted(() => {
           </form>
         </SectionCard>
 
+        <SectionCard v-if="canReadPendingRevocations" title="撤销待执行请求" description="只展示仍为 published 且尚未执行的最小技术元数据；执行时后端重新校验职责分离和数据版本。" compact>
+          <div v-if="pendingRevocationLoading" role="status" aria-live="polite">正在加载制度撤销待办…</div>
+          <div v-else-if="pendingRevocationError" class="callout callout-danger" role="alert"><div><strong>{{ pendingRevocationError }}</strong><span v-if="pendingRevocationTraceId" class="mono-text"> Trace ID：{{ pendingRevocationTraceId }}</span></div><div class="form-actions"><button class="button button-secondary" type="button" @click="loadPendingRevocationPage(requestedPendingRevocationCursor, requestedPendingRevocationPage)">重试</button></div></div>
+          <div v-else-if="pendingRevocations?.items.length" class="data-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>制度</th><th>请求时间</th><th>请求人</th><th>数据版本</th><th>独立执行</th></tr></thead>
+              <tbody>
+                <tr v-for="request in pendingRevocations.items" :key="request.revocationRequestId">
+                  <td><span class="table-primary"><strong>{{ request.policyName }}</strong><span class="mono-text">{{ request.policyCode }} · {{ request.policyId }}</span></span></td>
+                  <td class="numeric-text">{{ request.requestedAt }}</td>
+                  <td class="mono-text">{{ request.requestedBy }}</td>
+                  <td class="numeric-text">{{ request.policyRowVersion }}</td>
+                  <td>
+                    <form v-if="canExecuteRevocation" class="page-stack" :data-testid="`revoke-policy-form-${request.policyId}`" @submit.prevent="revokePolicy(request)">
+                      <input v-model="revocationExecutionReasons[request.revocationRequestId]" :aria-label="`${request.policyCode} 撤销执行原因`" placeholder="填写独立执行原因" maxlength="1000" required />
+                      <button class="button button-danger button-small" type="submit" :data-testid="`revoke-policy-${request.policyId}`" :disabled="mutating || !(revocationExecutionReasons[request.revocationRequestId] || '').trim()">执行撤销</button>
+                    </form>
+                    <span v-else>等待系统管理员执行</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="empty-inline">当前没有待执行的制度撤销请求。</div>
+          <div v-if="pendingRevocations" class="pager"><span>第 {{ currentPendingRevocationPage }} 页 · 每页 {{ pendingRevocations.pageSize }} 条</span><div class="pager-buttons"><button type="button" aria-label="撤销待办上一页" :disabled="currentPendingRevocationPage <= 1 || pendingRevocationLoading" @click="previousPendingRevocationPage">‹</button><button type="button" aria-current="page" disabled>{{ currentPendingRevocationPage }}</button><button type="button" aria-label="撤销待办下一页" :disabled="!pendingRevocations.nextCursor || pendingRevocationLoading" @click="nextPendingRevocationPage">›</button></div></div>
+        </SectionCard>
+
         <div v-if="policyLoading" class="section-card" role="status" aria-live="polite">正在加载制度文档…</div>
         <SectionCard v-else-if="policyError" title="无法显示制度文档"><div class="callout callout-danger" role="alert"><div><strong>{{ policyError }}</strong><span v-if="policyTraceId" class="mono-text"> Trace ID：{{ policyTraceId }}</span></div></div><div class="form-actions"><button class="button button-primary" type="button" @click="loadPolicyPage(requestedPolicyCursor, requestedPolicyPage)">重试</button></div></SectionCard>
-        <SectionCard v-else-if="policyResult" title="制度文档" description="业务审批与技术发布保持独立状态；职责分离由后端强制。" compact>
-          <div v-if="policyResult.items.length" class="data-table-wrap"><table class="data-table"><thead><tr><th>制度</th><th>版本 / 生效期</th><th>状态</th><th>来源</th><th>数据版本</th><th>人工动作</th></tr></thead><tbody><tr v-for="policy in policyResult.items" :key="policy.id"><td><span class="table-primary"><strong>{{ policy.name }}</strong><span class="mono-text">{{ policy.policyCode }} · {{ policy.id }}</span></span></td><td><span class="table-primary"><strong>{{ policy.version }}</strong><span>{{ policy.effectiveFrom }} 至 {{ policy.effectiveTo || '长期' }}</span></span></td><td><StatusTag :status="policy.status" :label="policyStatusLabel(policy.status)" /></td><td><RouterLink class="text-link mono-text" :to="{ name: 'file-detail', params: { fileId: policy.sourceFileId } }">{{ policy.sourceFileId }}</RouterLink></td><td class="numeric-text">{{ policy.rowVersion }}</td><td><div v-if="(policy.status === 'draft' && canSubmit) || (policy.status === 'submitted' && canApprove) || (policy.status === 'business_approved' && canPublish)" class="page-stack"><input v-model="transitionReasons[policy.id]" :aria-label="`${policy.policyCode} 操作原因`" placeholder="填写操作原因" maxlength="1000" /><button v-if="policy.status === 'draft' && canSubmit" class="button button-secondary button-small" type="button" :data-testid="`submit-policy-${policy.id}`" :disabled="mutating || !(transitionReasons[policy.id] || '').trim()" @click="transitionPolicy(policy, 'submit-review')">提交审批</button><button v-if="policy.status === 'submitted' && canApprove" class="button button-secondary button-small" type="button" :disabled="mutating || !(transitionReasons[policy.id] || '').trim()" @click="transitionPolicy(policy, 'approve')">业务批准</button><button v-if="policy.status === 'business_approved' && canPublish" class="button button-primary button-small" type="button" :disabled="mutating || !(transitionReasons[policy.id] || '').trim()" @click="transitionPolicy(policy, 'publish')">技术发布</button></div><span v-else>—</span></td></tr></tbody></table></div>
+        <SectionCard v-else-if="policyResult" title="制度文档" description="业务审批、撤销确认与技术执行保持独立；职责分离由后端强制。" compact>
+          <div v-if="policyResult.items.length" class="data-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>制度</th><th>版本 / 生效期</th><th>状态</th><th>来源</th><th>数据版本</th><th>人工动作</th></tr></thead>
+              <tbody>
+                <tr v-for="policy in policyResult.items" :key="policy.id">
+                  <td><span class="table-primary"><strong>{{ policy.name }}</strong><span class="mono-text">{{ policy.policyCode }} · {{ policy.id }}</span></span></td>
+                  <td><span class="table-primary"><strong>{{ policy.version }}</strong><span>{{ policy.effectiveFrom }} 至 {{ policy.effectiveTo || '长期' }}</span></span></td>
+                  <td><span class="table-primary"><StatusTag :status="policy.status" :label="policyStatusLabel(policy.status)" /><span v-if="policy.revokeReason">{{ policy.revokeReason }}</span></span></td>
+                  <td><RouterLink class="text-link mono-text" :to="{ name: 'file-detail', params: { fileId: policy.sourceFileId } }">{{ policy.sourceFileId }}</RouterLink></td>
+                  <td class="numeric-text">{{ policy.rowVersion }}</td>
+                  <td>
+                    <div
+                      v-if="
+                        (policy.status === 'draft' && canSubmit) ||
+                        (policy.status === 'submitted' && canApprove) ||
+                        (policy.status === 'business_approved' && canPublish) ||
+                        (policy.status === 'published' && canRequestRevocation)
+                      "
+                      class="page-stack"
+                    >
+                      <input v-model="transitionReasons[policy.id]" :aria-label="`${policy.policyCode} 操作原因`" placeholder="填写操作原因" maxlength="1000" />
+                      <button v-if="policy.status === 'draft' && canSubmit" class="button button-secondary button-small" type="button" :data-testid="`submit-policy-${policy.id}`" :disabled="mutating || !(transitionReasons[policy.id] || '').trim()" @click="transitionPolicy(policy, 'submit-review')">提交审批</button>
+                      <button v-if="policy.status === 'submitted' && canApprove" class="button button-secondary button-small" type="button" :disabled="mutating || !(transitionReasons[policy.id] || '').trim()" @click="transitionPolicy(policy, 'approve')">业务批准</button>
+                      <button v-if="policy.status === 'business_approved' && canPublish" class="button button-primary button-small" type="button" :disabled="mutating || !(transitionReasons[policy.id] || '').trim()" @click="transitionPolicy(policy, 'publish')">技术发布</button>
+                      <button v-if="policy.status === 'published' && canRequestRevocation" class="button button-secondary button-small" type="button" :data-testid="`request-policy-revocation-${policy.id}`" :disabled="mutating || !(transitionReasons[policy.id] || '').trim()" @click="requestPolicyRevocation(policy)">提交撤销确认</button>
+                    </div>
+                    <span v-else>—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div v-else class="empty-inline">当前页没有制度文档。</div>
           <div class="pager"><span>第 {{ currentPolicyPage }} 页 · 每页 {{ policyResult.pageSize }} 条</span><div class="pager-buttons"><button type="button" aria-label="制度上一页" :disabled="currentPolicyPage <= 1 || policyLoading" @click="previousPolicyPage">‹</button><button type="button" aria-current="page" disabled>{{ currentPolicyPage }}</button><button type="button" aria-label="制度下一页" :disabled="!policyResult.nextCursor || policyLoading" @click="nextPolicyPage">›</button></div></div>
         </SectionCard>

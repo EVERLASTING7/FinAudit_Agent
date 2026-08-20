@@ -6,14 +6,15 @@ from datetime import datetime
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_, select, update
+from sqlalchemy.orm import Session, aliased
 
 from app.models.auth import Organization
 from app.models.documents import FilePrimaryBusinessObject, FileRecord, KnowledgeBase
 from app.models.knowledge import (
     DocumentChunkSet,
     DocumentMarkdownVersion,
+    PolicyApprovalRecord,
     PolicyDocument,
 )
 from app.repositories.user_write import IdempotencyClaim, UserWriteRepository
@@ -116,6 +117,70 @@ class PolicyWriteRepository:
             statement = statement.where(PolicyDocument.status == "published")
         return self._session.scalar(statement)
 
+    def get_knowledge_base(
+        self,
+        organization_id: UUID,
+        knowledge_base_id: UUID,
+    ) -> KnowledgeBase | None:
+        return self._session.scalar(
+            select(KnowledgeBase).where(
+                KnowledgeBase.id == knowledge_base_id,
+                KnowledgeBase.organization_id == organization_id,
+                KnowledgeBase.deleted_at.is_(None),
+            )
+        )
+
+    def list_pending_revocations(
+        self,
+        organization_id: UUID,
+        knowledge_base_id: UUID,
+        cursor_created_at: datetime | None,
+        cursor_id: UUID | None,
+        limit: int,
+    ) -> tuple[tuple[PolicyApprovalRecord, PolicyDocument], ...]:
+        execution = aliased(PolicyApprovalRecord)
+        execution_exists = (
+            select(execution.id)
+            .where(
+                execution.action == "revoke",
+                execution.related_record_id == PolicyApprovalRecord.id,
+            )
+            .exists()
+        )
+        statement = (
+            select(PolicyApprovalRecord, PolicyDocument)
+            .join(PolicyDocument, PolicyDocument.id == PolicyApprovalRecord.policy_document_id)
+            .where(
+                PolicyDocument.organization_id == organization_id,
+                PolicyDocument.knowledge_base_id == knowledge_base_id,
+                PolicyDocument.status == "published",
+                PolicyDocument.deleted_at.is_(None),
+                PolicyApprovalRecord.action == "revoke_request",
+                PolicyApprovalRecord.to_status == "revoked",
+                PolicyApprovalRecord.related_record_id.is_(None),
+                ~execution_exists,
+            )
+        )
+        if cursor_created_at is not None and cursor_id is not None:
+            statement = statement.where(
+                or_(
+                    PolicyApprovalRecord.created_at > cursor_created_at,
+                    (
+                        (PolicyApprovalRecord.created_at == cursor_created_at)
+                        & (PolicyApprovalRecord.id > cursor_id)
+                    ),
+                )
+            )
+        return tuple(
+            (request, policy)
+            for request, policy in self._session.execute(
+                statement.order_by(
+                    PolicyApprovalRecord.created_at,
+                    PolicyApprovalRecord.id,
+                ).limit(limit)
+            ).all()
+        )
+
     def lock_knowledge_base(
         self, organization_id: UUID, knowledge_base_id: UUID
     ) -> KnowledgeBase | None:
@@ -167,6 +232,38 @@ class PolicyWriteRepository:
             )
             .with_for_update(of=PolicyDocument)
         ).scalar_one_or_none()
+
+    def revocation_request(self, policy_document_id: UUID) -> PolicyApprovalRecord | None:
+        return self._session.scalar(
+            select(PolicyApprovalRecord).where(
+                PolicyApprovalRecord.policy_document_id == policy_document_id,
+                PolicyApprovalRecord.action == "revoke_request",
+            )
+        )
+
+    def lock_revocation_request(
+        self,
+        policy_document_id: UUID,
+        revocation_request_id: UUID,
+    ) -> PolicyApprovalRecord | None:
+        return self._session.execute(
+            select(PolicyApprovalRecord)
+            .where(
+                PolicyApprovalRecord.id == revocation_request_id,
+                PolicyApprovalRecord.policy_document_id == policy_document_id,
+                PolicyApprovalRecord.action == "revoke_request",
+                PolicyApprovalRecord.to_status == "revoked",
+            )
+            .with_for_update(of=PolicyApprovalRecord)
+        ).scalar_one_or_none()
+
+    def revocation_execution(self, revocation_request_id: UUID) -> PolicyApprovalRecord | None:
+        return self._session.scalar(
+            select(PolicyApprovalRecord).where(
+                PolicyApprovalRecord.related_record_id == revocation_request_id,
+                PolicyApprovalRecord.action == "revoke",
+            )
+        )
 
     def active_chunk_set(self, policy_document_id: UUID) -> DocumentChunkSet | None:
         return self._session.scalar(

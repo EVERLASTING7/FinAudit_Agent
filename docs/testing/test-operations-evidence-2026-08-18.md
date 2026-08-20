@@ -15,15 +15,16 @@ YHBX 已据此选择 CR-025 Local MVP 路线；应用发布决定记录于 `docs
 - `scripts/verify-local-stack.ps1 -SecurityBaseline`：在既有安全门禁上新增受管 metrics、日志策略和 Worker PID 1 `SIGTERM → RestartCount + 1 → dependency-ready` 自动重启证据。
 - `frontend/docker/nginx.conf`：metrics 精确 location 隐藏 Backend 的 `X-Content-Type-Options`，由 Nginx 统一输出单一 `nosniff`；真实运行先复现重复头，再以失败回归修复。
 - `scripts/audit_local_backups.py`：纯标准库、只读核验备份 manifest、UTC 时间、唯一 ID、Secret 排除、文件闭集、字节数、SHA-256、新鲜度、最小份数与保留期候选；固定输出 `LOCAL_BACKUP_MUTATION=NONE`。
-- `backend/tests/unit/test_openapi_operation_coverage.py`：当前 89 个 `/api/v1` operationId 必须唯一，且每个都由至少一份 Backend 测试源码显式冻结。补齐 Auth 5 个、知识评测 4 个和供应商详情 1 个此前未固定的身份。
+- `backend/tests/unit/test_openapi_operation_coverage.py`：当前 92 个 `/api/v1` operationId 必须唯一，且每个都由至少一份 Backend 测试源码显式冻结；CR-005-R2 新增的纠错、独立激活和安全重评三个 identity 均已纳入。
 
 ## 3. 当前命令与结果
 
 | 门禁 | 当前结果 | 证据边界 |
 |---|---|---|
-| `scripts/verify-local-offline.ps1` | `LOCAL_OFFLINE_QUALITY=PASS`；Backend `3063 passed / 142 skipped / 1 warning`；Ruff `497 files`；mypy `271 sources`；Frontend `26 files / 527 tests / 147 modules` | PostgreSQL、Compose、浏览器、Provider、remote、production 在该离线包装器中按设计 `NOT_RUN` |
+| `scripts/verify-local-offline.ps1` | `LOCAL_OFFLINE_QUALITY=PASS`；Backend `3093 passed / 146 skipped / 1 warning`；Ruff `516 files`；mypy `283 sources`；Frontend `28 files / 536 tests / 151 modules` | PostgreSQL、Compose、浏览器、Provider、remote、production 在该离线包装器中按设计 `NOT_RUN` |
 | GitHub remote 发布核验 | `origin` 指向 `EVERLASTING7/FinAudit_Agent`；`release/local-mvp-0.1.0` 已普通 push；核验基准提交 `ccf2fa09a77d9d3697b3dcc47cb18d6c84ace7a8` 的本地/远程 SHA 一致；当时为唯一/default 分支，`protected=false`、Rulesets 为 0 | 证明源码分支已发布并完成只读状态核验；不代表保护规则、远程 CI、tag、GitHub Release 或 production 已完成 |
-| `scripts/verify-postgresql-current-head.ps1 -Scope Full` | PostgreSQL `16.14`，完整 `149/149 × 2`，两轮 `status=ok`，`POSTGRESQL_CURRENT_HEAD=PASS` | 专用可丢弃数据库；不等于 production migration |
+| `scripts/verify-postgresql-current-head.ps1 -Scope Full` | current head `20260818_027`、PostgreSQL `16.14` 完整 `153/153 × 2`，两轮 `status=ok`，`POSTGRESQL_CURRENT_HEAD=PASS` | 覆盖 025/026/027、历史迁移、并发和故障注入；专用可丢弃数据库不等于 production migration |
+| `scripts/verify-postgresql-current-head.ps1 -Scope File/Audit/Retrieval` | current head 027 分别 `16 / 4 / 10 passed`；覆盖 fixed_test Asset 重评、CR-027 retry/cancel 和 CR-028 policy revoke | fixed_test 仅隔离合成；Provider、真实 Scanner/MinIO Asset、production 和真实数据迁移未运行 |
 | `scripts/verify-local-celery-redis.ps1` | `4 passed`，`CELERY_REDIS_BROKER_TRANSPORT=PASS` | 锁定 Redis 7.4.9；残留容器 0 |
 | `verify-local-stack.ps1 -ProjectName finaudit-local -OperationsReadiness` | dependency、bounded logging、restart policy、metrics runtime 全部 PASS | 当前持久 Local MVP；非 production 监控平台 |
 | `audit_local_backups.py` | 完整备份 `4`，发布前最新备份目录 `20260818T052018Z`、ID `b94b77a1-1221-49bf-af87-927f97cb3300`，`LOCAL_BACKUP_AUDIT=PASS` | 只读巡检；不自动删除或调度 |
@@ -40,7 +41,7 @@ YHBX 已据此选择 CR-025 Local MVP 路线；应用发布决定记录于 `docs
 |---|---|---|
 | TEST-001 | 当前离线、PostgreSQL 双轮、Redis/Celery、浏览器、Compose/恢复和远程分支发布证据已重新绑定 | 业务代表性审批集、全量正式 AC、production、远程分支保护与 CI |
 | TEST-002 | 全量 Backend 单元套件与确定性指标继续 PASS | 经审批代表性合同/发票输入未提供，正式指标未运行 |
-| TEST-003 | 89 个 `/api/v1` operationId 全覆盖 meta-gate，遗漏数 0 | 正式 AC API 验收仍未签署 |
+| TEST-003 | 98 个 `/api/v1` operationId 全覆盖 meta-gate，唯一数 98、遗漏数 0；CR-005/027/028 delta 为 `+3/+1/+2` | CR-027/028 R1 的绝对 pre-count 92 遗漏三个已授权 CR-005 operation，已记录为签署历史漂移；正式 AC API 验收仍未签署 |
 | TEST-004 | 当前代码完整财务浏览器闭环与五角色矩阵 PASS | 代表性业务 UAT、全路由无障碍、production |
 | TEST-005 | `CR-026` 新授权的 local/test 批量复核以 5 次请求、4971 input tokens、CNY 0.002486 得到 49/50 与授权泄露 0；Event v2 completion 事务采用、失败即停和零残留通过 | `ai_call_logs` 后置投影核对因质量失败未运行；1 个 no-answer 假阳性使 50 条门禁 FAILED，100 条与激活未运行，业务代表性 50/100 集未批准 |
 | TEST-006 | 当前 HTTP 安全基线、metrics、Prompt Injection、审计回滚和容器策略 PASS | 正式 DAST、非 loopback 传输、production |

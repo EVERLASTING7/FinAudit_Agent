@@ -235,6 +235,10 @@ backend\.venv\Scripts\python.exe -m pytest -q backend\tests\unit\test_synthetic_
 
 `accept` 只表示文件满足固定清单、路径、长度、哈希及最低 PDF/DOCX/PNG/JPEG 包络，不表示解析、OCR 或业务提取成功。故意负例被准确归类时，整体资产门禁可以通过。仓库二进制样本额外受 1 MiB 小型资产上限约束；该约束不替代 API 的默认单文件 50 MB 门禁。
 
+DOC-002 解析器回归会直接读取 `pdf-damaged.pdf` 与 `pdf-encrypted.pdf`，并在内存中确定性生成八类 DOCX 负例：截断 ZIP、缺主部件、坏 XML、非 `w:document` 根、重复主部件、加密主部件、未知压缩和压缩率超限；另以受控 `PdfReader` double 生成 NaN、Infinity、零、负 MediaBox 及 NUL/孤立 surrogate 文本。生成值不落盘、不进入业务数据，也不替代代表性多格式或容量语料。
+
+DOC-003 另以内存 `OcrPage/OcrLine` double 固定七类不可信 Adapter 输出：NaN 页置信度、Infinity 行置信度、零宽度、空 engine identity、空行、负 bbox 与越界 bbox；同一负例必须在图像与扫描 PDF 两条采用路径返回非重试 `OCR_OUTPUT_INVALID`，不落库、不回显原始 OCR 输出。
+
 manifest 类型门禁要求根、JSON 数据集和每个二进制条目的 `synthetic` 都是 JSON Boolean `true`，二进制 `size_bytes` 是 JSON 整数，`related_fixture_ids` 与 `task_ids` 是 JSON 数组；PowerShell 的字符串/数值宽松比较或单元素数组展开不得绕过这些约束。
 
 二进制内容安全来自可审查的确定性生成代码、固定输入和显著合成标记；`synthetic: true`、哈希或文件头检查本身都不是“无敏感数据”或恶意文件扫描证明。

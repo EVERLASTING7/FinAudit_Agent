@@ -22,13 +22,22 @@ from app.models.reliability import (
     OutboxEvent,
 )
 from app.repositories.document_processing import (
+    AssetRevalidationSnapshotError,
+    AssetRevalidationWrite,
     DocumentProcessingRepository,
+    ManualCorrectionSnapshotError,
     ParseBlockWrite,
     ParsePageWrite,
     ParseVersionWrite,
 )
 from app.repositories.job_runtime import ClaimedJob, FileRuntimeSource, JobRuntimeRepository
 from app.repositories.markdown_write import MarkdownWriteRepository
+from app.security.asset_runtime_storage import (
+    AssetRuntimeStorage,
+    AssetRuntimeStorageError,
+)
+from app.security.fixed_test_asset_scanner import AssetSecurityScanner
+from app.security.scanner_registry import AssetScannerTarget
 from app.services.document_parser import DocumentParseError, DocumentParser, ParsedDocument
 from app.workers.contract_handler_registry import (
     CONTRACT_INPUT_SCHEMA_VERSION,
@@ -147,6 +156,8 @@ class FileJobExecutor:
         *,
         max_file_bytes: int,
         heartbeat_interval_seconds: float = 20,
+        asset_storage: AssetRuntimeStorage | None = None,
+        asset_scanner: AssetSecurityScanner | None = None,
     ) -> None:
         if max_file_bytes <= 0 or not 0 < heartbeat_interval_seconds < 60:
             raise ValueError("invalid file job runtime limits")
@@ -156,6 +167,8 @@ class FileJobExecutor:
         self._parser = parser
         self._max_file_bytes = max_file_bytes
         self._heartbeat_interval = heartbeat_interval_seconds
+        self._asset_storage = asset_storage
+        self._asset_scanner = asset_scanner
 
     def execute(
         self,
@@ -178,12 +191,25 @@ class FileJobExecutor:
                 handler.validate_input(snapshot.input_json)
             except (HandlerRegistryError, ValueError):
                 raise FileJobExecutionError("HANDLER_REGISTRY_INVALID") from None
-            if (
+            is_manual_correction = snapshot.job_type == "manual_correction_snapshot"
+            is_asset_revalidation = snapshot.job_type == "asset_security_revalidation"
+            is_document_rebuild = is_manual_correction or is_asset_revalidation
+            registry_mismatch = (
+                snapshot.handler_registry_version != handler.registry_version
+                or snapshot.handler_registry_hash != handler.registry_hash
+                or snapshot.max_attempts != handler.handler.max_attempts
+            )
+            file_identity_invalid = (
                 snapshot.job_type not in {"file_process", "file_scan"}
                 or snapshot.resource_type != "file"
-                or snapshot.handler_registry_version != handler.registry_version
-                or snapshot.handler_registry_hash != handler.registry_hash
                 or snapshot.input_json.get("file_id") != str(snapshot.resource_id)
+            )
+            correction_identity_invalid = (
+                snapshot.resource_type != "document_parse_version"
+                or snapshot.input_json.get("result_parse_version_id") != str(snapshot.resource_id)
+            )
+            if registry_mismatch or (
+                correction_identity_invalid if is_document_rebuild else file_identity_invalid
             ):
                 raise FileJobExecutionError("HANDLER_REGISTRY_INVALID")
             start_step_seq = next(
@@ -205,10 +231,15 @@ class FileJobExecutor:
             )
             if claim is None:
                 return FileJobExecutionResult("duplicate_or_stale", job_id)
-            source = repository.file_runtime_source(claim)
-            if source is None:
+            source = None if is_document_rebuild else repository.file_runtime_source(claim)
+            if not is_document_rebuild and source is None:
                 raise FileJobExecutionError("FILE_RUNTIME_SOURCE_MISSING")
 
+        if is_manual_correction:
+            return self._execute_manual_correction_snapshot(claim, handler=handler)
+        if is_asset_revalidation:
+            return self._execute_asset_security_revalidation(claim, handler=handler)
+        assert source is not None
         return self._execute_claimed(claim, source, handler=handler)
 
     def execute_claimed(self, claim: ClaimedJob) -> FileJobExecutionResult:
@@ -220,16 +251,248 @@ class FileJobExecutor:
             handler.validate_input(claim.job.input_json)
         except (HandlerRegistryError, ValueError):
             raise FileJobExecutionError("HANDLER_REGISTRY_INVALID") from None
+        is_manual_correction = claim.job.job_type == "manual_correction_snapshot"
+        is_asset_revalidation = claim.job.job_type == "asset_security_revalidation"
+        is_document_rebuild = is_manual_correction or is_asset_revalidation
         if (
-            claim.job.job_type not in {"file_process", "file_scan"}
-            or claim.job.resource_type != "file"
-            or claim.job.handler_registry_version != handler.registry_version
+            claim.job.handler_registry_version != handler.registry_version
             or claim.job.handler_registry_hash != handler.registry_hash
-            or claim.job.input_json.get("file_id") != str(claim.job.resource_id)
+            or claim.job.max_attempts != handler.handler.max_attempts
+            or (
+                claim.job.resource_type != "document_parse_version"
+                or claim.job.input_json.get("result_parse_version_id") != str(claim.job.resource_id)
+                if is_document_rebuild
+                else claim.job.job_type not in {"file_process", "file_scan"}
+                or claim.job.resource_type != "file"
+                or claim.job.input_json.get("file_id") != str(claim.job.resource_id)
+            )
         ):
             raise FileJobExecutionError("HANDLER_REGISTRY_INVALID")
+        if is_manual_correction:
+            return self._execute_manual_correction_snapshot(claim, handler=handler)
+        if is_asset_revalidation:
+            return self._execute_asset_security_revalidation(claim, handler=handler)
         source = self._load_source(claim)
         return self._execute_claimed(claim, source, handler=handler)
+
+    def _execute_manual_correction_snapshot(
+        self,
+        claim: ClaimedJob,
+        *,
+        handler: FileHandlerRuntime,
+    ) -> FileJobExecutionResult:
+        if claim.step_code != "snapshot_rebuild":
+            raise FileJobExecutionError("HANDLER_STEP_INVALID")
+        input_json = claim.job.input_json
+        try:
+            file_id = UUID(cast(str, input_json["file_id"]))
+            source_parse_version_id = UUID(cast(str, input_json["source_parse_version_id"]))
+            result_parse_version_id = UUID(cast(str, input_json["result_parse_version_id"]))
+            correction_id = UUID(cast(str, input_json["correction_id"]))
+        except (KeyError, TypeError, ValueError):
+            raise FileJobExecutionError("HANDLER_REGISTRY_INVALID") from None
+
+        current_claim = claim
+        deterministic_failure: ManualCorrectionSnapshotError | None = None
+        try:
+            with self._session_factory.begin() as session:
+                lease = _LeaseKeeper(
+                    self._session_factory,
+                    claim,
+                    interval_seconds=self._heartbeat_interval,
+                )
+                with lease:
+                    try:
+                        result = DocumentProcessingRepository(
+                            session
+                        ).rebuild_manual_correction_snapshot(
+                            organization_id=claim.job.organization_id,
+                            file_id=file_id,
+                            source_parse_version_id=source_parse_version_id,
+                            result_parse_version_id=result_parse_version_id,
+                            correction_id=correction_id,
+                            trace_id=claim.job.trace_id,
+                        )
+                    except ManualCorrectionSnapshotError as error:
+                        deterministic_failure = error
+                current_claim = lease.claim()
+                if deterministic_failure is not None:
+                    raise deterministic_failure
+                summary: dict[str, object] = {
+                    "correction_id": str(result.correction_id),
+                    "result_parse_version_id": str(result.result_parse_version_id),
+                    "page_count": result.page_count,
+                    "block_count": result.block_count,
+                }
+                handler.validate_summary("snapshot_rebuild", summary)
+                if not JobRuntimeRepository(session).finish_job(
+                    current_claim,
+                    status="succeeded",
+                    summary=summary,
+                ):
+                    raise FileJobExecutionError("JOB_FENCING_REJECTED")
+        except ManualCorrectionSnapshotError as error:
+            with self._session_factory.begin() as session:
+                repository = DocumentProcessingRepository(session)
+                if not repository.mark_manual_correction_failed(
+                    organization_id=claim.job.organization_id,
+                    file_id=file_id,
+                    result_parse_version_id=result_parse_version_id,
+                    trace_id=claim.job.trace_id,
+                    error_code=error.code,
+                ) or not JobRuntimeRepository(session).finish_job(
+                    current_claim,
+                    status="failed",
+                    summary={},
+                    error_code=error.code,
+                    error_message="manual correction snapshot rebuild failed",
+                ):
+                    raise FileJobExecutionError("JOB_FENCING_REJECTED") from None
+            return FileJobExecutionResult("failed", claim.job.id)
+        return FileJobExecutionResult("succeeded", claim.job.id)
+
+    def _execute_asset_security_revalidation(
+        self,
+        claim: ClaimedJob,
+        *,
+        handler: FileHandlerRuntime,
+    ) -> FileJobExecutionResult:
+        if claim.step_code != "asset_security_revalidation":
+            raise FileJobExecutionError("HANDLER_STEP_INVALID")
+        input_json = claim.job.input_json
+        try:
+            file_id = UUID(cast(str, input_json["file_id"]))
+            source_parse_version_id = UUID(cast(str, input_json["source_parse_version_id"]))
+            result_parse_version_id = UUID(cast(str, input_json["result_parse_version_id"]))
+            target = AssetScannerTarget(
+                profile_class=cast(str, input_json["scanner_profile_class"]),
+                registry_version=cast(str, input_json["scanner_registry_version"]),
+                scanner_registry_hash=cast(str, input_json["scanner_registry_hash"]),
+                adapter_code=cast(str, input_json["scanner_adapter_code"]),
+                scanner_version=cast(str, input_json["scanner_version"]),
+                definition_version=cast(str, input_json["scanner_definition_version"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            raise FileJobExecutionError("HANDLER_REGISTRY_INVALID") from None
+
+        current_claim = claim
+        target_keys: list[str] = []
+        failure_code: str | None = None
+        writes: list[AssetRevalidationWrite] = []
+        lease = _LeaseKeeper(
+            self._session_factory,
+            claim,
+            interval_seconds=self._heartbeat_interval,
+        )
+        try:
+            with lease:
+                if self._asset_storage is None or self._asset_scanner is None:
+                    raise AssetRevalidationSnapshotError("SCANNER_CONFIGURATION_INVALID")
+                with self._session_factory.begin() as session:
+                    sources = DocumentProcessingRepository(session).asset_revalidation_sources(
+                        organization_id=claim.job.organization_id,
+                        file_id=file_id,
+                        source_parse_version_id=source_parse_version_id,
+                        result_parse_version_id=result_parse_version_id,
+                        trace_id=claim.job.trace_id,
+                    )
+                for source in sources:
+                    target_asset_id = uuid4()
+                    target_key = (
+                        f"security-revalidations/{result_parse_version_id}/{target_asset_id}"
+                    )
+                    try:
+                        payload = self._asset_storage.copy_verified(
+                            source_key=source.object_key,
+                            target_key=target_key,
+                            expected_sha256=source.content_sha256,
+                            max_bytes=20 * 1024 * 1024,
+                        )
+                    except AssetRuntimeStorageError:
+                        raise AssetRevalidationSnapshotError("ASSET_STORAGE_UNAVAILABLE") from None
+                    target_keys.append(target_key)
+                    try:
+                        scan = self._asset_scanner.scan(
+                            payload,
+                            mime_type=source.mime_type,
+                            target=target,
+                        )
+                    except Exception:
+                        raise AssetRevalidationSnapshotError(
+                            "SCANNER_CONFIGURATION_INVALID"
+                        ) from None
+                    writes.append(
+                        AssetRevalidationWrite(
+                            source_asset_id=source.asset_id,
+                            target_asset_id=target_asset_id,
+                            target_object_key=target_key,
+                            outcome=scan.outcome,
+                            error_code=scan.error_code,
+                            scanner_invoked=scan.scanner_invoked,
+                        )
+                    )
+            current_claim = lease.claim()
+            with self._session_factory.begin() as session:
+                result = DocumentProcessingRepository(session).rebuild_asset_security_snapshot(
+                    organization_id=claim.job.organization_id,
+                    file_id=file_id,
+                    source_parse_version_id=source_parse_version_id,
+                    result_parse_version_id=result_parse_version_id,
+                    trace_id=claim.job.trace_id,
+                    writes=tuple(writes),
+                    scanner_profile_class=target.profile_class,
+                    scanner_registry_version=target.registry_version,
+                    scanner_registry_hash=target.scanner_registry_hash,
+                    scanner_adapter_code=target.adapter_code,
+                    scanner_version=target.scanner_version,
+                    scanner_definition_version=target.definition_version,
+                )
+                summary: dict[str, object] = {
+                    "result_parse_version_id": str(result.result_parse_version_id),
+                    "page_count": result.page_count,
+                    "block_count": result.block_count,
+                    "asset_count": result.asset_count,
+                    "clean_count": result.clean_count,
+                    "non_clean_count": result.non_clean_count,
+                    "status": result.status,
+                }
+                handler.validate_summary("asset_security_revalidation", summary)
+                if not JobRuntimeRepository(session).finish_job(
+                    current_claim,
+                    status="succeeded",
+                    summary=summary,
+                ):
+                    raise FileJobExecutionError("JOB_FENCING_REJECTED")
+        except AssetRevalidationSnapshotError as error:
+            failure_code = error.code
+        except Exception:
+            for target_key in reversed(target_keys):
+                if self._asset_storage is not None:
+                    self._asset_storage.delete_compensation(target_key)
+            raise
+        if failure_code is not None:
+            for target_key in reversed(target_keys):
+                if self._asset_storage is not None:
+                    self._asset_storage.delete_compensation(target_key)
+            current_claim = lease.claim()
+            with self._session_factory.begin() as session:
+                repository = DocumentProcessingRepository(session)
+                if not repository.mark_asset_revalidation_failed(
+                    organization_id=claim.job.organization_id,
+                    file_id=file_id,
+                    result_parse_version_id=result_parse_version_id,
+                    trace_id=claim.job.trace_id,
+                    error_code=failure_code,
+                ) or not JobRuntimeRepository(session).finish_job(
+                    current_claim,
+                    status="failed",
+                    summary={},
+                    error_code=failure_code,
+                    error_message="asset security revalidation failed",
+                ):
+                    raise FileJobExecutionError("JOB_FENCING_REJECTED")
+            return FileJobExecutionResult("failed", claim.job.id)
+        return FileJobExecutionResult("succeeded", claim.job.id)
 
     def _execute_claimed(
         self,

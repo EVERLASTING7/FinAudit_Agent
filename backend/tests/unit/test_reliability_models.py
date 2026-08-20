@@ -73,6 +73,7 @@ CURRENT_HEAD_TABLES = {
     "risk_citations",
     "roles",
     "rule_executions",
+    "scanner_registry_profiles",
     "supplementary_agreements",
     "supplementary_agreement_changes",
     "suppliers",

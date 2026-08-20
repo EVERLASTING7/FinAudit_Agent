@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 
+import DocumentCorrectionPanel from '@/components/DocumentCorrectionPanel.vue'
 import { ApiError } from '@/services/api'
 import {
   contractApi,
@@ -14,6 +15,7 @@ import {
   type ContractFieldCode,
   type ContractMutationData,
 } from '@/services/contracts'
+import type { DocumentCorrectionEvidence } from '@/services/documentCorrections'
 import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{ contract: ContractDetail }>()
@@ -106,6 +108,20 @@ const evidenceRows = computed(() =>
     quoteText: field.evidence?.quoteText ?? '无来源证据',
     confidence: field.evidence?.confidence ?? '—',
   })),
+)
+const documentCorrectionEvidence = computed<DocumentCorrectionEvidence[]>(() =>
+  (evidence.value?.fields ?? []).flatMap((field) =>
+    field.evidence === null
+      ? []
+      : [
+          {
+            blockId: field.evidence.blockId,
+            parseVersionId: field.evidence.parseVersionId,
+            pageNo: field.evidence.pageNo,
+            quoteText: field.evidence.quoteText,
+          },
+        ],
+  ),
 )
 const canReplaceFacts = computed(
   () =>
@@ -469,6 +485,13 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <DocumentCorrectionPanel
+      v-if="evidence"
+      business-type="contract"
+      :evidence-items="documentCorrectionEvidence"
+      @activated="emit('refreshRequested')"
+    />
 
     <div v-if="history" class="section-card">
       <div class="section-card-header"><div><h2>合同修正与处置历史</h2><p>追加式记录事实替换、确认和拒绝。</p></div></div>

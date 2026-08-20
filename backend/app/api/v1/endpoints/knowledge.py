@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Path, Query, Request, Response, status
 
-from app.api.dependencies.auth import require_permission
+from app.api.dependencies.auth import require_any_permission, require_permission
 from app.api.dependencies.knowledge import (
     KnowledgeIndexManagementServiceDependency,
     RagQueryServiceDependency,
@@ -73,6 +73,10 @@ KnowledgeApproveActor = Annotated[
 KnowledgeUseActor = Annotated[
     AuthenticatedActor,
     Depends(require_permission("knowledge.use")),
+]
+KnowledgeCatalogReadActor = Annotated[
+    AuthenticatedActor,
+    Depends(require_any_permission(("knowledge.use", "knowledge.publish"))),
 ]
 
 _READ_ERRORS: dict[int | str, dict[str, Any]] = {
@@ -165,7 +169,7 @@ def list_knowledge_bases(
     query: Annotated[KnowledgeBaseListQuery, Query()],
     request: Request,
     response: Response,
-    actor: KnowledgeUseActor,
+    actor: KnowledgeCatalogReadActor,
     service: KnowledgeCatalogServiceDependency,
 ) -> SuccessResponse[KnowledgeBaseListData]:
     data = service.list_page(actor.organization_id, query.cursor, query.page_size)
@@ -189,7 +193,7 @@ def get_knowledge_base(
     query: Annotated[KnowledgeBaseReadQuery, Query()],
     request: Request,
     response: Response,
-    actor: KnowledgeUseActor,
+    actor: KnowledgeCatalogReadActor,
     service: KnowledgeCatalogServiceDependency,
 ) -> SuccessResponse[KnowledgeBaseData]:
     del query

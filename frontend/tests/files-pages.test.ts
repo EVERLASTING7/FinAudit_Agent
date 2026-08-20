@@ -6,6 +6,7 @@ import { createMemoryHistory } from 'vue-router'
 import { createAppRouter } from '@/router'
 import { ApiError } from '@/services/api'
 import type { PermissionCode } from '@/services/auth'
+import { documentCorrectionApi } from '@/services/documentCorrections'
 import { fileApi, type FileListItem, type FileRecordData } from '@/services/files'
 import { useAuthStore } from '@/stores/auth'
 import FileDetailView from '@/views/FileDetailView.vue'
@@ -14,6 +15,8 @@ import FileListView from '@/views/FileListView.vue'
 const fileId = '41000000-0000-4000-8000-000000000001'
 const jobId = '41000000-0000-4000-8000-000000000002'
 const traceId = '41000000-0000-4000-8000-000000000003'
+const blockId = '41000000-0000-4000-8000-000000000005'
+const parseVersionId = '41000000-0000-4000-8000-000000000006'
 const uploadResult: FileRecordData = {
   fileId,
   originalName: 'invoice.pdf',
@@ -34,6 +37,15 @@ const fileItem: FileListItem = {
   status: 'stored',
   securityScanStatus: 'clean',
   jobStatus: 'succeeded',
+  job: {
+    id: jobId,
+    status: 'succeeded',
+    stage: 'markdown',
+    attemptNo: 1,
+    maxAttempts: 3,
+    rowVersion: '4',
+    retryable: false,
+  },
   rowVersion: '2',
   sizeBytes: '128',
   createdAt: '2026-08-14T08:00:00+00:00',
@@ -60,6 +72,21 @@ function authenticate(canUpload = true, canManage = false): ReturnType<typeof cr
   return pinia
 }
 
+function authenticateSystemAdmin(): ReturnType<typeof createPinia> {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  useAuthStore(pinia).setAuthenticatedSession(
+    {
+      id: '90000000-0000-4000-8000-000000000002',
+      displayName: '系统管理员',
+      roles: ['system_admin'],
+      permissions: ['system.configure'],
+    },
+    'test-token',
+  )
+  return pinia
+}
+
 beforeEach(() => {
   vi.spyOn(fileApi, 'list').mockResolvedValue({ items: [], pageSize: 20, nextCursor: null })
   vi.spyOn(fileApi, 'previewOriginal').mockResolvedValue({
@@ -76,6 +103,24 @@ beforeEach(() => {
     markdownText: '# 发票预览',
     charCount: 6,
     truncated: false,
+  })
+  vi.spyOn(documentCorrectionApi, 'listBlocks').mockResolvedValue({
+    fileId,
+    businessType: 'invoice',
+    parseVersionId,
+    items: [
+      {
+        blockId,
+        pageNo: 1,
+        blockIndex: 0,
+        blockType: 'paragraph',
+        textContent: '合成发票文本',
+        readingOrder: 0,
+        bbox: null,
+      },
+    ],
+    pageSize: 50,
+    nextCursor: null,
   })
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:file-preview')
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
@@ -214,6 +259,46 @@ describe('文件页面真实接口接线', () => {
     expect(wrapper.get('[role="alert"]').text()).toContain('文件 ID 格式无效')
   })
 
+  it('系统管理员只通过获准投影读取制度纠错块，不调用文件详情或预览接口', async () => {
+    const pinia = authenticateSystemAdmin()
+    const get = vi.spyOn(fileApi, 'get')
+    vi.mocked(documentCorrectionApi.listBlocks).mockResolvedValue({
+      fileId,
+      businessType: 'policy',
+      parseVersionId,
+      items: [
+        {
+          blockId,
+          pageNo: 1,
+          blockIndex: 0,
+          blockType: 'paragraph',
+          textContent: '合成制度文本',
+          readingOrder: 0,
+          bbox: null,
+        },
+      ],
+      pageSize: 50,
+      nextCursor: null,
+    })
+    const router = createAppRouter(createMemoryHistory())
+    await router.push(`/files/${fileId}`)
+    await router.isReady()
+
+    wrapper = mount(FileDetailView, { global: { plugins: [pinia, router] } })
+    await flushPromises()
+
+    expect(get).not.toHaveBeenCalled()
+    expect(fileApi.previewOriginal).not.toHaveBeenCalled()
+    expect(documentCorrectionApi.listBlocks).toHaveBeenCalledWith(
+      fileId,
+      50,
+      undefined,
+      expect.any(AbortSignal),
+    )
+    expect(wrapper.text()).toContain('系统管理员仅获得获准的纠错来源投影')
+    expect(wrapper.text()).toContain('合成制度文本')
+  })
+
   it('失败文件以原 Job 重试并显示权威排队状态', async () => {
     const pinia = authenticate(true, true)
     const failedItem: FileListItem = {
@@ -221,6 +306,15 @@ describe('文件页面真实接口接线', () => {
       status: 'validating',
       securityScanStatus: 'scan_failed',
       jobStatus: 'failed',
+      job: {
+        id: jobId,
+        status: 'failed',
+        stage: 'scan',
+        attemptNo: 1,
+        maxAttempts: 3,
+        rowVersion: '4',
+        retryable: true,
+      },
       rowVersion: '3',
     }
     vi.spyOn(fileApi, 'get').mockResolvedValue(failedItem)
@@ -228,6 +322,12 @@ describe('文件页面真实接口接线', () => {
       ...failedItem,
       securityScanStatus: 'pending',
       jobStatus: 'queued',
+      job: {
+        ...failedItem.job!,
+        status: 'queued',
+        rowVersion: '5',
+        retryable: false,
+      },
       rowVersion: '4',
     })
     const router = createAppRouter(createMemoryHistory())
@@ -244,6 +344,7 @@ describe('文件页面真实接口接线', () => {
       fileId,
       '3',
       jobId,
+      '4',
       '依赖已恢复，人工重试',
       expect.stringMatching(/^file-retry\./),
       expect.any(AbortSignal),

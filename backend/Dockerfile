@@ -22,6 +22,7 @@ COPY scripts/bootstrap_local_minio.py scripts/bootstrap_local_minio_worker.py \
     scripts/benchmark_local_performance.py scripts/smoke_local_security.py \
     scripts/local_volume_archive.py scripts/smoke_local_bootstrap_auth.py \
     scripts/smoke_local_file_upload.py scripts/smoke_local_worker_crash_recovery.py \
+    scripts/smoke_local_document_correction_crash_recovery.py \
     scripts/smoke_local_contract_extraction_crash_recovery.py \
     scripts/smoke_local_invoice_extraction_crash_recovery.py \
     scripts/smoke_local_audit_execution_crash_recovery.py \

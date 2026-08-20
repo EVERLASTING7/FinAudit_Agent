@@ -1,0 +1,75 @@
+{
+  "acceptance_boundary": {
+    "business_representative": false,
+    "formal_ac": false,
+    "production": false,
+    "reference_environment_capacity": false
+  },
+  "cleanup": {
+    "container_count": 0,
+    "image_tag_count": 0,
+    "runtime_directory_present": false,
+    "runtime_secrets_present": false,
+    "volumes_removed": true
+  },
+  "environment": {
+    "ai_provider": "disabled",
+    "docker_cpus": 20,
+    "docker_memory_bytes": 8223633408,
+    "docker_server_version": "29.6.1",
+    "image_id": "sha256:ce5a5e7f34c5e58dbc011afd5c85c7ed22f022f541034a0a8f64fc2abea65d83",
+    "image_revision": "perf20-v3",
+    "ocr": "not_run",
+    "production": "not_run",
+    "scanner": "local-clamav",
+    "transport": "http-nginx-backend",
+    "worker_concurrency": 2
+  },
+  "gates": {
+    "client": "passed",
+    "database": "passed",
+    "dependency_restore": "passed",
+    "twenty_page_contract": "passed",
+    "twenty_page_contract_database": "passed"
+  },
+  "recorded_on": "2026-08-19",
+  "rounds": [
+    {
+      "acceptance_ms": 91.002,
+      "page_count": 20,
+      "processing_ms": 892.206,
+      "round": 1
+    },
+    {
+      "acceptance_ms": 30.2,
+      "page_count": 20,
+      "processing_ms": 573.639,
+      "round": 2
+    },
+    {
+      "acceptance_ms": 29.979,
+      "page_count": 20,
+      "processing_ms": 567.867,
+      "round": 3
+    }
+  ],
+  "schema_version": "local-performance-contract20-v3",
+  "source_binding": {
+    "benchmark_bytes": 57297,
+    "benchmark_path": "scripts/benchmark_local_performance.py",
+    "benchmark_sha256": "78d78639461a64ea229a35922581cae783a81d948e8afc902db7c371a52b6a29",
+    "wrapper_bytes": 147429,
+    "wrapper_path": "scripts/verify-local-stack.ps1",
+    "wrapper_sha256": "f5ca3eb91145e4e730cd3a2a5bc55edf3693faf6a3799499a2d10f988c593f51"
+  },
+  "threshold": {
+    "all_rounds_passed": true,
+    "limit_ms": 120000,
+    "round_count": 3
+  },
+  "workload": {
+    "document_type": "synthetic_text_pdf_contract",
+    "path": "http_upload_to_clamav_to_file_process_to_active_parse_and_markdown",
+    "pages_per_round": 20
+  }
+}

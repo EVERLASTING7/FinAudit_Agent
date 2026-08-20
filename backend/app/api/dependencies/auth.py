@@ -82,6 +82,29 @@ def require_permission(
     return dependency
 
 
+def require_any_permission(
+    permissions: tuple[PermissionCode, ...],
+) -> Callable[..., AuthenticatedActor]:
+    if not permissions:
+        raise ValueError("permissions cannot be empty")
+
+    def dependency(
+        request: Request,
+        actor: CurrentActorDependency,
+        service: AuthServiceDependency,
+    ) -> AuthenticatedActor:
+        if not set(permissions).intersection(actor.permissions):
+            service.record_authorization_denied(
+                actor,
+                permissions[0],
+                UUID(request.state.trace_id),
+            )
+            actor.require(permissions[0])
+        return actor
+
+    return dependency
+
+
 def load_auth_keyring(
     active_kid: str,
     private_key_path: str,
@@ -144,5 +167,6 @@ __all__ = [
     "get_auth_service",
     "get_current_actor",
     "load_auth_keyring",
+    "require_any_permission",
     "require_permission",
 ]

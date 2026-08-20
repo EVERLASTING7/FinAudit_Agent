@@ -315,6 +315,7 @@ try {
             @(
                 'tests/integration/database/test_migrations.py::test_current_base005_migration_round_trip',
                 'tests/integration/database/test_knowledge_runtime.py'
+                'tests/integration/database/test_policy_management.py'
             )
         }
         elseif ($Scope -eq 'Audit') {
@@ -334,7 +335,10 @@ try {
             @(
                 'tests/integration/database/test_migrations.py::test_current_base005_migration_round_trip',
                 'tests/integration/database/test_file_intake_service.py',
-                'tests/integration/database/test_file_job_executor.py'
+                'tests/integration/database/test_file_job_executor.py',
+                'tests/integration/database/test_document_processing_repository.py',
+                'tests/integration/database/test_document_correction_runtime.py'
+                'tests/integration/database/test_asset_security_revalidation_runtime.py'
             )
         }
         elseif ($Scope -eq 'AI') {

@@ -30,6 +30,8 @@
 
 - 截至 2026-08-17，核心代码已经实现到 Alembic head `20260817_024`，覆盖 57/57 张核心物理表，以及用户、文件、合同/补充协议/发票/供应商、知识/RAG、审核、正式报告、工作台、依赖健康、AI 调用审计和内部指标主链。`021` 封锁检索状态旁路；`022` 允许未确认发票无证据币种为空且 confirmed 时仍强制非空；`023` 增加可降级风险解释与报告草稿持久事实；`024` 在保留 Event v1 回放的同时增加 Event v2 USD/CNY 费用事实。
 - 隔离 PostgreSQL、真实 Redis/Celery、真实 Qdrant、真实 MinIO、官方 ClamAV、本地自签名 TLS/Nginx 和完整 Compose 已有分层运行证据。隔离浏览器还实际完成了合同与发票上传 → Worker 提取 → 人工确认 → 关联 → 审核 → PDF/XLSX 报告闭环；`local-performance-baseline-v2` 在全新栈与同栈新 run 各连续三轮通过，覆盖默认最大 20 件批量受理、同键重放、207 部分失败、第 21 件 413 和 PostgreSQL 零重复/零超限副作用。本地 Worker 故障注入还在 `file_process` 的 scan step 中真实 SIGKILL Worker，确认退出码 137、同容器受管重启、Maintenance attempt 2、`scan → parse → markdown` 恢复及下游 `contract_extract` 正常完成；另两个专用门禁分别在 `contract_extract` 与 `invoice_extract` attempt 1 的 `extract` step 内真实 SIGKILL Worker，均确认恢复前零业务事实、attempt 1 `failed/LEASE_EXPIRED`、Maintenance attempt 2 成功和唯一事实收敛。合同终态为唯一合同、关联、13 个证据字段和追加日志；发票终态为唯一发票、明细、关联、13 个字段证据、1 条明细证据和追加日志，二者客户端详情与原件 SHA-256/ETag 均一致。第三个专用门禁还在 `audit_execute` attempt 1 的 `evaluate` 事务内真实 SIGKILL Worker，精确终止唯一孤儿数据库等待后端，确认恢复前零规则/风险/执行日志，再由 Maintenance attempt 2 收敛为固定 15 条规则、2 条待复核风险和 1 条追加式执行日志；客户端审核列表、任务与执行详情一致。另两个全新栈又分别验证 `report_generate` 在 MinIO 对象已写、数据库制品事实未提交时强杀后的孤儿对象保留与 attempt-2 唯一报告收敛，以及 `knowledge_index_build` 在真实 Qdrant 点和 PostgreSQL 成员 Hash 已提交、ready 事务未提交时强杀后的相同 Point ID 幂等重放与唯一 ready 索引收敛；两者均核对 `failed/LEASE_EXPIRED → succeeded`、客户端终态、唯一日志/Outbox 和跨恢复不变摘要。独立 local 安全门禁覆盖 TLS/CSRF/锁定/防枚举/角色拒绝/存在性隐藏/篡改 Token/Trace 审计/审计失败回滚/操作日志不可变/日志哨兵与容器最小权限，并实际让提示注入 PDF 穿过 ClamAV/Worker、制度双人审批、安全专用 100 条 `no_answer` 合成集、索引一致性、真实 Qdrant 和 HTTP 直接/间接双路径拒答。同一已激活知识库又经一次性 loopback HTTP 测试中继进入原 Nginx TLS → Backend → Qdrant 链路，由真实浏览器完成合成账号登录、工作台导航、问答提交和可见 `PROMPT_INJECTION_DETECTED` 拒答；PostgreSQL 随后独立核对唯一 Query、问题 Hash、Trace 与追加式操作日志，浏览器控制台和业务容器日志均无目标泄漏。上述结果属于小型合成 PDF 的本地 `VERIFIED` 工程证据，不是正式参考环境完整容量，也不自动构成任何 AC 的 `ACCEPTED`。
+- 2026-08-19 的 `local-knowledge-performance-v5` 在新的专用 HTTP Compose 栈中，以 Provider disabled、`fixed_test` 1024 维确定性 Embedding、真实 PostgreSQL/Qdrant 和一份隔离合成制度连续运行三轮、每轮 20 次完整问答。端到端 RAG nearest-rank P95 为 `40.774/38.884/41.064 ms`；该值同时构成 Top-5 子阶段的保守上界，分别低于本节 15 s 与 2 s 目标。PostgreSQL 独立核对 60 条 answered Query、引用/命中和 60 条追加式审计事实；专用容器、卷、网络、运行目录、Secret、临时环境变量和镜像标签残留为 0。该合成 local/test 证据不替代代表性检索质量、正式参考环境容量、Provider、production、UAT 或正式 AC。
+- 同日 `local-document-correction-crash-recovery-v1` 在新的专用 HTTP Compose 栈中让合成补充协议完成上传、ClamAV、file_process 和活动 Parse 后，请求 `manual_correction_snapshot`，以独占测试会话阻塞其 exclusion 读取并对精确 Worker 执行 SIGKILL。单次 60 秒 Lease 与 15 秒宽限耗尽后，Maintenance 精确记录 `exhausted`，Job/step/候选 Parse 原子收敛为 `failed/WORKER_LOST`；候选 Page/Block/Markdown 均为 0，旧 active/原件不变，显式激活失败候选固定 409 `PARSE_STATE_CONFLICT`。同一 Worker 容器和依赖恢复，专用容器、卷、网络、runtime/Secret、临时环境变量和镜像标签残留为 0。该 fail-safe 证据不改变 `max_attempts=1`，也不代表主机断电、真实 Asset、production、容量或正式 AC。
 - 主要 P0 Frontend 已接同源真实 API；批量上传、预览、归档和失败 Job 重试也已有实现与聚焦证据。本地 PostgreSQL/MinIO 权威备份、隔离恢复及恢复后冷启动已通过。`minimax-m3-local-v1` 已把真实 OpenAI-compatible Chat Adapter、Gateway、结构修复、预算、网络策略和持久 EventSink 接入合同/发票提取、RAG 回答、风险解释与报告草稿；采用前重验业务输入，完成事件与业务事实同一 PostgreSQL 事务提交。公共 OPS-005 只读摘要和受独立凭据保护的 `/metrics` 已实现。受限真实 MiniMax smoke 覆盖五条生成链并核对每次尝试的持久审计，但这只是链路证据。2026-08-17 的 `CR-021` 与 `CR-022` 又批准 `minimax-m3-bailian-qwen37-local-v2`，把 1024 维 `qwen3.7-text-embedding` 经 Gateway 接入 Backend 查询与 Worker 索引/评测，以 Event v2/CNY 完成 durable reserve、权威实际费用和同事务采用，并用 Adapter/模型/维度身份禁止与旧 Hash 索引混用；唯一一次受限付费 smoke 已成功，但代表性合同/发票准确率、99% 结构合法率、50/100 条业务检索集、正式 DAST、production OCR/Scanner/CA/TLS/Secret Manager、正式容量、异地恢复、正式 AC/UAT 和 production 仍为 `NOT_RUN` 或 `BLOCKED`。
 - Docker Scout 1.23.1 的本地镜像证据为：Frontend `0C/0H`；Backend 在 `pypdf 6.13.0 → 6.14.2` 且移除运行镜像中的 `pip/setuptools/wheel` 后由 `2C/6H` 降为 `2C/2H`，所有仍有修复版本的 C/H 为 0。剩余 4 项均来自 Debian Bookworm Perl 且扫描器标记 `not fixed`；因此 production 的严重/高危为 0 门槛仍未通过。
 - AI-003 已实现合同/发票独立版本 Prompt、严格输出 DTO、证据白名单、结构修复和真实 Provider 采用；Prompt 明确把正文视为不可信数据、无证据返回 `null` 且不得确认业务事实。发票无证据币种语义已由 `022` 闭合，但正式代表性准确率和结构合法率尚未验收，因此只能描述为 `IMPLEMENTED/VERIFIED local`，不能描述为 `ACCEPTED`。
@@ -161,6 +163,9 @@ P0 认证公开接口固定为以下五个；请求/响应和安全细节以 `TE
 
 - 支持 PDF、DOCX、JPG、JPEG、PNG 的单个或批量上传，默认单文件上限 50 MB、单批上限 20 个。
 - 联合校验类型与内容，支持去重、预览、状态、重试和归档；只有安全通过的文件可解析，原文件不可被纠错覆盖。
+- `CR-005-R2/recommended-forward` 冻结结构块纠错：每次只修改当前活动解析版本中的一个块和一个允许字段，原子创建不可变纠错记录、queued `manual_correction` 候选 Parse 与 Job/Outbox；Worker 重建完整快照但不得自动激活。质量通过后只能经独立激活入口替换活动 Parse，并发旧 sibling 必须返回 `PARSE_PARENT_STALE`。
+- 纠错与激活复用 `files.manage OR system.configure`，再按文件业务类型校验角色；不新增 PermissionCode。`CR-010-R2` 只批准可丢弃测试数据库中的 `fixed_test` 确定性 Profile：Profile 表默认空，普通 local/test 缺少 current Profile 时仍必须 503 fail-closed；只有隔离合成测试显式安装 Profile 并注入无网络 Scanner/内存 Asset 存储时，资产安全重评才可创建新 Parse/Job/Asset 血缘事实。该证据不得用于真实资产、staging、production 或 Scanner 产品声明。
+- `CR-029-R1/recommended-forward-v1` 增加文件范围的活动文档纠错来源读取：只允许与 PARSE-004/005 相同的 `files.manage OR system.configure` 和业务角色矩阵读取同组织 `stored+clean` 文件的当前活动文本 Block；使用绑定 Parse 的 keyset Cursor，版本切换时必须拒绝旧 Cursor。响应只返回纠错所需的文件/业务类型/Parse/Block/页码/顺序/文本/bbox，不返回 Asset、对象键、哈希、组织或原因；FileDetail 作为四类文件的通用纠错入口，不自动提交或激活。
 - `archived-reupload=conflict-v1`：同一组织内相同 SHA-256 与字节大小命中未软删除的 archived 文件时，单文件上传固定返回 HTTP 409 `FILE_ARCHIVED_DUPLICATE`。不得复用或恢复旧文件，不得创建新文件事实、Job、业务对象或 MinIO 副本，也不得修改旧文件的分类、目标知识库或自动处理意图；归档恢复只能由未来单独批准的显式动作完成。
 
 ### 3.3 合同与补充协议
@@ -216,6 +221,8 @@ P0 规则语义如下：
 - P0 知识范围按组织、固定角色权限、知识库状态、制度发布/有效期和活动索引成员裁剪，不新增知识库级 ACL。
 - 检索固定先由 PostgreSQL 生成允许集，再由 Qdrant must-filter 召回，最后回 PostgreSQL 终审；RAG 仅引用本次授权证据，无依据、越权、注入或引用失败时拒答。
 - 检索评测分为 5 条 smoke、至少 50 条 MVP/UAT 和至少 100 条正式发布门禁；低层集合不得冒充高层验收。
+- `CR-028-R1/recommended-forward-v1` 冻结制度撤销：audit_reviewer 使用 `knowledge.approve` 提交唯一撤销确认，system_admin 使用 `knowledge.publish` 独立执行；只允许 `published→revoked`，归档继续不进入 P0。撤销提交后新检索的 PG 允许集与最终复核立即排除该制度，不以同步删除 Qdrant 派生点作为正确性来源；历史审核、索引成员、分块、引用和审批记录继续保留。
+- `CR-030-R1/recommended-forward-v1` 增加按知识库过滤的撤销待执行请求列表：只允许 `knowledge.approve + audit_reviewer` 或 `knowledge.publish + system_admin` 读取仍为 published、未执行的 request 最小元数据，不授予 `knowledge.use`。Frontend 不再要求手工粘贴 request UUID，但执行仍须由 system_admin 显式填写独立原因，并由 Backend 重新校验 Policy row version、request 归属、未执行状态和请求/执行 Actor 分离；禁止自动或批量执行。
 
 ### 3.9 审核任务与人工复核
 
@@ -223,6 +230,7 @@ P0 规则语义如下：
 - 长任务异步执行且只展示真实状态；规则先于检索和 AI，外部能力失败不得影响规则结果。
 - 财务处理非高风险，高风险提交审计；关键事实修正使旧执行和报告过期，重审创建新版本。
 - 执行使用 draft、校验、排队、运行、财务复核、审计复核、退回、完成、失败、取消和过期的封闭状态机；取消直接落为 cancelled，失败只可在同一快照上重试。
+- `CR-027-R1/recommended-forward-v1` 要求技术重试和取消分别携带 execution/file 与 Job 两个权威版本；AUDIT-007 只在同一失败快照、退避到期且 Job 可重试时复用原 Job 排队，attempt 只在后续 claim 增加。AUDIT-008 的 execution 直接 cancelled；queued Job 同事务 cancelled，running Job 先 cancel_requested 再由 Worker 收敛，复核阶段的 succeeded Job不改写。
 - 原始风险等级不可改写；有效 high 且仍待处理时禁止完成。只有独立审计复核人员可处理 high，且不得与本执行财务初审为同一 actor。
 - P0 规则目录只包含应用内置的 RULE-001～015，按完整版本原子发布；不提供在线规则编辑、动态 DSL 或用户代码。
 
@@ -324,6 +332,7 @@ P0 规则语义如下：
 
 - 文件、解析、Markdown、分块和索引分别保存状态与版本。
 - 人工纠错创建新解析和 Markdown 版本，不覆盖旧版本。
+- 纠错请求、候选快照重建和解析激活分离；候选完成前、质量未通过或 parent 已过期时不得替换当前活动版本。
 - Markdown 可被选定解析器解析，证据正文映射和有效内容覆盖完整。
 - 分块无空正文、无未批准超长内容，并可追溯到 Markdown 与原文。
 - 候选索引成员与检索存储一致；失败时旧活动版本保持可用。
@@ -430,6 +439,7 @@ P0 规则语义如下：
 - 主合同唯一性、确定性规则语义、风险等级和人工复核原则。
 - 不可变版本、历史快照、过期重审、报告与证据追溯。
 - `recommended-forward-v1` 已冻结供应商统一身份、Markdown/表格 Profile、组织级知识权限、Qdrant Collection 粒度、安全检索顺序、5/50/100 评测、15 规则发布、审核/高风险与报告状态机。
+- `CR-027-R1` 的 Job HTTP 双版本 fencing 与 `CR-028-R1` 的制度两阶段撤销/检索失效已在 local/test 实现并通过 PostgreSQL current-head 027 全量双轮；该结论不扩张 Provider、production、真实数据迁移或正式 AC。
 - AI 只做候选、检索、解释和草稿，以及拒答、降级和人工兜底。
 - AC-003～AC-007、AC-010～AC-011、AC-013～AC-015 的产品结果。
 - `CR-025` 的 Local MVP 环境口径已冻结，AC-001、AC-002、AC-015、AC-016 当前为本机 `ACCEPTED`；扩大环境必须重验。

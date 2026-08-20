@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:handler-input:manual-correction-snapshot-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "file_id",
+    "source_parse_version_id",
+    "result_parse_version_id",
+    "correction_id",
+    "handler_code_version",
+    "handler_registry_version",
+    "handler_registry_hash"
+  ],
+  "properties": {
+    "file_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "source_parse_version_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "result_parse_version_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "correction_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "handler_code_version": {"const": "manual-correction-snapshot-v1"},
+    "handler_registry_version": {"const": "file-handler-registry-v4"},
+    "handler_registry_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

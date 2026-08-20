@@ -10,8 +10,10 @@ from app.api.dependencies.audits import get_audit_management_service
 from app.api.dependencies.auth import get_auth_service
 from app.bootstrap import create_app
 from app.schemas.audits import (
+    AuditCancelData,
     AuditExecutionData,
     AuditExecutionMutationData,
+    AuditRetryData,
     AuditRiskData,
     AuditRiskMutationData,
     AuditTaskData,
@@ -21,8 +23,10 @@ from app.schemas.audits import (
 )
 from app.schemas.auth import CurrentUserData
 from app.services.audit_management import (
+    AuditCancelMutationResult,
     AuditExecutionMutationResult,
     AuditManagementService,
+    AuditRetryMutationResult,
     AuditRiskMutationResult,
     AuditTaskMutationResult,
 )
@@ -156,8 +160,26 @@ def _audit_service() -> Mock:
         execution_mutation,
         False,
     )
-    service.cancel_execution.return_value = AuditExecutionMutationResult(
-        execution_mutation,
+    service.retry_execution.return_value = AuditRetryMutationResult(
+        AuditRetryData(
+            execution_id=EXECUTION_ID,
+            execution_row_version="4",
+            job_id=JOB_ID,
+            attempt_no=1,
+            scheduled_attempt_no=2,
+            job_row_version="4",
+        ),
+        False,
+    )
+    service.cancel_execution.return_value = AuditCancelMutationResult(
+        AuditCancelData(
+            execution_id=EXECUTION_ID,
+            cancelled_at=NOW,
+            execution_row_version="4",
+            job_id=JOB_ID,
+            job_status="cancelled",
+            job_row_version="4",
+        ),
         False,
     )
     return service
@@ -262,16 +284,29 @@ def test_audit_review_and_cancel_routes_preserve_lane_and_idempotency(
             {"row_version": "3", "decision": "complete", "reason": "完成独立复核"},
         ),
         (
+            f"/api/v1/audit-executions/{EXECUTION_ID}/retry",
+            "audit-retry-01",
+            {
+                "execution_row_version": "3",
+                "job_row_version": "3",
+                "reason": "重试失败执行",
+            },
+        ),
+        (
             f"/api/v1/audit-executions/{EXECUTION_ID}/cancel",
             "audit-cancel-01",
-            {"row_version": "3", "reason": "取消排队执行"},
+            {
+                "execution_row_version": "3",
+                "job_row_version": "3",
+                "reason": "取消排队执行",
+            },
         ),
     )
     with TestClient(_application(exact_policy_file, _auth_service(), audits)) as client:
         responses = tuple(
             client.post(path, headers=_headers(key), json=body) for path, key, body in requests
         )
-    assert all(response.status_code == 200 for response in responses)
+    assert [response.status_code for response in responses] == [200, 200, 200, 200, 202, 200]
     assert all(response.headers["idempotency-replayed"] == "false" for response in responses)
     assert audits.review_risk.call_count == 2
     assert audits.review_risk.call_args_list[0].kwargs == {"high_risk": False}
@@ -288,6 +323,13 @@ def test_audit_review_and_cancel_routes_preserve_lane_and_idempotency(
         EXECUTION_ID,
         ANY,
         "audit-high-review-01",
+        ANY,
+    )
+    audits.retry_execution.assert_called_once_with(
+        ANY,
+        EXECUTION_ID,
+        ANY,
+        "audit-retry-01",
         ANY,
     )
     audits.cancel_execution.assert_called_once_with(
@@ -321,7 +363,12 @@ def test_audit_permissions_and_strict_bodies_fail_before_service(
         invalid = client.post(
             f"/api/v1/audit-executions/{EXECUTION_ID}/cancel",
             headers=_headers("audit-invalid-01"),
-            json={"row_version": "3", "reason": "非法字段", "unknown": True},
+            json={
+                "execution_row_version": "3",
+                "job_row_version": "3",
+                "reason": "非法字段",
+                "unknown": True,
+            },
         )
         assert invalid.status_code == 422
     audits.create_task.assert_not_called()
@@ -348,6 +395,7 @@ def test_audit_openapi_freezes_all_operations(exact_policy_file: Path) -> None:
         "/api/v1/audit-executions/{execution_id}/audit-review": {
             "post": "complete_high_audit_review_v1"
         },
+        "/api/v1/audit-executions/{execution_id}/retry": {"post": "retry_audit_execution_v1"},
         "/api/v1/audit-executions/{execution_id}/cancel": {"post": "cancel_audit_execution_v1"},
     }
     for path, methods in expected.items():

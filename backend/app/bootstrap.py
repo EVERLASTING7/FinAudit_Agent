@@ -64,6 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 )
                 from app.services.contract_query import ContractQueryService
                 from app.services.dashboard import DashboardService
+                from app.services.document_correction import DocumentCorrectionService
                 from app.services.effective_contract_query import EffectiveContractQueryService
                 from app.services.file_intake import FileIntakeService, FileQueryService
                 from app.services.file_management import FileManagementService
@@ -119,6 +120,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 application.state.break_glass_service = BreakGlassService(session_factory)
                 application.state.contract_query_service = ContractQueryService(session_factory)
                 application.state.dashboard_service = DashboardService(session_factory)
+                application.state.document_correction_service = DocumentCorrectionService(
+                    session_factory
+                )
                 application.state.contract_management_service = ContractManagementService(
                     session_factory
                 )

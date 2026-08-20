@@ -85,6 +85,27 @@ def _validate_change_summary(action_code: str, summary: Mapping[str, object]) ->
         _require_exact_keys(summary, {"permission_code"})
         if summary["permission_code"] not in PERMISSION_CODES:
             raise ValueError("operation summary permission_code is invalid")
+    elif action_code == "document_block.correction_requested":
+        _require_exact_keys(
+            summary,
+            {"field_name", "source_parse_version_id", "status"},
+        )
+        _require_uuid_text(summary["source_parse_version_id"])
+        if (
+            summary["field_name"] not in {"text_content", "block_type", "reading_order", "bbox"}
+            or summary["status"] != "queued"
+        ):
+            raise ValueError("operation summary document correction is invalid")
+    elif action_code == "document_parse.security_revalidation.requested":
+        _require_exact_keys(summary, {"source_parse_version_id", "status"})
+        if summary["status"] != "queued":
+            raise ValueError("operation summary security revalidation is invalid")
+        _require_uuid_text(summary["source_parse_version_id"])
+    elif action_code == "document_parse.activated":
+        _require_exact_keys(summary, {"source_parse_version_id", "status"})
+        _require_uuid_text(summary["source_parse_version_id"])
+        if summary["status"] != "active":
+            raise ValueError("operation summary parse activation is invalid")
     elif action_code == "users.created":
         _require_exact_keys(summary, {"fixed_roles", "row_version"})
         _require_role_codes(summary["fixed_roles"])
@@ -317,6 +338,20 @@ def _validate_change_summary(action_code: str, summary: Mapping[str, object]) ->
             raise ValueError("operation summary policy publication is invalid")
         _require_uuid_text(summary["index_version_id"])
         _require_row_version(summary["row_version"])
+    elif action_code == "policy.revocation_requested":
+        _require_exact_keys(summary, {"revocation_request_id", "status"})
+        if summary["status"] != "pending_execution":
+            raise ValueError("operation summary policy revocation request is invalid")
+        _require_uuid_text(summary["revocation_request_id"])
+    elif action_code == "policy.revoked":
+        _require_exact_keys(
+            summary,
+            {"from_status", "revocation_request_id", "row_version", "to_status"},
+        )
+        if summary["from_status"] != "published" or summary["to_status"] != "revoked":
+            raise ValueError("operation summary policy revocation is invalid")
+        _require_uuid_text(summary["revocation_request_id"])
+        _require_row_version(summary["row_version"])
     elif action_code in {"knowledge.index_build_queued", "knowledge.index_ready"}:
         _require_exact_keys(summary, {"manifest_sha256", "member_count", "status"})
         expected_status = "building" if action_code == "knowledge.index_build_queued" else "ready"
@@ -393,6 +428,16 @@ def _validate_change_summary(action_code: str, summary: Mapping[str, object]) ->
             or summary["version_no"] < 2
         ):
             raise ValueError("operation summary audit re-execution is invalid")
+    elif action_code == "audits.execution_retry_queued":
+        _require_exact_keys(summary, {"attempt_no", "scheduled_attempt_no", "status"})
+        if (
+            summary["status"] != "queued"
+            or type(summary["attempt_no"]) is not int
+            or type(summary["scheduled_attempt_no"]) is not int
+            or summary["attempt_no"] < 1
+            or summary["scheduled_attempt_no"] != summary["attempt_no"] + 1
+        ):
+            raise ValueError("operation summary audit retry is invalid")
     elif action_code == "audits.execution_evaluated":
         _require_exact_keys(
             summary,

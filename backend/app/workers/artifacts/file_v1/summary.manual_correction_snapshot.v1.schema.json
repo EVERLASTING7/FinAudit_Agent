@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:finaudit:handler-summary:manual-correction-snapshot-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["correction_id", "result_parse_version_id", "page_count", "block_count"],
+  "properties": {
+    "correction_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "result_parse_version_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "page_count": {"type": "integer", "minimum": 1, "maximum": 2000},
+    "block_count": {"type": "integer", "minimum": 1, "maximum": 1000000}
+  }
+}

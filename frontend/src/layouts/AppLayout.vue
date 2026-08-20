@@ -38,7 +38,11 @@ const router = useRouter()
 const visibleNavigationItems = computed(() =>
   navigationItems.filter((item) => {
     const permissions = router.resolve({ name: item.routeName }).meta.requiredPermissions
-    return !permissions || auth.hasAllPermissions(permissions)
+    const anyPermissions = router.resolve({ name: item.routeName }).meta.requiredAnyPermissions
+    return (
+      (!permissions || auth.hasAllPermissions(permissions)) &&
+      (!anyPermissions || anyPermissions.some((permission) => auth.user?.permissions.includes(permission)))
+    )
   }),
 )
 

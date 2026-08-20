@@ -13,15 +13,21 @@ def test_every_p0_openapi_operation_identity_is_frozen_by_a_backend_test(
     exact_policy_file: Path,
 ) -> None:
     openapi = create_app(build_startup_settings(exact_policy_file)).openapi()
-    operation_ids = [
+    all_operation_ids = [
+        operation["operationId"]
+        for path_item in openapi["paths"].values()
+        for method, operation in path_item.items()
+        if method in {"get", "post", "put", "patch", "delete"}
+    ]
+    api_operation_ids = [
         operation["operationId"]
         for path, path_item in openapi["paths"].items()
         if path.startswith("/api/v1")
         for method, operation in path_item.items()
         if method in {"get", "post", "put", "patch", "delete"}
     ]
-    assert operation_ids
-    assert len(operation_ids) == len(set(operation_ids))
+    assert len(all_operation_ids) == len(set(all_operation_ids)) == 100
+    assert len(api_operation_ids) == len(set(api_operation_ids)) == 97
 
     test_root = Path(__file__).resolve().parents[1]
     this_file = Path(__file__).resolve()
@@ -31,7 +37,7 @@ def test_every_p0_openapi_operation_identity_is_frozen_by_a_backend_test(
         if path.resolve() != this_file
     )
     missing = sorted(
-        operation_id for operation_id in operation_ids if operation_id not in test_sources
+        operation_id for operation_id in api_operation_ids if operation_id not in test_sources
     )
 
     assert missing == [], f"OpenAPI operation identities without a contract test: {missing}"

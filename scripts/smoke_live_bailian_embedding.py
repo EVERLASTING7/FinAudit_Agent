@@ -144,7 +144,7 @@ def _run() -> dict[str, object]:
                     "WHERE database_catalog.datname=current_database()"
                 )
             ).one()
-        if marker != _DATABASE_MARKER or revision != "20260817_024":
+        if marker != _DATABASE_MARKER or revision != "20260818_027":
             raise LiveBailianSmokeError("DISPOSABLE_TEST_DATABASE_REQUIRED")
         with factory.begin() as session:
             if session.scalar(

@@ -106,7 +106,10 @@ TABLES_AT_021 = TABLES_AT_020
 TABLES_AT_022 = TABLES_AT_021
 TABLES_AT_023 = TABLES_AT_022
 TABLES_AT_024 = TABLES_AT_023
-CURRENT_HEAD_TABLES = TABLES_AT_024
+TABLES_AT_025 = TABLES_AT_024
+TABLES_AT_026 = TABLES_AT_025
+TABLES_AT_027 = TABLES_AT_026 | {"scanner_registry_profiles"}
+CURRENT_HEAD_TABLES = TABLES_AT_027
 EXPECTED_ROLE_CODES = {
     "system_admin",
     "finance_reviewer",
@@ -142,7 +145,10 @@ RETRIEVAL_INITIAL_STATE_REVISION = "20260815_021"
 INVOICE_NULL_CURRENCY_REVISION = "20260816_022"
 AI_GENERATED_FACTS_REVISION = "20260816_023"
 CURRENCY_NEUTRAL_AI_COST_REVISION = "20260817_024"
-CURRENT_REVISION = CURRENCY_NEUTRAL_AI_COST_REVISION
+DOCUMENT_CORRECTION_REVISION = "20260818_025"
+POLICY_REVOCATION_REVISION = "20260818_026"
+SCANNER_REGISTRY_REVISION = "20260818_027"
+CURRENT_REVISION = SCANNER_REGISTRY_REVISION
 PRIVILEGED_AUTH_FUNCTIONS = {
     "enforce_break_glass_requests_state_v1",
     "enforce_user_roles_state_v1",
@@ -459,9 +465,18 @@ RELIABILITY_FUNCTIONS = {
     "enforce_job_step_consistency_v1",
     "enforce_outbox_events_state_v1",
 }
-RELIABILITY_FUNCTION_IDENTITIES = {f"{name}()" for name in RELIABILITY_FUNCTIONS}
+RELIABILITY_FUNCTION_IDENTITIES = {
+    *(f"{name}()" for name in RELIABILITY_FUNCTIONS),
+    "validate_asset_revalidation_runtime_v1()",
+    "validate_manual_correction_runtime_v1()",
+}
 RELIABILITY_TRIGGERS = {
-    "async_jobs": {"trg_async_jobs_state_v1", "trg_async_jobs_consistency_v1"},
+    "async_jobs": {
+        "trg_asset_revalidation_job_runtime_v1",
+        "trg_async_jobs_state_v1",
+        "trg_async_jobs_consistency_v1",
+        "trg_manual_correction_job_runtime_v1",
+    },
     "async_job_steps": {
         "trg_async_job_steps_state_v1",
         "trg_async_job_steps_no_truncate_v1",
@@ -471,6 +486,16 @@ RELIABILITY_TRIGGERS = {
 }
 RELIABILITY_TRIGGER_CONTRACT = {
     "async_jobs": {
+        "trg_asset_revalidation_job_runtime_v1": (
+            "CREATE CONSTRAINT TRIGGER trg_asset_revalidation_job_runtime_v1 "
+            "AFTER INSERT OR UPDATE ON async_jobs DEFERRABLE INITIALLY DEFERRED "
+            "FOR EACH ROW WHEN (new.job_type::text = 'asset_security_revalidation'::text) "
+            "EXECUTE FUNCTION validate_asset_revalidation_runtime_v1()",
+            True,
+            True,
+            "O",
+            "validate_asset_revalidation_runtime_v1",
+        ),
         "trg_async_jobs_state_v1": (
             "CREATE TRIGGER trg_async_jobs_state_v1 BEFORE INSERT OR UPDATE ON async_jobs "
             "FOR EACH ROW EXECUTE FUNCTION enforce_async_jobs_state_v1()",
@@ -487,6 +512,16 @@ RELIABILITY_TRIGGER_CONTRACT = {
             True,
             "O",
             "enforce_job_step_consistency_v1",
+        ),
+        "trg_manual_correction_job_runtime_v1": (
+            "CREATE CONSTRAINT TRIGGER trg_manual_correction_job_runtime_v1 "
+            "AFTER INSERT OR UPDATE ON async_jobs DEFERRABLE INITIALLY DEFERRED "
+            "FOR EACH ROW WHEN (new.job_type::text = 'manual_correction_snapshot'::text) "
+            "EXECUTE FUNCTION validate_manual_correction_runtime_v1()",
+            True,
+            True,
+            "O",
+            "validate_manual_correction_runtime_v1",
         ),
     },
     "async_job_steps": {

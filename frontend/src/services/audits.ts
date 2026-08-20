@@ -1,4 +1,5 @@
 import { ApiClient, UUID_PATTERN, apiClient } from './api'
+import { decodeJobAction, type JobActionProjection } from './jobs'
 
 export const auditTaskStatuses = ['open', 'completed', 'archived'] as const
 export const auditExecutionStatuses = [
@@ -70,6 +71,7 @@ export interface AuditExecutionData {
   status: AuditExecutionStatus
   snapshotSha256: string | null
   jobId: string | null
+  job: JobActionProjection | null
   financeReviewerId: string | null
   financeReviewedAt: string | null
   auditReviewerId: string | null
@@ -133,6 +135,29 @@ export interface AuditTaskMutationData {
 
 export interface AuditExecutionMutationData {
   execution: AuditExecutionData
+}
+
+export interface AuditRetryData {
+  executionId: string
+  status: 'queued'
+  preservedResults: true
+  executionRowVersion: string
+  jobId: string
+  jobStatus: 'queued'
+  attemptNo: number
+  scheduledAttemptNo: number
+  stage: 'evaluate'
+  jobRowVersion: string
+}
+
+export interface AuditCancelData {
+  executionId: string
+  executionStatus: 'cancelled'
+  cancelledAt: string
+  executionRowVersion: string
+  jobId: string | null
+  jobStatus: 'cancel_requested' | 'cancelled' | 'succeeded' | null
+  jobRowVersion: string | null
 }
 
 export interface AuditRiskMutationData {
@@ -250,7 +275,7 @@ export function decodeAuditTask(value: unknown): AuditTaskData {
 
 const executionKeys = [
   'id', 'audit_task_id', 'version_no', 'baseline_date', 'status', 'snapshot_sha256',
-  'job_id', 'finance_reviewer_id', 'finance_reviewed_at', 'audit_reviewer_id',
+  'job_id', 'job', 'finance_reviewer_id', 'finance_reviewed_at', 'audit_reviewer_id',
   'audit_reviewed_at', 'retryable', 'failure_code', 'cancel_reason', 'return_reason',
   'row_version', 'created_at', 'started_at', 'finished_at', 'outdated_at',
 ] as const
@@ -284,6 +309,8 @@ export function decodeAuditExecution(value: unknown): AuditExecutionData {
   ) {
     throw new TypeError('invalid audit execution')
   }
+  const job = value.job === null ? null : decodeJobAction(value.job)
+  if (job !== null && job.id !== value.job_id) throw new TypeError('audit Job identity mismatch')
   return {
     id: value.id,
     auditTaskId: value.audit_task_id,
@@ -292,6 +319,7 @@ export function decodeAuditExecution(value: unknown): AuditExecutionData {
     status: value.status,
     snapshotSha256: value.snapshot_sha256,
     jobId: value.job_id,
+    job,
     financeReviewerId: value.finance_reviewer_id,
     financeReviewedAt: value.finance_reviewed_at,
     auditReviewerId: value.audit_reviewer_id,
@@ -305,6 +333,82 @@ export function decodeAuditExecution(value: unknown): AuditExecutionData {
     startedAt: value.started_at,
     finishedAt: value.finished_at,
     outdatedAt: value.outdated_at,
+  }
+}
+
+export function decodeAuditRetry(value: unknown): AuditRetryData {
+  const keys = [
+    'execution_id', 'status', 'preserved_results', 'execution_row_version', 'job_id',
+    'job_status', 'attempt_no', 'scheduled_attempt_no', 'stage', 'job_row_version',
+  ]
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, keys) ||
+    !isUuid(value.execution_id) ||
+    value.status !== 'queued' ||
+    value.preserved_results !== true ||
+    typeof value.execution_row_version !== 'string' ||
+    !positiveIntegerPattern.test(value.execution_row_version) ||
+    !isUuid(value.job_id) ||
+    value.job_status !== 'queued' ||
+    !Number.isSafeInteger(value.attempt_no) ||
+    Number(value.attempt_no) < 1 ||
+    value.scheduled_attempt_no !== Number(value.attempt_no) + 1 ||
+    value.stage !== 'evaluate' ||
+    typeof value.job_row_version !== 'string' ||
+    !positiveIntegerPattern.test(value.job_row_version)
+  ) {
+    throw new TypeError('invalid audit retry response')
+  }
+  return {
+    executionId: value.execution_id,
+    status: 'queued',
+    preservedResults: true,
+    executionRowVersion: value.execution_row_version,
+    jobId: value.job_id,
+    jobStatus: 'queued',
+    attemptNo: Number(value.attempt_no),
+    scheduledAttemptNo: Number(value.scheduled_attempt_no),
+    stage: 'evaluate',
+    jobRowVersion: value.job_row_version,
+  }
+}
+
+export function decodeAuditCancel(value: unknown): AuditCancelData {
+  const keys = [
+    'execution_id', 'execution_status', 'cancelled_at', 'execution_row_version',
+    'job_id', 'job_status', 'job_row_version',
+  ]
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, keys) ||
+    !isUuid(value.execution_id) ||
+    value.execution_status !== 'cancelled' ||
+    !isTimestamp(value.cancelled_at) ||
+    typeof value.execution_row_version !== 'string' ||
+    !positiveIntegerPattern.test(value.execution_row_version) ||
+    !isNullableUuid(value.job_id) ||
+    (value.job_status !== null &&
+      !['cancel_requested', 'cancelled', 'succeeded'].includes(String(value.job_status))) ||
+    (value.job_row_version !== null &&
+      (typeof value.job_row_version !== 'string' ||
+        !positiveIntegerPattern.test(value.job_row_version))) ||
+    new Set([
+      value.job_id === null,
+      value.job_status === null,
+      value.job_row_version === null,
+    ]).size !== 1
+  ) {
+    throw new TypeError('invalid audit cancel response')
+  }
+  return {
+    executionId: value.execution_id,
+    executionStatus: 'cancelled',
+    cancelledAt: value.cancelled_at,
+    executionRowVersion: value.execution_row_version,
+    jobId: value.job_id,
+    jobStatus: value.job_status as AuditCancelData['jobStatus'],
+    jobRowVersion: value.job_row_version,
   }
 }
 
@@ -607,6 +711,58 @@ export class AuditApi {
 
   async auditReview(executionId: string, input: { rowVersion: string; decision: 'complete' | 'return'; reason: string }, idempotencyKey: string, signal?: AbortSignal): Promise<AuditExecutionMutationData> {
     return this.executionDecision(executionId, 'audit-review', input, idempotencyKey, signal)
+  }
+
+  async retryExecution(
+    executionId: string,
+    input: { executionRowVersion: string; jobRowVersion: string; reason: string },
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<AuditRetryData> {
+    requireUuid(executionId, 'execution id')
+    requireVersion(input.executionRowVersion)
+    requireVersion(input.jobRowVersion)
+    requireReason(input.reason)
+    requireIdempotencyKey(idempotencyKey)
+    const response = await this.client.request(`/audit-executions/${executionId}/retry`, {
+      method: 'POST',
+      body: {
+        execution_row_version: input.executionRowVersion,
+        job_row_version: input.jobRowVersion,
+        reason: input.reason,
+      },
+      idempotencyKey,
+      signal,
+      decode: decodeAuditRetry,
+    })
+    if (response.data.executionId !== executionId) throw new TypeError('audit retry id mismatch')
+    return response.data
+  }
+
+  async cancelExecution(
+    executionId: string,
+    input: { executionRowVersion: string; jobRowVersion: string | null; reason: string },
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<AuditCancelData> {
+    requireUuid(executionId, 'execution id')
+    requireVersion(input.executionRowVersion)
+    if (input.jobRowVersion !== null) requireVersion(input.jobRowVersion)
+    requireReason(input.reason)
+    requireIdempotencyKey(idempotencyKey)
+    const response = await this.client.request(`/audit-executions/${executionId}/cancel`, {
+      method: 'POST',
+      body: {
+        execution_row_version: input.executionRowVersion,
+        job_row_version: input.jobRowVersion,
+        reason: input.reason,
+      },
+      idempotencyKey,
+      signal,
+      decode: decodeAuditCancel,
+    })
+    if (response.data.executionId !== executionId) throw new TypeError('audit cancel id mismatch')
+    return response.data
   }
 
   private async executionDecision(executionId: string, path: 'finance-review' | 'audit-review', input: { rowVersion: string; decision: string; reason: string }, idempotencyKey: string, signal?: AbortSignal): Promise<AuditExecutionMutationData> {

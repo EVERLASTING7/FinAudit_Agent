@@ -23,7 +23,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from reportlab.pdfgen import canvas
-from sqlalchemy import event, select
+from sqlalchemy import event, func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -41,7 +41,7 @@ from app.db.session import create_application_engine, create_session_factory
 from app.models.audit import AuditReport, AuditTask, AuditTaskExecution, AuditTaskItem
 from app.models.auth import Organization, Role, User, UserRole
 from app.models.corrections import UserCorrection
-from app.models.document_processing import DocumentBlock
+from app.models.document_processing import DocumentBlock, DocumentParseVersion
 from app.models.documents import FilePrimaryBusinessObject, FileRecord
 from app.models.financial import (
     Contract,
@@ -51,8 +51,18 @@ from app.models.financial import (
     SupplementaryAgreementChange,
     Supplier,
 )
+from app.models.knowledge import DocumentBlockCorrection, DocumentMarkdownVersion
 from app.models.operations import OperationLog
-from app.models.reliability import AsyncJob, IdempotencyRecord
+from app.models.reliability import (
+    JOB_LEASE_POLICY_HASH,
+    JOB_LEASE_POLICY_VERSION,
+    JOB_RETRY_POLICY_HASH,
+    JOB_RETRY_POLICY_VERSION,
+    AsyncJob,
+    AsyncJobStep,
+    IdempotencyRecord,
+    OutboxEvent,
+)
 from app.repositories.auth import AuthRepository
 from app.repositories.document_processing import (
     DocumentProcessingRepository,
@@ -61,6 +71,7 @@ from app.repositories.document_processing import (
     ParseVersionWrite,
 )
 from app.repositories.job_runtime import JobRuntimeRepository
+from app.repositories.markdown_write import MarkdownWriteRepository
 from app.schemas.audits import (
     AuditFinanceReviewRequest,
     AuditRiskReviewRequest,
@@ -73,6 +84,7 @@ from app.services.contract_primary_invoice_query import (
     ContractPrimaryInvoiceQueryService,
 )
 from app.services.contract_query import ContractQueryService
+from app.services.document_correction import DocumentCorrectionService
 from app.services.file_intake import FileIntakeService, FileQueryService
 from app.services.file_management import FileManagementService
 from app.services.invoice_primary_contract_query import (
@@ -95,6 +107,7 @@ from app.workers.dispatcher_process import (
     create_dispatcher_runtime,
     run_dispatcher_iteration,
 )
+from app.workers.file_handler_registry import FILE_INPUT_SCHEMA_VERSION, load_file_handler
 from tests.integration.database.test_authenticated_financial_read_api import (
     ADMIN_USER_ID,
     AGREEMENT_ID,
@@ -125,11 +138,15 @@ _REPORT_GATE_TOKEN = "RUN_DISPOSABLE_REPORT_BROWSER_V1"
 _FILE_UPLOAD_GATE_TOKEN = "RUN_DISPOSABLE_FILE_UPLOAD_BROWSER_V1"
 _FINANCIAL_LOOP_GATE_TOKEN = "RUN_DISPOSABLE_FINANCIAL_LOOP_BROWSER_V1"
 _SUPPLEMENTARY_GATE_TOKEN = "RUN_DISPOSABLE_SUPPLEMENTARY_AGREEMENT_BROWSER_V1"
+_INVOICE_DUPLICATE_GATE_TOKEN = "RUN_DISPOSABLE_INVOICE_DUPLICATE_BROWSER_V1"
+_DOCUMENT_CORRECTION_GATE_TOKEN = "RUN_DISPOSABLE_DOCUMENT_CORRECTION_BROWSER_V1"
 _AUTH_KID = "browser-gate-auth-v1"
 _SHUTDOWN_TOKEN = "STOP_DISPOSABLE_BROWSER_GATE_V1"
 _FILE_CAPABILITIES_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_FILE_CAPABILITIES_BROWSER_V1"
 _FINANCIAL_LOOP_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_FINANCIAL_LOOP_BROWSER_V1"
 _SUPPLEMENTARY_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_SUPPLEMENTARY_AGREEMENT_BROWSER_V1"
+_INVOICE_DUPLICATE_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_INVOICE_DUPLICATE_BROWSER_V1"
+_DOCUMENT_CORRECTION_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_DOCUMENT_CORRECTION_BROWSER_V1"
 _SUPPLEMENTARY_FILE_ID = UUID("7c000000-0000-4000-8000-000000000001")
 _SUPPLEMENTARY_BINDING_ID = UUID("7c000000-0000-4000-8000-000000000002")
 _SUPPLEMENTARY_CONTRACT_FILE_ID = UUID("7c000000-0000-4000-8000-000000000003")
@@ -140,6 +157,8 @@ _SUPPLEMENTARY_CONFIRM_REASON = "浏览器逐项复核确认"
 _SUPPLEMENTARY_REJECT_AGREEMENT_ID = UUID("7c000000-0000-4000-8000-000000000005")
 _SUPPLEMENTARY_REJECT_CHANGE_ID = UUID("7c000000-0000-4000-8000-000000000006")
 _SUPPLEMENTARY_REJECT_REASON = "浏览器复核后拒绝补充协议"
+_DOCUMENT_CORRECTION_TEXT = "浏览器纠错后的补充协议证据文本"
+_DOCUMENT_CORRECTION_REASON = "浏览器人工复核纠错"
 _SUPPLEMENTARY_CONTRACT_ACTOR_ID = UUID("7b000000-0000-4000-8000-000000000005")
 _ROLE_MATRIX_PASSWORD = "Synthetic-Role-Matrix-2026!"
 _ROLE_MATRIX_USERS = (
@@ -440,12 +459,62 @@ def _add_stored_browser_file(
     file_record.security_scan_status = "clean"
     file_record.original_minio_bucket = "originals"
     file_record.original_minio_object_key = f"{ORGANIZATION_ID}/{file_id}/original"
-    file_record.stored_at = AuthRepository(session).database_now()
+    now = AuthRepository(session).database_now()
+    file_record.stored_at = now
     file_record.row_version += 1
+    session.flush()
+    input_json: dict[str, object] = {
+        "auto_process_requested": True,
+        "file_id": str(file_id),
+        "intended_business_type": intended_business_type,
+        "processing_scope": "full",
+        "target_knowledge_base_id": None,
+    }
+    handler = load_file_handler("file_process")
+    handler.validate_input(input_json)
+    session.add(
+        AsyncJob(
+            id=uuid4(),
+            organization_id=ORGANIZATION_ID,
+            job_type="file_process",
+            resource_type="file",
+            resource_id=file_id,
+            status="queued",
+            stage=None,
+            attempt_no=0,
+            max_attempts=handler.handler.max_attempts,
+            current_attempt_start_step_code="scan",
+            input_hash=hashlib.sha256(
+                json.dumps(
+                    input_json,
+                    ensure_ascii=True,
+                    allow_nan=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+            ).hexdigest(),
+            input_json=input_json,
+            input_schema_version=FILE_INPUT_SCHEMA_VERSION,
+            handler_registry_version=handler.registry_version,
+            handler_registry_hash=handler.registry_hash,
+            retry_policy_version=JOB_RETRY_POLICY_VERSION,
+            retry_policy_hash=JOB_RETRY_POLICY_HASH,
+            lease_policy_version=JOB_LEASE_POLICY_VERSION,
+            lease_policy_hash=JOB_LEASE_POLICY_HASH,
+            row_version=1,
+            trace_id=uuid4(),
+            created_by=USER_ID,
+            created_at=now,
+        )
+    )
     session.flush()
 
 
-def _prepare_supplementary_browser_facts(factory: sessionmaker[Session]) -> UUID:
+def _prepare_supplementary_browser_facts(
+    factory: sessionmaker[Session],
+    *,
+    activate_parse: bool = False,
+) -> UUID:
     """Prepare confirm/conflict/reject agreements and one scoped evidence block."""
 
     with factory.begin() as session:
@@ -569,6 +638,16 @@ def _prepare_supplementary_browser_facts(factory: sessionmaker[Session]) -> UUID
                 ),
             ),
         )
+        if activate_parse:
+            activation = MarkdownWriteRepository(session).generate_and_activate(
+                organization_id=ORGANIZATION_ID,
+                file_id=_SUPPLEMENTARY_FILE_ID,
+                parse_version_id=parse_version_id,
+                trace_id=uuid4(),
+                actor_id=USER_ID,
+            )
+            if activation.outcome != "active":
+                raise RuntimeError("BROWSER_GATE_DOCUMENT_CORRECTION_SOURCE_NOT_ACTIVE")
         evidence_block_id = session.scalar(
             select(DocumentBlock.id).where(DocumentBlock.parse_version_id == parse_version_id)
         )
@@ -1647,6 +1726,9 @@ def _clear_supplementary_browser_facts(engine: Engine) -> None:
     table_names = (
         "operation_logs",
         "idempotency_records",
+        "async_job_steps",
+        "outbox_events",
+        "async_jobs",
         "user_corrections",
         "supplementary_agreement_changes",
         "document_content_exclusions",
@@ -1702,6 +1784,22 @@ def _clear_supplementary_browser_facts(engine: Engine) -> None:
                     _SUPPLEMENTARY_REJECT_AGREEMENT_ID,
                     *role_matrix_actor_ids,
                 ),
+            )
+            file_job_subquery = (
+                "SELECT id FROM async_jobs WHERE resource_type = 'file' AND resource_id IN (%s, %s)"
+            )
+            connection.exec_driver_sql(
+                "DELETE FROM async_job_steps WHERE job_id IN (" + file_job_subquery + ")",
+                (_SUPPLEMENTARY_FILE_ID, _SUPPLEMENTARY_CONTRACT_FILE_ID),
+            )
+            connection.exec_driver_sql(
+                "DELETE FROM outbox_events WHERE aggregate_type = 'async_job' "
+                "AND aggregate_id IN (" + file_job_subquery + ")",
+                (_SUPPLEMENTARY_FILE_ID, _SUPPLEMENTARY_CONTRACT_FILE_ID),
+            )
+            connection.exec_driver_sql(
+                "DELETE FROM async_jobs WHERE resource_type = 'file' AND resource_id IN (%s, %s)",
+                (_SUPPLEMENTARY_FILE_ID, _SUPPLEMENTARY_CONTRACT_FILE_ID),
             )
             parse_subquery = "SELECT id FROM document_parse_versions WHERE file_id = %s"
             connection.exec_driver_sql(
@@ -1766,6 +1864,299 @@ def _stop_synthetic_clamd(
         raise RuntimeError("BROWSER_GATE_SCANNER_SHUTDOWN_FAILED")
 
 
+def _invoice_duplicate_manifest(
+    factory: sessionmaker[Session],
+    http_results: tuple[dict[str, object], ...],
+) -> dict[str, object]:
+    with factory() as session:
+        source = session.get(Invoice, INVOICE_ID)
+        candidate = session.get(Invoice, DUPLICATE_INVOICE_ID)
+    if source is None or candidate is None:
+        raise RuntimeError("BROWSER_GATE_INVOICE_DUPLICATE_SUBJECT_MISSING")
+    return {
+        "source": {
+            "id": str(source.id),
+            "invoice_code": source.invoice_code,
+            "invoice_number": source.invoice_number,
+            "seller_tax_no": source.seller_tax_no,
+            "duplicate_status": source.duplicate_status,
+            "status": source.status,
+        },
+        "candidate": {
+            "id": str(candidate.id),
+            "invoice_code": candidate.invoice_code,
+            "invoice_number": candidate.invoice_number,
+            "seller_tax_no": candidate.seller_tax_no,
+            "duplicate_status": candidate.duplicate_status,
+            "status": candidate.status,
+        },
+        "http_results": list(http_results),
+    }
+
+
+def _assert_invoice_duplicate_complete(manifest: dict[str, object]) -> None:
+    source = manifest.get("source")
+    candidate = manifest.get("candidate")
+    http_results = manifest.get("http_results")
+    if (
+        type(source) is not dict
+        or type(candidate) is not dict
+        or type(http_results) is not list
+        or any(type(item) is not dict for item in http_results)
+    ):
+        raise RuntimeError("BROWSER_GATE_INVOICE_DUPLICATE_MANIFEST_INVALID")
+    if (
+        source.get("id") != str(INVOICE_ID)
+        or candidate.get("id") != str(DUPLICATE_INVOICE_ID)
+        or source.get("status") == "voided"
+        or candidate.get("status") == "voided"
+        or source.get("duplicate_status") != "unique"
+        or candidate.get("duplicate_status") != "suspected"
+        or source.get("invoice_code") != candidate.get("invoice_code")
+        or source.get("invoice_number") != candidate.get("invoice_number")
+        or source.get("seller_tax_no") != candidate.get("seller_tax_no")
+    ):
+        raise RuntimeError("BROWSER_GATE_INVOICE_DUPLICATE_FACTS_INVALID")
+    observed = {
+        (item.get("method"), item.get("path"), item.get("status"))
+        for item in http_results
+        if type(item) is dict
+    }
+    expected = {
+        (
+            "GET",
+            f"/api/v1/invoices/{INVOICE_ID}/duplicate-candidates",
+            200,
+        ),
+        (
+            "GET",
+            f"/api/v1/invoices/{INVOICE_ID}/duplicate-candidates/{DUPLICATE_INVOICE_ID}",
+            200,
+        ),
+    }
+    if not expected.issubset(observed):
+        raise RuntimeError("BROWSER_GATE_INVOICE_DUPLICATE_HTTP_INCOMPLETE")
+
+
+def _document_correction_manifest(
+    factory: sessionmaker[Session],
+    evidence_block_id: UUID,
+    http_results: tuple[dict[str, object], ...],
+) -> dict[str, object]:
+    with factory() as session:
+        source_block = session.get(DocumentBlock, evidence_block_id)
+        if source_block is None:
+            raise RuntimeError("BROWSER_GATE_DOCUMENT_CORRECTION_SOURCE_MISSING")
+        source = session.get(DocumentParseVersion, source_block.parse_version_id)
+        corrections = tuple(
+            session.scalars(
+                select(DocumentBlockCorrection).where(
+                    DocumentBlockCorrection.source_block_id == evidence_block_id
+                )
+            ).all()
+        )
+        correction = corrections[0] if len(corrections) == 1 else None
+        result = (
+            None
+            if correction is None
+            else session.get(DocumentParseVersion, correction.result_parse_version_id)
+        )
+        job = (
+            None
+            if result is None
+            else session.scalar(
+                select(AsyncJob).where(
+                    AsyncJob.job_type == "manual_correction_snapshot",
+                    AsyncJob.resource_id == result.id,
+                )
+            )
+        )
+        steps = (
+            ()
+            if job is None
+            else tuple(
+                session.scalars(
+                    select(AsyncJobStep)
+                    .where(AsyncJobStep.job_id == job.id)
+                    .order_by(AsyncJobStep.attempt_no, AsyncJobStep.step_seq)
+                ).all()
+            )
+        )
+        result_blocks = (
+            ()
+            if result is None
+            else tuple(
+                session.scalars(
+                    select(DocumentBlock)
+                    .where(DocumentBlock.parse_version_id == result.id)
+                    .order_by(DocumentBlock.block_index)
+                ).all()
+            )
+        )
+        active_markdown_count = (
+            0
+            if result is None
+            else session.scalar(
+                select(func.count())
+                .select_from(DocumentMarkdownVersion)
+                .where(
+                    DocumentMarkdownVersion.parse_version_id == result.id,
+                    DocumentMarkdownVersion.status == "active",
+                )
+            )
+        )
+        outbox_count = (
+            0
+            if job is None
+            else session.scalar(
+                select(func.count())
+                .select_from(OutboxEvent)
+                .where(
+                    OutboxEvent.aggregate_id == job.id,
+                    OutboxEvent.status == "published",
+                )
+            )
+        )
+        action_codes = (
+            []
+            if result is None
+            else list(
+                session.scalars(
+                    select(OperationLog.action_code)
+                    .where(
+                        OperationLog.resource_type == "document_parse_version",
+                        OperationLog.resource_id == result.id,
+                    )
+                    .order_by(OperationLog.created_at, OperationLog.id)
+                ).all()
+            )
+        )
+    return {
+        "evidence_block_id": str(evidence_block_id),
+        "source": None
+        if source is None
+        else {
+            "id": str(source.id),
+            "status": source.status,
+            "superseded_at_present": source.superseded_at is not None,
+        },
+        "correction": None
+        if correction is None
+        else {
+            "id": str(correction.id),
+            "source_block_id": str(correction.source_block_id),
+            "result_parse_version_id": str(correction.result_parse_version_id),
+            "field_name": correction.field_name,
+            "after_value": correction.after_value_json,
+            "reason": correction.reason,
+        },
+        "result": None
+        if result is None
+        else {
+            "id": str(result.id),
+            "status": result.status,
+            "parent_version_id": str(result.parent_version_id),
+            "activated_at_present": result.activated_at is not None,
+            "block_texts": [block.text_content for block in result_blocks],
+            "active_markdown_count": active_markdown_count,
+        },
+        "job": None
+        if job is None
+        else {
+            "id": str(job.id),
+            "status": job.status,
+            "attempt_no": job.attempt_no,
+            "max_attempts": job.max_attempts,
+            "steps": [
+                {
+                    "attempt_no": step.attempt_no,
+                    "step_code": step.step_code,
+                    "status": step.status,
+                    "error_code": step.error_code,
+                }
+                for step in steps
+            ],
+            "published_outbox_count": outbox_count,
+        },
+        "action_codes": action_codes,
+        "http_results": list(http_results),
+    }
+
+
+def _assert_document_correction_complete(manifest: dict[str, object]) -> None:
+    source = manifest.get("source")
+    evidence_block_id = manifest.get("evidence_block_id")
+    correction = manifest.get("correction")
+    result = manifest.get("result")
+    job = manifest.get("job")
+    action_codes = manifest.get("action_codes")
+    http_results = manifest.get("http_results")
+    if any(type(item) is not dict for item in (source, correction, result, job)) or any(
+        type(item) is not list for item in (action_codes, http_results)
+    ):
+        raise RuntimeError("BROWSER_GATE_DOCUMENT_CORRECTION_MANIFEST_INVALID")
+    source = cast(dict[str, object], source)
+    correction = cast(dict[str, object], correction)
+    result = cast(dict[str, object], result)
+    job = cast(dict[str, object], job)
+    action_codes = cast(list[object], action_codes)
+    http_results = cast(list[object], http_results)
+    if (
+        type(evidence_block_id) is not str
+        or source.get("status") != "superseded"
+        or source.get("superseded_at_present") is not True
+        or correction.get("source_block_id") != evidence_block_id
+        or correction.get("field_name") != "text_content"
+        or correction.get("after_value") != _DOCUMENT_CORRECTION_TEXT
+        or correction.get("reason") != _DOCUMENT_CORRECTION_REASON
+        or result.get("status") != "active"
+        or result.get("parent_version_id") != source.get("id")
+        or result.get("activated_at_present") is not True
+        or _DOCUMENT_CORRECTION_TEXT not in result.get("block_texts", [])
+        or result.get("active_markdown_count") != 1
+        or job.get("status") != "succeeded"
+        or job.get("attempt_no") != 1
+        or job.get("max_attempts") != 1
+        or job.get("steps")
+        != [
+            {
+                "attempt_no": 1,
+                "step_code": "snapshot_rebuild",
+                "status": "succeeded",
+                "error_code": None,
+            }
+        ]
+        or job.get("published_outbox_count") != 1
+        or action_codes != ["document_block.correction_requested", "document_parse.activated"]
+    ):
+        raise RuntimeError("BROWSER_GATE_DOCUMENT_CORRECTION_FACTS_INVALID")
+    observed = {
+        (item.get("method"), item.get("path"), item.get("status"))
+        for item in http_results
+        if type(item) is dict
+    }
+    result_id = result.get("id")
+    expected = {
+        (
+            "GET",
+            f"/api/v1/files/{_SUPPLEMENTARY_FILE_ID}/document-correction-blocks",
+            200,
+        ),
+        (
+            "POST",
+            f"/api/v1/document-blocks/{evidence_block_id}/correct",
+            202,
+        ),
+        (
+            "POST",
+            f"/api/v1/document-parse-versions/{result_id}/activate",
+            200,
+        ),
+    }
+    if not expected.issubset(observed):
+        raise RuntimeError("BROWSER_GATE_DOCUMENT_CORRECTION_HTTP_INCOMPLETE")
+
+
 def _write_auth_key_files(
     private_key_file: Path,
     public_keyring_file: Path,
@@ -1813,13 +2204,17 @@ def build_browser_application() -> FastAPI:
         _FILE_UPLOAD_GATE_TOKEN,
         _FINANCIAL_LOOP_GATE_TOKEN,
         _SUPPLEMENTARY_GATE_TOKEN,
+        _INVOICE_DUPLICATE_GATE_TOKEN,
+        _DOCUMENT_CORRECTION_GATE_TOKEN,
     }:
         raise RuntimeError("BROWSER_GATE_NOT_AUTHORIZED")
     report_gate = gate_token == _REPORT_GATE_TOKEN
     file_upload_gate = gate_token == _FILE_UPLOAD_GATE_TOKEN
     financial_loop_gate = gate_token == _FINANCIAL_LOOP_GATE_TOKEN
     supplementary_gate = gate_token == _SUPPLEMENTARY_GATE_TOKEN
-    worker_gate = file_upload_gate or financial_loop_gate
+    invoice_duplicate_gate = gate_token == _INVOICE_DUPLICATE_GATE_TOKEN
+    document_correction_gate = gate_token == _DOCUMENT_CORRECTION_GATE_TOKEN
+    worker_gate = file_upload_gate or financial_loop_gate or document_correction_gate
 
     raw_port = os.environ.get("FINAUDIT_BROWSER_PORT", "")
     if not raw_port.isascii() or not raw_port.isdigit():
@@ -1883,6 +2278,10 @@ def build_browser_application() -> FastAPI:
         application.state.browser_gate_financial_loop_accepted = False
         application.state.browser_gate_supplementary_accepted = False
         application.state.browser_gate_supplementary_http_results = []
+        application.state.browser_gate_invoice_duplicate_accepted = False
+        application.state.browser_gate_invoice_duplicate_http_results = []
+        application.state.browser_gate_document_correction_accepted = False
+        application.state.browser_gate_document_correction_http_results = []
         if supplementary_gate:
             supplementary_path_prefix = f"/api/v1/contracts/{CONTRACT_ID}/supplementary-agreements/"
 
@@ -1906,6 +2305,70 @@ def build_browser_application() -> FastAPI:
                     )
                 return response
 
+        if invoice_duplicate_gate:
+            duplicate_paths = {
+                f"/api/v1/invoices/{INVOICE_ID}/duplicate-candidates",
+                (f"/api/v1/invoices/{INVOICE_ID}/duplicate-candidates/{DUPLICATE_INVOICE_ID}"),
+            }
+
+            @application.middleware("http")
+            async def record_invoice_duplicate_reads(  # type: ignore[no-untyped-def]
+                request: Request,
+                call_next,
+            ):
+                response = await call_next(request)
+                if request.method == "GET" and request.url.path in duplicate_paths:
+                    results = application.state.browser_gate_invoice_duplicate_http_results
+                    if not isinstance(results, list):
+                        raise RuntimeError("BROWSER_GATE_INVOICE_DUPLICATE_HTTP_RESULTS_INVALID")
+                    results.append(
+                        {
+                            "method": request.method,
+                            "path": request.url.path,
+                            "status": response.status_code,
+                        }
+                    )
+                return response
+
+        if document_correction_gate:
+            correction_prefixes = (
+                f"/api/v1/files/{_SUPPLEMENTARY_FILE_ID}/document-correction-blocks",
+                "/api/v1/document-blocks/",
+                "/api/v1/document-parse-versions/",
+            )
+
+            @application.middleware("http")
+            async def record_document_correction_requests(  # type: ignore[no-untyped-def]
+                request: Request,
+                call_next,
+            ):
+                response = await call_next(request)
+                path = request.url.path
+                if (
+                    (request.method == "GET" and path == correction_prefixes[0])
+                    or (
+                        request.method == "POST"
+                        and path.startswith(correction_prefixes[1])
+                        and path.endswith("/correct")
+                    )
+                    or (
+                        request.method == "POST"
+                        and path.startswith(correction_prefixes[2])
+                        and path.endswith("/activate")
+                    )
+                ):
+                    results = application.state.browser_gate_document_correction_http_results
+                    if not isinstance(results, list):
+                        raise RuntimeError("BROWSER_GATE_DOCUMENT_CORRECTION_HTTP_RESULTS_INVALID")
+                    results.append(
+                        {
+                            "method": request.method,
+                            "path": path,
+                            "status": response.status_code,
+                        }
+                    )
+                return response
+
         original_lifespan = application.router.lifespan_context
 
         @asynccontextmanager
@@ -1923,21 +2386,46 @@ def build_browser_application() -> FastAPI:
                 event.listen(factory, "after_begin", _bound_transaction_waits)
                 _seed_subject_and_financial_facts(factory)
                 seeded = True
-                if supplementary_gate:
+                if invoice_duplicate_gate:
+                    app.state.browser_gate_invoice_duplicate_factory = factory
+                    print(f"BROWSER_GATE_INVOICE_ID={INVOICE_ID}", flush=True)
+                    print(
+                        f"BROWSER_GATE_DUPLICATE_INVOICE_ID={DUPLICATE_INVOICE_ID}",
+                        flush=True,
+                    )
+                    print("BROWSER_GATE_INVOICE_DUPLICATE_RUNTIME=READY", flush=True)
+                if supplementary_gate or document_correction_gate:
                     _seed_role_matrix_users(factory)
-                    evidence_block_id = _prepare_supplementary_browser_facts(factory)
-                    app.state.browser_gate_supplementary_factory = factory
-                    app.state.browser_gate_supplementary_evidence_block_id = evidence_block_id
-                    print(f"BROWSER_GATE_CONTRACT_ID={CONTRACT_ID}", flush=True)
-                    print(f"BROWSER_GATE_AGREEMENT_ID={AGREEMENT_ID}", flush=True)
-                    print(
-                        f"BROWSER_GATE_REJECT_AGREEMENT_ID={_SUPPLEMENTARY_REJECT_AGREEMENT_ID}",
-                        flush=True,
+                    evidence_block_id = _prepare_supplementary_browser_facts(
+                        factory,
+                        activate_parse=document_correction_gate,
                     )
-                    print(
-                        f"BROWSER_GATE_SUPPLEMENTARY_EVIDENCE_BLOCK_ID={evidence_block_id}",
-                        flush=True,
-                    )
+                    if supplementary_gate:
+                        app.state.browser_gate_supplementary_factory = factory
+                        app.state.browser_gate_supplementary_evidence_block_id = evidence_block_id
+                        print(f"BROWSER_GATE_CONTRACT_ID={CONTRACT_ID}", flush=True)
+                        print(f"BROWSER_GATE_AGREEMENT_ID={AGREEMENT_ID}", flush=True)
+                        print(
+                            f"BROWSER_GATE_REJECT_AGREEMENT_ID={_SUPPLEMENTARY_REJECT_AGREEMENT_ID}",
+                            flush=True,
+                        )
+                        print(
+                            f"BROWSER_GATE_SUPPLEMENTARY_EVIDENCE_BLOCK_ID={evidence_block_id}",
+                            flush=True,
+                        )
+                    else:
+                        app.state.browser_gate_document_correction_factory = factory
+                        app.state.browser_gate_document_correction_evidence_block_id = (
+                            evidence_block_id
+                        )
+                        print(
+                            f"BROWSER_GATE_DOCUMENT_CORRECTION_FILE_ID={_SUPPLEMENTARY_FILE_ID}",
+                            flush=True,
+                        )
+                        print(
+                            f"BROWSER_GATE_DOCUMENT_CORRECTION_BLOCK_ID={evidence_block_id}",
+                            flush=True,
+                        )
                 if report_gate:
                     _prepare_report_financial_facts(seed_engine)
                     report_id, report_storage, report_locators = _seed_ready_report(
@@ -1999,6 +2487,10 @@ def build_browser_application() -> FastAPI:
                                 "supplementary_agreement_management_service",
                                 SupplementaryAgreementManagementService,
                             )
+                        )
+                    if document_correction_gate:
+                        expected_services.append(
+                            ("document_correction_service", DocumentCorrectionService)
                         )
                     if report_gate or financial_loop_gate:
                         expected_services.append(
@@ -2069,12 +2561,16 @@ def build_browser_application() -> FastAPI:
                             runtime_stack.callback(dispatcher.close)
                             app.state.browser_gate_file_factory = factory
                             app.state.browser_gate_dispatcher = dispatcher
-                            print(
+                            runtime_ready = (
                                 "BROWSER_GATE_FINANCIAL_LOOP_RUNTIME=READY"
                                 if financial_loop_gate
-                                else "BROWSER_GATE_FILE_RUNTIME=READY",
-                                flush=True,
+                                else (
+                                    "BROWSER_GATE_DOCUMENT_CORRECTION_RUNTIME=READY"
+                                    if document_correction_gate
+                                    else "BROWSER_GATE_FILE_RUNTIME=READY"
+                                )
                             )
+                            print(runtime_ready, flush=True)
                             if file_upload_gate:
                                 print(
                                     f"BROWSER_GATE_FILE_CLEAN_FIXTURE={clean_file_fixture}",
@@ -2099,7 +2595,9 @@ def build_browser_application() -> FastAPI:
                     if seed_engine is not None:
                         try:
                             if seeded:
-                                if worker_gate and file_factory is not None:
+                                if (
+                                    file_upload_gate or financial_loop_gate
+                                ) and file_factory is not None:
                                     _cleanup_file_gate_objects(file_factory, settings)
                                 if financial_loop_gate and file_factory is not None:
                                     _cleanup_financial_loop_report_objects(file_factory, settings)
@@ -2185,6 +2683,61 @@ def build_browser_application() -> FastAPI:
                 factory,
                 evidence_block_id,
                 tuple(cast(dict[str, object], item) for item in write_http_results),
+            )
+
+        @application.get("/__finaudit_test__/invoice-duplicate-manifest", include_in_schema=False)
+        async def invoice_duplicate_manifest() -> dict[str, object]:
+            factory = getattr(
+                application.state,
+                "browser_gate_invoice_duplicate_factory",
+                None,
+            )
+            http_results = getattr(
+                application.state,
+                "browser_gate_invoice_duplicate_http_results",
+                None,
+            )
+            if (
+                not invoice_duplicate_gate
+                or not isinstance(factory, sessionmaker)
+                or not isinstance(http_results, list)
+                or not all(type(item) is dict for item in http_results)
+            ):
+                raise HTTPException(status_code=404, detail="Not Found")
+            return _invoice_duplicate_manifest(
+                factory,
+                tuple(cast(dict[str, object], item) for item in http_results),
+            )
+
+        @application.get("/__finaudit_test__/document-correction-manifest", include_in_schema=False)
+        async def document_correction_manifest() -> dict[str, object]:
+            factory = getattr(
+                application.state,
+                "browser_gate_document_correction_factory",
+                None,
+            )
+            evidence_block_id = getattr(
+                application.state,
+                "browser_gate_document_correction_evidence_block_id",
+                None,
+            )
+            http_results = getattr(
+                application.state,
+                "browser_gate_document_correction_http_results",
+                None,
+            )
+            if (
+                not document_correction_gate
+                or not isinstance(factory, sessionmaker)
+                or not isinstance(evidence_block_id, UUID)
+                or not isinstance(http_results, list)
+                or not all(type(item) is dict for item in http_results)
+            ):
+                raise HTTPException(status_code=404, detail="Not Found")
+            return _document_correction_manifest(
+                factory,
+                evidence_block_id,
+                tuple(cast(dict[str, object], item) for item in http_results),
             )
 
         @application.post("/__finaudit_test__/shutdown", include_in_schema=False)
@@ -2300,6 +2853,97 @@ def build_browser_application() -> FastAPI:
             server.should_exit = True
             return {"status": "accepted"}
 
+        @application.post(
+            "/__finaudit_test__/invoice-duplicate-complete",
+            include_in_schema=False,
+        )
+        async def complete_invoice_duplicate(request: Request) -> dict[str, str]:
+            factory = getattr(
+                application.state,
+                "browser_gate_invoice_duplicate_factory",
+                None,
+            )
+            http_results = getattr(
+                application.state,
+                "browser_gate_invoice_duplicate_http_results",
+                None,
+            )
+            server = getattr(application.state, "browser_gate_server", None)
+            if (
+                not invoice_duplicate_gate
+                or request.headers.get("X-FinAudit-Browser-Gate")
+                != _INVOICE_DUPLICATE_COMPLETE_TOKEN
+            ):
+                raise HTTPException(status_code=404, detail="Not Found")
+            if (
+                not isinstance(factory, sessionmaker)
+                or not isinstance(http_results, list)
+                or not all(type(item) is dict for item in http_results)
+                or not isinstance(server, uvicorn.Server)
+            ):
+                raise HTTPException(status_code=503, detail="Not Ready")
+            try:
+                _assert_invoice_duplicate_complete(
+                    _invoice_duplicate_manifest(
+                        factory,
+                        tuple(cast(dict[str, object], item) for item in http_results),
+                    )
+                )
+            except RuntimeError as error:
+                raise HTTPException(status_code=409, detail=str(error)) from None
+            application.state.browser_gate_invoice_duplicate_accepted = True
+            server.should_exit = True
+            return {"status": "accepted"}
+
+        @application.post(
+            "/__finaudit_test__/document-correction-complete",
+            include_in_schema=False,
+        )
+        async def complete_document_correction(request: Request) -> dict[str, str]:
+            factory = getattr(
+                application.state,
+                "browser_gate_document_correction_factory",
+                None,
+            )
+            evidence_block_id = getattr(
+                application.state,
+                "browser_gate_document_correction_evidence_block_id",
+                None,
+            )
+            http_results = getattr(
+                application.state,
+                "browser_gate_document_correction_http_results",
+                None,
+            )
+            server = getattr(application.state, "browser_gate_server", None)
+            if (
+                not document_correction_gate
+                or request.headers.get("X-FinAudit-Browser-Gate")
+                != _DOCUMENT_CORRECTION_COMPLETE_TOKEN
+            ):
+                raise HTTPException(status_code=404, detail="Not Found")
+            if (
+                not isinstance(factory, sessionmaker)
+                or not isinstance(evidence_block_id, UUID)
+                or not isinstance(http_results, list)
+                or not all(type(item) is dict for item in http_results)
+                or not isinstance(server, uvicorn.Server)
+            ):
+                raise HTTPException(status_code=503, detail="Not Ready")
+            try:
+                _assert_document_correction_complete(
+                    _document_correction_manifest(
+                        factory,
+                        evidence_block_id,
+                        tuple(cast(dict[str, object], item) for item in http_results),
+                    )
+                )
+            except RuntimeError as error:
+                raise HTTPException(status_code=409, detail=str(error)) from None
+            application.state.browser_gate_document_correction_accepted = True
+            server.should_exit = True
+            return {"status": "accepted"}
+
         @application.get("/{spa_path:path}", include_in_schema=False)
         async def serve_spa(spa_path: str) -> FileResponse:
             if spa_path == "api" or spa_path.startswith("api/"):
@@ -2350,6 +2994,16 @@ def run_browser_gate() -> None:
             and application.state.browser_gate_supplementary_accepted is not True
         ):
             raise RuntimeError("BROWSER_GATE_SUPPLEMENTARY_NOT_ACCEPTED")
+        if (
+            os.environ.get("FINAUDIT_BROWSER_GATE") == _INVOICE_DUPLICATE_GATE_TOKEN
+            and application.state.browser_gate_invoice_duplicate_accepted is not True
+        ):
+            raise RuntimeError("BROWSER_GATE_INVOICE_DUPLICATE_NOT_ACCEPTED")
+        if (
+            os.environ.get("FINAUDIT_BROWSER_GATE") == _DOCUMENT_CORRECTION_GATE_TOKEN
+            and application.state.browser_gate_document_correction_accepted is not True
+        ):
+            raise RuntimeError("BROWSER_GATE_DOCUMENT_CORRECTION_NOT_ACCEPTED")
     finally:
         _cleanup_gate_key_files(application)
 

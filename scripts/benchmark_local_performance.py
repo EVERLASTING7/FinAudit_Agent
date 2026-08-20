@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import math
 import os
@@ -8,12 +9,15 @@ import re
 import sys
 import threading
 import time
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from decimal import Decimal
 from uuid import NAMESPACE_URL, UUID, uuid5
+from xml.sax.saxutils import escape
 
 import httpx
+from reportlab.pdfgen import canvas  # type: ignore[import-untyped]
 from smoke_local_file_upload import (
     SmokeError,
     _login,
@@ -35,11 +39,13 @@ from app.models.audit import (
     RuleExecution,
 )
 from app.models.auth import Organization, User
-from app.models.documents import FileRecord
+from app.models.document_processing import DocumentPage, DocumentParseVersion
+from app.models.documents import FilePrimaryBusinessObject, FileRecord
 from app.models.financial import Contract, Invoice, InvoiceItem
+from app.models.knowledge import DocumentMarkdownVersion
 from app.models.reliability import AsyncJob, AsyncJobStep, OutboxEvent
 
-_SCHEMA_VERSION = "finaudit-local-performance-v2"
+_SCHEMA_VERSION = "finaudit-local-performance-v4"
 _TRANSPORT_SCOPE = "http-nginx-backend"
 _RUN_ID_PATTERN = re.compile(r"[0-9a-f]{32}\Z", re.ASCII)
 _BASELINE_DATE = date(2026, 8, 15)
@@ -50,6 +56,10 @@ _BATCH_FILE_COUNT = 20
 _AUDIT_TASK_COUNT = 3
 _LIST_P95_LIMIT_SECONDS = 0.8
 _UPLOAD_ACCEPTANCE_P95_LIMIT_SECONDS = 3.0
+_TWENTY_PAGE_CONTRACT_LIMIT_SECONDS = 120.0
+_TWENTY_PAGE_CONTRACT_PAGE_COUNT = 20
+_CLEAR_INVOICE_LIMIT_SECONDS = 30.0
+_DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 _JOB_TIMEOUT_SECONDS = 180.0
 _POLL_INTERVAL_SECONDS = 0.25
 
@@ -78,6 +88,35 @@ def _task_prefix(run_id: str) -> str:
 
 def _batch_file_name(run_id: str, round_no: int, item_no: int) -> str:
     return f"local-performance-batch-{run_id[:12]}-{round_no:02d}-{item_no:02d}.pdf"
+
+
+def _twenty_page_contract_file_name(run_id: str, round_no: int) -> str:
+    return f"local-performance-contract20-{run_id[:12]}-{round_no:02d}.pdf"
+
+
+def _clear_invoice_file_name(run_id: str, round_no: int) -> str:
+    return f"local-performance-invoice-{run_id[:12]}-{round_no:02d}.docx"
+
+
+def _clear_invoice_values(run_id: str, round_no: int) -> dict[str, object]:
+    if _RUN_ID_PATTERN.fullmatch(run_id) is None or not 1 <= round_no <= _ROUND_COUNT:
+        raise PerformanceError("CLEAR_INVOICE_IDENTITY_INVALID")
+    return {
+        "invoice_code": f"PERF{run_id[:10].upper()}{round_no:02d}",
+        "invoice_number": f"{round_no:02d}{run_id[10:20].upper()}",
+        "invoice_type": "增值税专用发票",
+        "is_red_invoice": False,
+        "invoice_date": "2026-08-19",
+        "buyer_name": "合成性能采购方",
+        "buyer_tax_no": "91310000BUYER0001X",
+        "seller_name": "合成性能供应商",
+        "seller_tax_no": f"91310000SELLER{round_no:04d}X",
+        "amount_excluding_tax": "100.00",
+        "tax_amount": "13.00",
+        "total_amount": "113.00",
+        "currency": "CNY",
+        "item_name": f"合成性能服务 {round_no}",
+    }
 
 
 def _stable_id(run_id: str, kind: str, index: int = 0) -> UUID:
@@ -129,10 +168,7 @@ def _validate_batch_response(
     if (
         type(expected_count) is not int
         or expected_count < 1
-        or any(
-            type(index) is not int or not 0 <= index < expected_count
-            for index in rejections
-        )
+        or any(type(index) is not int or not 0 <= index < expected_count for index in rejections)
         or (expected_names is not None and len(expected_names) != expected_count)
         or type(items) is not list
         or len(items) != expected_count
@@ -146,10 +182,7 @@ def _validate_batch_response(
         if (
             not isinstance(item, dict)
             or item.get("index") != index
-            or (
-                expected_names is not None
-                and item.get("original_name") != expected_names[index]
-            )
+            or (expected_names is not None and item.get("original_name") != expected_names[index])
         ):
             raise PerformanceError("BATCH_CONTRACT_INVALID")
         if index in rejections:
@@ -200,12 +233,91 @@ def _performance_pdf(run_id: str, round_no: int, sample_no: int) -> bytes:
     eof_offset = base.rfind(b"%%EOF")
     if eof_offset < 0:
         raise PerformanceError("PDF_FIXTURE_INVALID")
-    marker = (f"% local-performance-{run_id}-{round_no:02d}-{sample_no:02d}\n").encode(
-        "ascii"
-    )
+    marker = (f"% local-performance-{run_id}-{round_no:02d}-{sample_no:02d}\n").encode("ascii")
     payload = base[:eof_offset] + marker + base[eof_offset:]
     if not payload.startswith(b"%PDF") or not payload.rstrip().endswith(b"%%EOF"):
         raise PerformanceError("PDF_FIXTURE_INVALID")
+    return payload
+
+
+def _twenty_page_contract_pdf(run_id: str, round_no: int) -> bytes:
+    if _RUN_ID_PATTERN.fullmatch(run_id) is None or not 1 <= round_no <= _ROUND_COUNT:
+        raise PerformanceError("TWENTY_PAGE_CONTRACT_IDENTITY_INVALID")
+    output = io.BytesIO()
+    document = canvas.Canvas(output, pagesize=(595, 842), invariant=1, pageCompression=0)
+    for page_no in range(1, _TWENTY_PAGE_CONTRACT_PAGE_COUNT + 1):
+        document.drawString(36, 800, f"Synthetic Contract {run_id[:12].upper()}")
+        document.drawString(36, 780, f"Contract No: PERF-{run_id[:12].upper()}-{round_no:02d}")
+        document.drawString(36, 760, "Party A Tax No: 911100000000000001")
+        document.drawString(36, 740, "Party B Tax No: 922200000000000002")
+        document.drawString(36, 720, "Amount: CNY 100000.00")
+        document.drawString(36, 700, "Effective Date: 2026-01-01")
+        document.drawString(36, 680, f"Page {page_no} of {_TWENTY_PAGE_CONTRACT_PAGE_COUNT}")
+        document.drawString(
+            36,
+            660,
+            f"Deterministic local performance clause {round_no:02d}-{page_no:02d}.",
+        )
+        document.showPage()
+    document.save()
+    payload = output.getvalue()
+    if not payload.startswith(b"%PDF") or not payload.rstrip().endswith(b"%%EOF"):
+        raise PerformanceError("TWENTY_PAGE_CONTRACT_PDF_INVALID")
+    return payload
+
+
+def _clear_invoice_docx(run_id: str, round_no: int) -> bytes:
+    values = _clear_invoice_values(run_id, round_no)
+    lines = (
+        f"发票代码: {values['invoice_code']}",
+        f"发票号码: {values['invoice_number']}",
+        f"发票类型: {values['invoice_type']}",
+        "是否红字: 否",
+        f"开票日期: {values['invoice_date']}",
+        f"购买方名称: {values['buyer_name']}",
+        f"购买方税号: {values['buyer_tax_no']}",
+        f"销售方名称: {values['seller_name']}",
+        f"销售方税号: {values['seller_tax_no']}",
+        f"不含税金额: {values['amount_excluding_tax']}",
+        f"税额: {values['tax_amount']}",
+        f"价税合计: {values['total_amount']}",
+        f"币种: {values['currency']}",
+        f"明细: {values['item_name']}",
+    )
+    paragraphs = "".join(f"<w:p><w:r><w:t>{escape(line)}</w:t></w:r></w:p>" for line in lines)
+    parts = {
+        "[Content_Types].xml": (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Override PartName="/word/document.xml" '
+            'ContentType="application/vnd.openxmlformats-officedocument.'
+            'wordprocessingml.document.main+xml"/>'
+            "</Types>"
+        ),
+        "_rels/.rels": (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+            'officeDocument" Target="word/document.xml"/>'
+            "</Relationships>"
+        ),
+        "word/document.xml": (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/'
+            'wordprocessingml/2006/main"><w:body>'
+            f"{paragraphs}<w:sectPr/></w:body></w:document>"
+        ),
+    }
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w") as archive:
+        for name, text in parts.items():
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(info, text.encode("utf-8"))
+    payload = output.getvalue()
+    if not payload.startswith(b"PK\x03\x04"):
+        raise PerformanceError("CLEAR_INVOICE_DOCX_INVALID")
     return payload
 
 
@@ -251,9 +363,7 @@ def seed_database() -> None:
                 raise PerformanceError("ORGANIZATION_SUBJECT_INVALID")
             existing_ids = tuple(
                 session.scalars(select(Contract.id).where(Contract.id == contract_id))
-            ) + tuple(
-                session.scalars(select(Invoice.id).where(Invoice.id.in_(invoice_ids)))
-            )
+            ) + tuple(session.scalars(select(Invoice.id).where(Invoice.id.in_(invoice_ids))))
             if existing_ids:
                 raise PerformanceError("PERFORMANCE_SEED_COLLISION")
             now = session.scalar(select(func.clock_timestamp()))
@@ -424,10 +534,7 @@ def _wait_for_scan_only_files(
             if status in {"failed", "cancelled"}:
                 raise PerformanceError("UPLOAD_JOB_FAILED")
             if status == "succeeded":
-                if (
-                    data.get("status") != "stored"
-                    or data.get("security_scan_status") != "clean"
-                ):
+                if data.get("status") != "stored" or data.get("security_scan_status") != "clean":
                     raise PerformanceError("UPLOAD_JOB_RESULT_INVALID")
                 started, _payload = pending.pop(file_id)
                 processing_samples.append(time.perf_counter() - started)
@@ -441,8 +548,7 @@ def _wait_for_scan_only_files(
     if (
         preview.status_code != 200
         or preview.content != preview_payload
-        or preview.headers.get("etag")
-        != f'"{hashlib.sha256(preview_payload).hexdigest()}"'
+        or preview.headers.get("etag") != f'"{hashlib.sha256(preview_payload).hexdigest()}"'
         or preview.headers.get("x-file-status") != "stored"
     ):
         raise PerformanceError("UPLOAD_PREVIEW_INVALID")
@@ -464,9 +570,7 @@ def _measure_uploads(
             "/api/v1/files",
             headers={
                 **authorization,
-                "Idempotency-Key": (
-                    f"local-performance-file.{run_id}.{round_no}.{sample_no}"
-                ),
+                "Idempotency-Key": (f"local-performance-file.{run_id}.{round_no}.{sample_no}"),
             },
             data={
                 "intended_business_type": "contract",
@@ -493,6 +597,156 @@ def _measure_uploads(
         tuple(accepted),
     )
     return acceptance_samples, processing_samples
+
+
+def _measure_twenty_page_contract(
+    client: httpx.Client,
+    authorization: dict[str, str],
+    run_id: str,
+    round_no: int,
+) -> tuple[UUID, UUID, float, float]:
+    payload = _twenty_page_contract_pdf(run_id, round_no)
+    started = time.perf_counter()
+    response = client.post(
+        "/api/v1/files",
+        headers={
+            **authorization,
+            "Idempotency-Key": f"local-performance-contract20.{run_id}.{round_no}",
+        },
+        data={
+            "intended_business_type": "contract",
+            "auto_process_requested": "true",
+        },
+        files={
+            "file": (
+                _twenty_page_contract_file_name(run_id, round_no),
+                payload,
+                "application/pdf",
+            )
+        },
+    )
+    data = _require_envelope(response, 202)
+    accepted_at = time.perf_counter()
+    file_id = _canonical_uuid(data.get("file_id"), "TWENTY_PAGE_FILE_ID_INVALID")
+    job_id = _canonical_uuid(data.get("job_id"), "TWENTY_PAGE_JOB_ID_INVALID")
+    if (
+        data.get("auto_process_requested") is not True
+        or data.get("job_scope") != "full"
+        or data.get("job_status") != "queued"
+    ):
+        raise PerformanceError("TWENTY_PAGE_ACCEPTANCE_CONTRACT_INVALID")
+
+    deadline = time.monotonic() + _TWENTY_PAGE_CONTRACT_LIMIT_SECONDS
+    while time.monotonic() < deadline:
+        current = _require_envelope(
+            client.get(f"/api/v1/files/{file_id}", headers=authorization),
+            200,
+        )
+        status = current.get("job_status")
+        if status in {"failed", "cancelled"}:
+            raise PerformanceError("TWENTY_PAGE_CONTRACT_JOB_FAILED")
+        if status == "succeeded":
+            elapsed = time.perf_counter() - started
+            if (
+                current.get("status") != "stored"
+                or current.get("security_scan_status") != "clean"
+                or current.get("auto_process_requested") is not True
+                or elapsed > _TWENTY_PAGE_CONTRACT_LIMIT_SECONDS
+            ):
+                raise PerformanceError("TWENTY_PAGE_CONTRACT_RESULT_INVALID")
+            return file_id, job_id, accepted_at - started, elapsed
+        time.sleep(_POLL_INTERVAL_SECONDS)
+    raise PerformanceError("TWENTY_PAGE_CONTRACT_THRESHOLD_EXCEEDED")
+
+
+def _measure_clear_invoice(
+    client: httpx.Client,
+    authorization: dict[str, str],
+    run_id: str,
+    round_no: int,
+) -> tuple[UUID, UUID, UUID, float, float]:
+    expected = _clear_invoice_values(run_id, round_no)
+    payload = _clear_invoice_docx(run_id, round_no)
+    started = time.perf_counter()
+    response = client.post(
+        "/api/v1/files",
+        headers={
+            **authorization,
+            "Idempotency-Key": f"local-performance-invoice.{run_id}.{round_no}",
+        },
+        data={
+            "intended_business_type": "invoice",
+            "auto_process_requested": "true",
+        },
+        files={
+            "file": (
+                _clear_invoice_file_name(run_id, round_no),
+                payload,
+                _DOCX_MIME,
+            )
+        },
+    )
+    data = _require_envelope(response, 202)
+    accepted_at = time.perf_counter()
+    file_id = _canonical_uuid(data.get("file_id"), "CLEAR_INVOICE_FILE_ID_INVALID")
+    file_job_id = _canonical_uuid(data.get("job_id"), "CLEAR_INVOICE_FILE_JOB_ID_INVALID")
+    if (
+        data.get("auto_process_requested") is not True
+        or data.get("job_scope") != "full"
+        or data.get("job_status") != "queued"
+    ):
+        raise PerformanceError("CLEAR_INVOICE_ACCEPTANCE_CONTRACT_INVALID")
+
+    deadline = time.monotonic() + _CLEAR_INVOICE_LIMIT_SECONDS
+    while time.monotonic() < deadline:
+        current_file = _require_envelope(
+            client.get(f"/api/v1/files/{file_id}", headers=authorization),
+            200,
+        )
+        if current_file.get("job_status") in {"failed", "cancelled"}:
+            raise PerformanceError("CLEAR_INVOICE_FILE_JOB_FAILED")
+        invoice_page = _require_envelope(
+            client.get("/api/v1/invoices?page_size=100", headers=authorization),
+            200,
+        )
+        items = invoice_page.get("items")
+        if type(items) is not list:
+            raise PerformanceError("CLEAR_INVOICE_LIST_CONTRACT_INVALID")
+        matches = tuple(
+            item
+            for item in items
+            if isinstance(item, dict)
+            and item.get("invoice_code") == expected["invoice_code"]
+            and item.get("invoice_number") == expected["invoice_number"]
+        )
+        if len(matches) > 1:
+            raise PerformanceError("CLEAR_INVOICE_IDENTITY_DUPLICATED")
+        if len(matches) == 1:
+            invoice_id = _canonical_uuid(matches[0].get("id"), "CLEAR_INVOICE_ID_INVALID")
+            detail = _require_envelope(
+                client.get(f"/api/v1/invoices/{invoice_id}", headers=authorization),
+                200,
+            )
+            expected_detail = {key: value for key, value in expected.items() if key != "item_name"}
+            detail_items = detail.get("items")
+            if (
+                any(detail.get(key) != value for key, value in expected_detail.items())
+                or detail.get("confirmation_status") != "unconfirmed"
+                or detail.get("duplicate_status") != "unique"
+                or detail.get("status") != "draft"
+                or detail.get("row_version") != "1"
+                or type(detail_items) is not list
+                or len(detail_items) != 1
+                or not isinstance(detail_items[0], dict)
+                or detail_items[0].get("item_name") != expected["item_name"]
+            ):
+                raise PerformanceError("CLEAR_INVOICE_RESULT_INVALID")
+            elapsed = time.perf_counter() - started
+            if elapsed > _CLEAR_INVOICE_LIMIT_SECONDS:
+                raise PerformanceError("CLEAR_INVOICE_THRESHOLD_EXCEEDED")
+            return invoice_id, file_id, file_job_id, accepted_at - started, elapsed
+        time.sleep(_POLL_INTERVAL_SECONDS)
+    raise PerformanceError("CLEAR_INVOICE_THRESHOLD_EXCEEDED")
 
 
 def _measure_batch(
@@ -682,9 +936,7 @@ def _post_audit_task(
             "/api/v1/audit-tasks",
             headers={
                 **authorization,
-                "Idempotency-Key": (
-                    f"local-performance-audit.{run_id}.{round_no}.{task_no}"
-                ),
+                "Idempotency-Key": (f"local-performance-audit.{run_id}.{round_no}.{task_no}"),
             },
             json={
                 "task_no": f"{_task_prefix(run_id)}{round_no}-{task_no}",
@@ -742,8 +994,7 @@ def _measure_concurrent_audits(
         created = tuple(future.result() for future in futures)
 
     identities = tuple(
-        (task_id, execution_id, job_id)
-        for task_id, execution_id, job_id, _, _ in created
+        (task_id, execution_id, job_id) for task_id, execution_id, job_id, _, _ in created
     )
     if (
         len({item[0] for item in identities}) != _AUDIT_TASK_COUNT
@@ -752,8 +1003,7 @@ def _measure_concurrent_audits(
     ):
         raise PerformanceError("AUDIT_IDENTITY_DUPLICATED")
     pending = {
-        execution_id: started
-        for _task_id, execution_id, _job_id, started, _accepted in created
+        execution_id: started for _task_id, execution_id, _job_id, started, _accepted in created
     }
     execution_samples: list[float] = []
     deadline = time.monotonic() + _JOB_TIMEOUT_SECONDS
@@ -790,12 +1040,12 @@ def run_client() -> dict[str, object]:
     rounds: list[dict[str, object]] = []
     all_audit_identities: set[UUID] = set()
     all_batch_identities: set[UUID] = set()
+    all_twenty_page_identities: set[UUID] = set()
+    all_clear_invoice_identities: set[UUID] = set()
     with _client(base_url, origin, host) as client:
         admin_token = _login(client, username, password)
         reviewer_username = f"perf-{run_id[:12]}"
-        reviewer_password = validate_new_password(
-            f"{password}-performance-{run_id[:12]}"
-        )
+        reviewer_password = validate_new_password(f"{password}-performance-{run_id[:12]}")
         created_user = client.post(
             "/api/v1/users",
             headers={
@@ -821,6 +1071,41 @@ def run_client() -> dict[str, object]:
             upload_acceptance, upload_processing = _measure_uploads(
                 client, authorization, run_id, round_no
             )
+            (
+                twenty_page_file_id,
+                twenty_page_job_id,
+                twenty_page_acceptance,
+                twenty_page_processing,
+            ) = _measure_twenty_page_contract(
+                client,
+                authorization,
+                run_id,
+                round_no,
+            )
+            for identity in (twenty_page_file_id, twenty_page_job_id):
+                if identity in all_twenty_page_identities:
+                    raise PerformanceError("TWENTY_PAGE_CROSS_ROUND_IDENTITY_DUPLICATED")
+                all_twenty_page_identities.add(identity)
+            (
+                clear_invoice_id,
+                clear_invoice_file_id,
+                clear_invoice_file_job_id,
+                clear_invoice_acceptance,
+                clear_invoice_processing,
+            ) = _measure_clear_invoice(
+                client,
+                authorization,
+                run_id,
+                round_no,
+            )
+            for identity in (
+                clear_invoice_id,
+                clear_invoice_file_id,
+                clear_invoice_file_job_id,
+            ):
+                if identity in all_clear_invoice_identities:
+                    raise PerformanceError("CLEAR_INVOICE_CROSS_ROUND_IDENTITY_DUPLICATED")
+                all_clear_invoice_identities.add(identity)
             (
                 batch_acceptance,
                 batch_replay_acceptance,
@@ -860,8 +1145,23 @@ def run_client() -> dict[str, object]:
                     "upload_acceptance_samples": len(upload_acceptance),
                     "upload_acceptance_p95_ms": round(upload_acceptance_p95 * 1000, 3),
                     "scan_only_processing_samples": len(upload_processing),
-                    "scan_only_processing_p95_ms": round(
-                        _p95(upload_processing) * 1000, 3
+                    "scan_only_processing_p95_ms": round(_p95(upload_processing) * 1000, 3),
+                    "twenty_page_contract_page_count": _TWENTY_PAGE_CONTRACT_PAGE_COUNT,
+                    "twenty_page_contract_acceptance_ms": round(
+                        twenty_page_acceptance * 1000,
+                        3,
+                    ),
+                    "twenty_page_contract_processing_ms": round(
+                        twenty_page_processing * 1000,
+                        3,
+                    ),
+                    "clear_invoice_acceptance_ms": round(
+                        clear_invoice_acceptance * 1000,
+                        3,
+                    ),
+                    "clear_invoice_processing_ms": round(
+                        clear_invoice_processing * 1000,
+                        3,
                     ),
                     "batch_file_count": len(batch_identities),
                     "batch_acceptance_ms": round(batch_acceptance * 1000, 3),
@@ -895,9 +1195,9 @@ def run_client() -> dict[str, object]:
         "schema_version": _SCHEMA_VERSION,
         "round_count": _ROUND_COUNT,
         "list_p95_limit_ms": int(_LIST_P95_LIMIT_SECONDS * 1000),
-        "upload_acceptance_p95_limit_ms": int(
-            _UPLOAD_ACCEPTANCE_P95_LIMIT_SECONDS * 1000
-        ),
+        "upload_acceptance_p95_limit_ms": int(_UPLOAD_ACCEPTANCE_P95_LIMIT_SECONDS * 1000),
+        "twenty_page_contract_limit_ms": int(_TWENTY_PAGE_CONTRACT_LIMIT_SECONDS * 1000),
+        "clear_invoice_limit_ms": int(_CLEAR_INVOICE_LIMIT_SECONDS * 1000),
         "rounds": rounds,
         "partial_batch": {
             "file_count": 2,
@@ -914,7 +1214,9 @@ def run_client() -> dict[str, object]:
         },
         "scope": {
             "transport": _TRANSPORT_SCOPE,
-            "scanner": "local-clamav-scan-only",
+            "scanner": "local-clamav",
+            "twenty_page_contract": "synthetic-text-pdf-http-clamav-worker-parse-markdown",
+            "clear_invoice": "synthetic-docx-http-clamav-worker-parse-markdown-invoice-extract",
             "batch_upload": (
                 "default-max-20-idempotent-replay-partial-failure-and-limit-rejection"
             ),
@@ -941,6 +1243,12 @@ def verify_database() -> None:
     }
     expected_file_names = expected_batch_file_names | {
         f"local-performance-partial-{run_id[:12]}-valid.pdf"
+    }
+    expected_twenty_page_names = {
+        _twenty_page_contract_file_name(run_id, round_no) for round_no in range(1, _ROUND_COUNT + 1)
+    }
+    expected_clear_invoice_names = {
+        _clear_invoice_file_name(run_id, round_no) for round_no in range(1, _ROUND_COUNT + 1)
     }
     rejected_over_limit_names = {
         f"local-performance-over-limit-{run_id[:12]}-{item_no:02d}.pdf"
@@ -988,9 +1296,7 @@ def verify_database() -> None:
             )
             batch_job_ids = tuple(job.id for job in batch_jobs)
             batch_steps = tuple(
-                session.scalars(
-                    select(AsyncJobStep).where(AsyncJobStep.job_id.in_(batch_job_ids))
-                )
+                session.scalars(select(AsyncJobStep).where(AsyncJobStep.job_id.in_(batch_job_ids)))
             )
             batch_outbox = tuple(
                 session.scalars(
@@ -998,6 +1304,132 @@ def verify_database() -> None:
                         OutboxEvent.aggregate_type == "async_job",
                         OutboxEvent.aggregate_id.in_(batch_job_ids),
                     )
+                )
+            )
+            twenty_page_files = tuple(
+                session.scalars(
+                    select(FileRecord).where(
+                        FileRecord.organization_id == actor.organization_id,
+                        FileRecord.original_name.in_(expected_twenty_page_names),
+                        FileRecord.deleted_at.is_(None),
+                    )
+                )
+            )
+            twenty_page_file_ids = tuple(file.id for file in twenty_page_files)
+            twenty_page_jobs = tuple(
+                session.scalars(
+                    select(AsyncJob).where(
+                        AsyncJob.organization_id == actor.organization_id,
+                        AsyncJob.job_type == "file_process",
+                        AsyncJob.resource_type == "file",
+                        AsyncJob.resource_id.in_(twenty_page_file_ids),
+                    )
+                )
+            )
+            twenty_page_job_ids = tuple(job.id for job in twenty_page_jobs)
+            twenty_page_steps = tuple(
+                session.scalars(
+                    select(AsyncJobStep).where(AsyncJobStep.job_id.in_(twenty_page_job_ids))
+                )
+            )
+            twenty_page_outbox = tuple(
+                session.scalars(
+                    select(OutboxEvent).where(
+                        OutboxEvent.aggregate_type == "async_job",
+                        OutboxEvent.aggregate_id.in_(twenty_page_job_ids),
+                    )
+                )
+            )
+            twenty_page_parses = tuple(
+                session.scalars(
+                    select(DocumentParseVersion).where(
+                        DocumentParseVersion.file_id.in_(twenty_page_file_ids),
+                        DocumentParseVersion.status == "active",
+                        DocumentParseVersion.archived_at.is_(None),
+                    )
+                )
+            )
+            twenty_page_parse_ids = tuple(parse.id for parse in twenty_page_parses)
+            twenty_page_pages = tuple(
+                session.scalars(
+                    select(DocumentPage).where(
+                        DocumentPage.parse_version_id.in_(twenty_page_parse_ids)
+                    )
+                )
+            )
+            twenty_page_markdown = tuple(
+                session.scalars(
+                    select(DocumentMarkdownVersion).where(
+                        DocumentMarkdownVersion.organization_id == actor.organization_id,
+                        DocumentMarkdownVersion.file_id.in_(twenty_page_file_ids),
+                        DocumentMarkdownVersion.status == "active",
+                    )
+                )
+            )
+            clear_invoice_files = tuple(
+                session.scalars(
+                    select(FileRecord).where(
+                        FileRecord.organization_id == actor.organization_id,
+                        FileRecord.original_name.in_(expected_clear_invoice_names),
+                        FileRecord.deleted_at.is_(None),
+                    )
+                )
+            )
+            clear_invoice_file_ids = tuple(file.id for file in clear_invoice_files)
+            clear_invoice_file_jobs = tuple(
+                session.scalars(
+                    select(AsyncJob).where(
+                        AsyncJob.organization_id == actor.organization_id,
+                        AsyncJob.job_type == "file_process",
+                        AsyncJob.resource_type == "file",
+                        AsyncJob.resource_id.in_(clear_invoice_file_ids),
+                    )
+                )
+            )
+            clear_invoice_extract_jobs = tuple(
+                session.scalars(
+                    select(AsyncJob).where(
+                        AsyncJob.organization_id == actor.organization_id,
+                        AsyncJob.job_type == "invoice_extract",
+                        AsyncJob.resource_type == "file",
+                        AsyncJob.resource_id.in_(clear_invoice_file_ids),
+                    )
+                )
+            )
+            clear_invoice_job_ids = tuple(
+                job.id for job in (*clear_invoice_file_jobs, *clear_invoice_extract_jobs)
+            )
+            clear_invoice_steps = tuple(
+                session.scalars(
+                    select(AsyncJobStep).where(AsyncJobStep.job_id.in_(clear_invoice_job_ids))
+                )
+            )
+            clear_invoice_outbox = tuple(
+                session.scalars(
+                    select(OutboxEvent).where(
+                        OutboxEvent.aggregate_type == "async_job",
+                        OutboxEvent.aggregate_id.in_(clear_invoice_job_ids),
+                    )
+                )
+            )
+            clear_invoice_bindings = tuple(
+                session.scalars(
+                    select(FilePrimaryBusinessObject).where(
+                        FilePrimaryBusinessObject.file_id.in_(clear_invoice_file_ids)
+                    )
+                )
+            )
+            clear_invoice_ids = tuple(
+                binding.invoice_id
+                for binding in clear_invoice_bindings
+                if binding.invoice_id is not None
+            )
+            clear_invoices = tuple(
+                session.scalars(select(Invoice).where(Invoice.id.in_(clear_invoice_ids)))
+            )
+            clear_invoice_items = tuple(
+                session.scalars(
+                    select(InvoiceItem).where(InvoiceItem.invoice_id.in_(clear_invoice_ids))
                 )
             )
             rejected_over_limit_files = tuple(
@@ -1020,20 +1452,14 @@ def verify_database() -> None:
             task_ids = tuple(task.id for task in tasks)
             executions = tuple(
                 session.scalars(
-                    select(AuditTaskExecution).where(
-                        AuditTaskExecution.audit_task_id.in_(task_ids)
-                    )
+                    select(AuditTaskExecution).where(AuditTaskExecution.audit_task_id.in_(task_ids))
                 )
             )
             execution_ids = tuple(execution.id for execution in executions)
-            job_ids = tuple(
-                execution.job_id for execution in executions if execution.job_id
-            )
+            job_ids = tuple(execution.job_id for execution in executions if execution.job_id)
             items = tuple(
                 session.scalars(
-                    select(AuditTaskItem).where(
-                        AuditTaskItem.audit_task_id.in_(task_ids)
-                    )
+                    select(AuditTaskItem).where(AuditTaskItem.audit_task_id.in_(task_ids))
                 )
             )
             snapshots = tuple(
@@ -1045,18 +1471,12 @@ def verify_database() -> None:
             )
             rules = tuple(
                 session.scalars(
-                    select(RuleExecution).where(
-                        RuleExecution.execution_id.in_(execution_ids)
-                    )
+                    select(RuleExecution).where(RuleExecution.execution_id.in_(execution_ids))
                 )
             )
-            jobs = tuple(
-                session.scalars(select(AsyncJob).where(AsyncJob.id.in_(job_ids)))
-            )
+            jobs = tuple(session.scalars(select(AsyncJob).where(AsyncJob.id.in_(job_ids))))
             steps = tuple(
-                session.scalars(
-                    select(AsyncJobStep).where(AsyncJobStep.job_id.in_(job_ids))
-                )
+                session.scalars(select(AsyncJobStep).where(AsyncJobStep.job_id.in_(job_ids)))
             )
             outbox = tuple(
                 session.scalars(
@@ -1123,16 +1543,190 @@ def verify_database() -> None:
     ):
         raise PerformanceError("BATCH_DATABASE_OUTBOX_STATE_INVALID")
 
+    twenty_page_steps_by_job = {
+        job.id: tuple(
+            sorted(
+                step.step_code
+                for step in twenty_page_steps
+                if step.job_id == job.id and step.attempt_no == 1 and step.status == "succeeded"
+            )
+        )
+        for job in twenty_page_jobs
+    }
+    page_count_by_parse = {
+        parse.id: sum(page.parse_version_id == parse.id for page in twenty_page_pages)
+        for parse in twenty_page_parses
+    }
+    parse_by_file = {parse.file_id: parse for parse in twenty_page_parses}
+    markdown_by_file = {markdown.file_id: markdown for markdown in twenty_page_markdown}
+    if (
+        len(twenty_page_files) != _ROUND_COUNT
+        or {file.original_name for file in twenty_page_files} != expected_twenty_page_names
+        or len(twenty_page_jobs) != _ROUND_COUNT
+        or len(twenty_page_steps) != _ROUND_COUNT * 3
+        or len(twenty_page_outbox) != _ROUND_COUNT
+        or len(twenty_page_parses) != _ROUND_COUNT
+        or len(twenty_page_pages) != _ROUND_COUNT * _TWENTY_PAGE_CONTRACT_PAGE_COUNT
+        or len(twenty_page_markdown) != _ROUND_COUNT
+    ):
+        raise PerformanceError("TWENTY_PAGE_DATABASE_CARDINALITY_INVALID")
+    if any(
+        file.uploaded_by != reviewer.id
+        or file.status != "stored"
+        or file.security_scan_status != "clean"
+        or file.intended_business_type != "contract"
+        or file.auto_process_requested is not True
+        or file.original_minio_bucket is None
+        or file.original_minio_object_key is None
+        for file in twenty_page_files
+    ):
+        raise PerformanceError("TWENTY_PAGE_DATABASE_FILE_STATE_INVALID")
+    if any(
+        job.status != "succeeded"
+        or job.attempt_no != 1
+        or job.error_code is not None
+        or twenty_page_steps_by_job.get(job.id) != ("markdown", "parse", "scan")
+        for job in twenty_page_jobs
+    ):
+        raise PerformanceError("TWENTY_PAGE_DATABASE_JOB_STATE_INVALID")
+    if any(
+        event.event_type != "job.dispatch.requested"
+        or event.status != "published"
+        or event.attempt_count < 1
+        for event in twenty_page_outbox
+    ):
+        raise PerformanceError("TWENTY_PAGE_DATABASE_OUTBOX_STATE_INVALID")
+    if any(
+        (parse := parse_by_file.get(file.id)) is None
+        or parse.page_count != _TWENTY_PAGE_CONTRACT_PAGE_COUNT
+        or page_count_by_parse.get(parse.id) != _TWENTY_PAGE_CONTRACT_PAGE_COUNT
+        or (markdown := markdown_by_file.get(file.id)) is None
+        or markdown.parse_version_id != parse.id
+        or markdown.blocking_issue_count != 0
+        for file in twenty_page_files
+    ):
+        raise PerformanceError("TWENTY_PAGE_DATABASE_DOCUMENT_STATE_INVALID")
+
+    clear_invoice_steps_by_job = {
+        job.id: tuple(
+            sorted(
+                step.step_code
+                for step in clear_invoice_steps
+                if step.job_id == job.id and step.attempt_no == 1 and step.status == "succeeded"
+            )
+        )
+        for job in (*clear_invoice_file_jobs, *clear_invoice_extract_jobs)
+    }
+    clear_invoice_binding_by_file = {binding.file_id: binding for binding in clear_invoice_bindings}
+    clear_invoice_by_id = {invoice.id: invoice for invoice in clear_invoices}
+    clear_invoice_items_by_invoice = {
+        invoice.id: tuple(item for item in clear_invoice_items if item.invoice_id == invoice.id)
+        for invoice in clear_invoices
+    }
+    expected_clear_invoice_by_name = {
+        _clear_invoice_file_name(run_id, round_no): _clear_invoice_values(run_id, round_no)
+        for round_no in range(1, _ROUND_COUNT + 1)
+    }
+    if (
+        len(clear_invoice_files) != _ROUND_COUNT
+        or {file.original_name for file in clear_invoice_files} != expected_clear_invoice_names
+        or len(clear_invoice_file_jobs) != _ROUND_COUNT
+        or len(clear_invoice_extract_jobs) != _ROUND_COUNT
+        or len(clear_invoice_steps) != _ROUND_COUNT * 4
+        or len(clear_invoice_outbox) != _ROUND_COUNT * 2
+        or len(clear_invoice_bindings) != _ROUND_COUNT
+        or len(clear_invoices) != _ROUND_COUNT
+        or len(clear_invoice_items) != _ROUND_COUNT
+    ):
+        raise PerformanceError("CLEAR_INVOICE_DATABASE_CARDINALITY_INVALID")
+    if any(
+        file.uploaded_by != reviewer.id
+        or file.status != "stored"
+        or file.security_scan_status != "clean"
+        or file.intended_business_type != "invoice"
+        or file.auto_process_requested is not True
+        or file.original_minio_bucket is None
+        or file.original_minio_object_key is None
+        for file in clear_invoice_files
+    ):
+        raise PerformanceError("CLEAR_INVOICE_DATABASE_FILE_STATE_INVALID")
+    if any(
+        job.status != "succeeded"
+        or job.attempt_no != 1
+        or job.error_code is not None
+        or clear_invoice_steps_by_job.get(job.id) != ("markdown", "parse", "scan")
+        for job in clear_invoice_file_jobs
+    ) or any(
+        job.status != "succeeded"
+        or job.attempt_no != 1
+        or job.error_code is not None
+        or clear_invoice_steps_by_job.get(job.id) != ("extract",)
+        for job in clear_invoice_extract_jobs
+    ):
+        raise PerformanceError("CLEAR_INVOICE_DATABASE_JOB_STATE_INVALID")
+    if any(
+        event.event_type != "job.dispatch.requested"
+        or event.status != "published"
+        or event.attempt_count < 1
+        for event in clear_invoice_outbox
+    ):
+        raise PerformanceError("CLEAR_INVOICE_DATABASE_OUTBOX_STATE_INVALID")
+    for file in clear_invoice_files:
+        expected = expected_clear_invoice_by_name[file.original_name]
+        binding = clear_invoice_binding_by_file.get(file.id)
+        invoice = (
+            None
+            if binding is None or binding.invoice_id is None
+            else clear_invoice_by_id.get(binding.invoice_id)
+        )
+        if binding is None or binding.business_type != "invoice" or invoice is None:
+            raise PerformanceError("CLEAR_INVOICE_DATABASE_BINDING_INVALID")
+        actual = {
+            "invoice_code": invoice.invoice_code,
+            "invoice_number": invoice.invoice_number,
+            "invoice_type": invoice.invoice_type,
+            "is_red_invoice": invoice.is_red_invoice,
+            "invoice_date": None
+            if invoice.invoice_date is None
+            else invoice.invoice_date.isoformat(),
+            "buyer_name": invoice.buyer_name,
+            "buyer_tax_no": invoice.buyer_tax_no,
+            "seller_name": invoice.seller_name,
+            "seller_tax_no": invoice.seller_tax_no,
+            "amount_excluding_tax": (
+                None
+                if invoice.amount_excluding_tax is None
+                else format(invoice.amount_excluding_tax, "f")
+            ),
+            "tax_amount": None if invoice.tax_amount is None else format(invoice.tax_amount, "f"),
+            "total_amount": (
+                None if invoice.total_amount is None else format(invoice.total_amount, "f")
+            ),
+            "currency": invoice.currency,
+        }
+        fields = invoice.field_evidence_json.get("fields")
+        invoice_items = clear_invoice_items_by_invoice.get(invoice.id, ())
+        if (
+            actual != {key: value for key, value in expected.items() if key != "item_name"}
+            or invoice.confirmation_status != "unconfirmed"
+            or invoice.duplicate_status != "unique"
+            or invoice.status != "draft"
+            or invoice.row_version != 1
+            or type(fields) is not list
+            or len(fields) != 13
+            or len(invoice_items) != 1
+            or invoice_items[0].line_no != 1
+            or invoice_items[0].item_name != expected["item_name"]
+        ):
+            raise PerformanceError("CLEAR_INVOICE_DATABASE_FACT_INVALID")
+
     expected_count = _ROUND_COUNT * _AUDIT_TASK_COUNT
     execution_by_task = {execution.audit_task_id: execution for execution in executions}
     item_counts = {
-        task_id: sum(item.audit_task_id == task_id for item in items)
-        for task_id in task_ids
+        task_id: sum(item.audit_task_id == task_id for item in items) for task_id in task_ids
     }
     invoice_ids = {
-        item.invoice_id
-        for item in items
-        if item.item_type == "invoice" and item.invoice_id
+        item.invoice_id for item in items if item.item_type == "invoice" and item.invoice_id
     }
     rule_counts = {
         execution_id: sum(rule.execution_id == execution_id for rule in rules)
@@ -1214,6 +1808,8 @@ def main() -> int:
             print("LOCAL_PERFORMANCE_LIST_THRESHOLD_GATE=PASS")
             print("LOCAL_PERFORMANCE_UPLOAD_ACCEPTANCE_GATE=PASS")
             print("LOCAL_PERFORMANCE_SCAN_ONLY_WORKER_GATE=PASS")
+            print("LOCAL_PERFORMANCE_TWENTY_PAGE_CONTRACT_GATE=PASS")
+            print("LOCAL_PERFORMANCE_CLEAR_INVOICE_GATE=PASS")
             print("LOCAL_PERFORMANCE_BATCH_MAX_GATE=PASS")
             print("LOCAL_PERFORMANCE_BATCH_REPLAY_GATE=PASS")
             print("LOCAL_PERFORMANCE_BATCH_PARTIAL_FAILURE_GATE=PASS")
@@ -1223,6 +1819,8 @@ def main() -> int:
         elif sys.argv == [sys.argv[0], "database"]:
             verify_database()
             print("LOCAL_PERFORMANCE_BATCH_DATABASE_GATE=PASS")
+            print("LOCAL_PERFORMANCE_TWENTY_PAGE_CONTRACT_DATABASE_GATE=PASS")
+            print("LOCAL_PERFORMANCE_CLEAR_INVOICE_DATABASE_GATE=PASS")
             print("LOCAL_PERFORMANCE_DATABASE_GATE=PASS")
         else:
             raise PerformanceError("ARGUMENTS_INVALID")

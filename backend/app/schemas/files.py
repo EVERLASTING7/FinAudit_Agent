@@ -16,6 +16,8 @@ from pydantic import (
     model_validator,
 )
 
+from app.schemas.jobs import JobActionProjectionData
+
 
 class IntendedBusinessType(str, Enum):
     """上传文件的 P0 固定业务分类。"""
@@ -144,6 +146,7 @@ class FileListItemData(FileUploadData):
 
     size_bytes: str = Field(pattern=r"^[1-9]\d*$")
     created_at: datetime
+    job: JobActionProjectionData | None = None
 
     @field_validator("created_at")
     @classmethod
@@ -238,10 +241,22 @@ class FileArchiveRequest(BaseModel):
         return value
 
 
-class FileRetryRequest(FileArchiveRequest):
+class FileRetryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
+    file_row_version: str = Field(pattern=r"^[1-9]\d*$")
     job_id: UUID
+    job_row_version: str = Field(pattern=r"^[1-9]\d*$")
+    reason: str = Field(min_length=3, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, value: str) -> str:
+        if value != value.strip() or any(
+            ord(character) < 32 or ord(character) == 127 for character in value
+        ):
+            raise ValueError("reason must not have surrounding whitespace")
+        return value
 
     @field_validator("job_id", mode="before")
     @classmethod

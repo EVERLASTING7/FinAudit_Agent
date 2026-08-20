@@ -1,3 +1,4 @@
+import hashlib
 from uuid import UUID
 
 import pytest
@@ -52,6 +53,30 @@ def test_converts_quote_table_and_untrusted_url_without_active_content() -> None
     assert [node.md_char_start for node in document.nodes] == sorted(
         node.md_char_start for node in document.nodes
     )
+
+
+def test_source_mapping_spans_match_the_generated_document_exactly() -> None:
+    document = convert_blocks(
+        (
+            _block(0, "title", "制度标题"),
+            _block(1, "table", "项目\t金额\n甲\t100"),
+            _block(2, "quote", "保留原始引用"),
+        )
+    )
+
+    assert (
+        document.content_sha256
+        == hashlib.sha256(document.markdown_text.encode("utf-8")).hexdigest()
+    )
+    for index, node in enumerate(document.nodes):
+        assert document.markdown_text[node.md_char_start : node.md_char_end] == node.markdown
+        assert node.md_line_start == document.markdown_text[: node.md_char_start].count("\n") + 1
+        assert node.md_line_end == node.md_line_start + node.markdown.count("\n")
+        if index:
+            previous = document.nodes[index - 1]
+            assert document.markdown_text[previous.md_char_end : node.md_char_start] == "\n\n"
+
+    assert document.markdown_text[document.nodes[-1].md_char_end :] == "\n"
 
 
 def test_complex_table_requires_an_opaque_asset_reference() -> None:

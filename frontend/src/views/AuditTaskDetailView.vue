@@ -46,6 +46,20 @@ const validReason = computed(() => {
 const canFinanceReview = computed(() => auth.hasAllPermissions(['audits.complete']))
 const canHighReview = computed(() => auth.hasAllPermissions(['risks.review_high']))
 const canNonHighReview = computed(() => auth.hasAllPermissions(['risks.review_non_high']))
+const canRetryExecution = computed(
+  () =>
+    canFinanceReview.value &&
+    detail.value?.execution.status === 'failed' &&
+    detail.value.execution.job?.retryable === true,
+)
+const canCancelExecution = computed(
+  () =>
+    canFinanceReview.value &&
+    detail.value !== null &&
+    ['draft', 'validating', 'queued', 'running', 'pending_finance_review', 'pending_audit_review'].includes(
+      detail.value.execution.status,
+    ),
+)
 const pendingRisks = computed(() =>
   detail.value?.risks.filter((risk) => risk.reviewStatus === 'pending') ?? [],
 )
@@ -232,6 +246,38 @@ function auditReview(decision: 'complete' | 'return'): void {
   )
 }
 
+function retryExecution(): void {
+  const execution = detail.value?.execution
+  if (!execution || !canRetryExecution.value || !execution.job) return
+  const input = {
+    executionRowVersion: execution.rowVersion,
+    jobRowVersion: execution.job.rowVersion,
+    reason: reason.value,
+  }
+  const signature = `retry-execution:${execution.id}:${JSON.stringify(input)}`
+  void runWrite(
+    signature,
+    (key, signal) => auditApi.retryExecution(execution.id, input, key, signal),
+    '失败执行已使用原 Job 重新排队。',
+  )
+}
+
+function cancelExecution(): void {
+  const execution = detail.value?.execution
+  if (!execution || !canCancelExecution.value) return
+  const input = {
+    executionRowVersion: execution.rowVersion,
+    jobRowVersion: execution.job?.rowVersion ?? null,
+    reason: reason.value,
+  }
+  const signature = `cancel-execution:${execution.id}:${JSON.stringify(input)}`
+  void runWrite(
+    signature,
+    (key, signal) => auditApi.cancelExecution(execution.id, input, key, signal),
+    '审核执行已取消；运行中的 Job 将在安全检查点收敛。',
+  )
+}
+
 watch(taskId, () => void loadTask(), { immediate: true })
 onUnmounted(() => {
   requestController?.abort()
@@ -272,6 +318,8 @@ onUnmounted(() => {
           <button v-if="detail.execution.status === 'pending_finance_review' && canFinanceReview" class="button button-danger" type="button" :disabled="!validReason || writing" data-testid="return-finance-review" @click="financeReview('return')">退回修正</button>
           <button v-if="detail.execution.status === 'pending_audit_review' && canHighReview" class="button button-primary" type="button" :disabled="!validReason || pendingRisks.length > 0 || writing" data-testid="complete-audit-review" @click="auditReview('complete')">完成审计复核</button>
           <button v-if="detail.execution.status === 'pending_audit_review' && canHighReview" class="button button-danger" type="button" :disabled="!validReason || writing" data-testid="return-audit-review" @click="auditReview('return')">退回修正</button>
+          <button v-if="canRetryExecution" class="button button-secondary" type="button" :disabled="!validReason || writing" data-testid="retry-audit-execution" @click="retryExecution">重试失败执行</button>
+          <button v-if="canCancelExecution" class="button button-danger" type="button" :disabled="!validReason || writing" data-testid="cancel-audit-execution" @click="cancelExecution">取消审核执行</button>
         </div>
         <div v-if="writeError" class="callout callout-danger" role="alert" style="margin-top: 12px"><div><strong>{{ writeError }}</strong><span v-if="writeTraceId" class="mono-text"> Trace ID：{{ writeTraceId }}</span></div></div>
         <div v-if="writeSuccess" class="callout callout-success" role="status" style="margin-top: 12px"><div><strong>{{ writeSuccess }}</strong></div></div>

@@ -8,7 +8,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 from sqlalchemy.exc import IntegrityError
@@ -24,10 +24,14 @@ from app.repositories.policy_write import PolicyWriteRepository
 from app.repositories.retrieval_runtime import RetrievalRuntimeRepository
 from app.repositories.user_write import IdempotencyClaim
 from app.schemas.policies import (
+    PendingPolicyRevocationItemData,
+    PendingPolicyRevocationListData,
     PolicyChunkSetData,
     PolicyCreateRequest,
     PolicyData,
     PolicyListData,
+    PolicyRevocationRequestData,
+    PolicyRevokeRequest,
     PolicyStatus,
     PolicyTransitionRequest,
     PolicyWriteData,
@@ -36,11 +40,19 @@ from app.services.auth import AuthenticatedActor
 
 _IDEMPOTENCY_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._~-]{8,128}$")
 _IDEMPOTENCY_TTL = timedelta(hours=24)
+_UTC_TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$")
 
 
 @dataclass(frozen=True, slots=True)
 class PolicyMutationResult:
     data: PolicyWriteData
+    replayed: bool
+    status_code: int
+
+
+@dataclass(frozen=True, slots=True)
+class PolicyRevocationRequestMutationResult:
+    data: PolicyRevocationRequestData
     replayed: bool
     status_code: int
 
@@ -118,6 +130,94 @@ def _decode_cursor(value: str) -> UUID:
     return policy_id
 
 
+def _utc_text(value: datetime) -> str:
+    if value.tzinfo is None:
+        raise RuntimeError("revocation request timestamp must be timezone-aware")
+    return value.astimezone(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+
+
+def _encode_pending_revocation_cursor(
+    knowledge_base_id: UUID,
+    requested_at: datetime,
+    request_id: UUID,
+) -> str:
+    payload = json.dumps(
+        {
+            "id": str(request_id),
+            "knowledge_base_id": str(knowledge_base_id),
+            "requested_at": _utc_text(requested_at),
+            "v": 1,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return base64.urlsafe_b64encode(payload).rstrip(b"=").decode("ascii")
+
+
+def _decode_pending_revocation_cursor(
+    value: str,
+    knowledge_base_id: UUID,
+) -> tuple[datetime, UUID]:
+    if not value or len(value) > 256 or re.fullmatch(r"[A-Za-z0-9_-]+", value) is None:
+        raise _invalid_cursor()
+    try:
+        decoded = base64.b64decode(
+            value + "=" * (-len(value) % 4),
+            altchars=b"-_",
+            validate=True,
+        )
+        if base64.urlsafe_b64encode(decoded).rstrip(b"=").decode("ascii") != value:
+            raise ValueError("noncanonical base64url")
+
+        def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+            result: dict[str, object] = {}
+            for key, child in pairs:
+                if key in result:
+                    raise ValueError("duplicate cursor key")
+                result[key] = child
+            return result
+
+        payload = json.loads(decoded.decode("utf-8"), object_pairs_hook=reject_duplicate_keys)
+        if type(payload) is not dict or set(payload) != {
+            "id",
+            "knowledge_base_id",
+            "requested_at",
+            "v",
+        }:
+            raise ValueError("invalid cursor object")
+        raw_id = payload["id"]
+        raw_knowledge_base_id = payload["knowledge_base_id"]
+        raw_requested_at = payload["requested_at"]
+        if (
+            type(payload["v"]) is not int
+            or payload["v"] != 1
+            or type(raw_id) is not str
+            or type(raw_knowledge_base_id) is not str
+            or type(raw_requested_at) is not str
+            or _UTC_TIMESTAMP_PATTERN.fullmatch(raw_requested_at) is None
+        ):
+            raise ValueError("invalid cursor fields")
+        request_id = UUID(raw_id)
+        cursor_knowledge_base_id = UUID(raw_knowledge_base_id)
+        requested_at = datetime.fromisoformat(raw_requested_at.replace("Z", "+00:00"))
+        if (
+            str(request_id) != raw_id
+            or str(cursor_knowledge_base_id) != raw_knowledge_base_id
+            or cursor_knowledge_base_id != knowledge_base_id
+            or _encode_pending_revocation_cursor(
+                cursor_knowledge_base_id,
+                requested_at,
+                request_id,
+            )
+            != value
+        ):
+            raise ValueError("noncanonical cursor")
+        return requested_at, request_id
+    except (UnicodeDecodeError, binascii.Error, json.JSONDecodeError, ValueError, KeyError):
+        raise _invalid_cursor() from None
+
+
 def _project_policy(policy: PolicyDocument) -> PolicyData:
     return PolicyData.model_validate(
         {
@@ -138,6 +238,9 @@ def _project_policy(policy: PolicyDocument) -> PolicyData:
             "business_approved_at": policy.business_approved_at,
             "technical_published_by": policy.technical_published_by,
             "technical_published_at": policy.technical_published_at,
+            "revoked_at": policy.revoked_at,
+            "revoked_by": policy.revoked_by,
+            "revoke_reason": policy.revoke_reason,
             "row_version": str(policy.row_version),
         }
     )
@@ -158,14 +261,33 @@ def _project_chunk(result: ChunkWriteResult) -> PolicyChunkSetData:
 
 def _actor_role(actor: AuthenticatedActor) -> str:
     if "audit_reviewer" not in actor.roles:
-        raise RuntimeError("knowledge business actor lacks audit_reviewer role")
+        raise AppError(
+            status_code=403,
+            code="AUTH_FORBIDDEN",
+            message="当前角色无权执行制度业务确认",
+        )
     return "audit_reviewer"
 
 
 def _publisher_role(actor: AuthenticatedActor) -> str:
     if "system_admin" not in actor.roles:
-        raise RuntimeError("knowledge publisher lacks system_admin role")
+        raise AppError(
+            status_code=403,
+            code="AUTH_FORBIDDEN",
+            message="当前角色无权执行制度技术操作",
+        )
     return "system_admin"
+
+
+def _require_pending_revocation_reader(actor: AuthenticatedActor) -> None:
+    audit_reader = "knowledge.approve" in actor.permissions and "audit_reviewer" in actor.roles
+    admin_reader = "knowledge.publish" in actor.permissions and "system_admin" in actor.roles
+    if not audit_reader and not admin_reader:
+        raise AppError(
+            status_code=403,
+            code="AUTH_FORBIDDEN",
+            message="当前角色无权读取制度撤销待办",
+        )
 
 
 def _can_read_unpublished(actor: AuthenticatedActor) -> bool:
@@ -191,6 +313,10 @@ def _integrity_error(error: IntegrityError) -> AppError:
         return _conflict("POLICY_SOURCE_FILE_CONFLICT", "来源文件已绑定其他主业务对象")
     if sqlstate == "23P01" and constraint_name == "ex_policy_effective_range_no_overlap":
         return _conflict("POLICY_EFFECTIVE_RANGE_CONFLICT", "制度发布有效期发生重叠")
+    if sqlstate == "23505" and constraint_name == "uq_policy_revocation_request":
+        return _conflict("POLICY_REVOCATION_ALREADY_REQUESTED", "制度撤销确认已存在")
+    if sqlstate == "23505" and constraint_name == "uq_policy_revocation_execution":
+        return _conflict("POLICY_REVOCATION_ALREADY_EXECUTED", "制度撤销确认已执行")
     return AppError(status_code=500, code="INTERNAL_ERROR", message="服务暂时不可用")
 
 
@@ -228,6 +354,58 @@ class PolicyManagementService:
             items=tuple(_project_policy(row) for row in page),
             page_size=page_size,
             next_cursor=_encode_cursor(page[-1].id) if has_more else None,
+        )
+
+    def list_pending_revocations(
+        self,
+        actor: AuthenticatedActor,
+        knowledge_base_id: UUID,
+        cursor: str | None,
+        page_size: int,
+    ) -> PendingPolicyRevocationListData:
+        _require_pending_revocation_reader(actor)
+        cursor_values = (
+            _decode_pending_revocation_cursor(cursor, knowledge_base_id)
+            if cursor is not None
+            else (None, None)
+        )
+        with self._session_factory() as session:
+            repository = PolicyWriteRepository(session)
+            if repository.get_knowledge_base(actor.organization_id, knowledge_base_id) is None:
+                raise _not_found()
+            rows = repository.list_pending_revocations(
+                actor.organization_id,
+                knowledge_base_id,
+                cursor_values[0],
+                cursor_values[1],
+                page_size + 1,
+            )
+        has_more = len(rows) > page_size
+        page = rows[:page_size]
+        items = tuple(
+            PendingPolicyRevocationItemData(
+                revocation_request_id=request.id,
+                policy_id=policy.id,
+                policy_code=policy.policy_code,
+                policy_name=policy.name,
+                policy_row_version=str(policy.row_version),
+                requested_by=request.actor_id,
+                requested_at=request.created_at,
+            )
+            for request, policy in page
+        )
+        next_cursor = None
+        if has_more:
+            last_request, _last_policy = page[-1]
+            next_cursor = _encode_pending_revocation_cursor(
+                knowledge_base_id,
+                last_request.created_at,
+                last_request.id,
+            )
+        return PendingPolicyRevocationListData(
+            items=items,
+            page_size=page_size,
+            next_cursor=next_cursor,
         )
 
     def get_detail(self, actor: AuthenticatedActor, policy_document_id: UUID) -> PolicyData:
@@ -493,6 +671,191 @@ class PolicyManagementService:
         except IntegrityError as error:
             raise _integrity_error(error) from None
 
+    def request_revocation(
+        self,
+        actor: AuthenticatedActor,
+        policy_document_id: UUID,
+        payload: PolicyTransitionRequest,
+        idempotency_key: str,
+        trace_id: UUID,
+    ) -> PolicyRevocationRequestMutationResult:
+        """由审计复核角色追加唯一撤销确认，不改变制度状态。"""
+
+        _actor_role(actor)
+        _validate_idempotency_key(idempotency_key)
+        path = f"/api/v1/policy-documents/{policy_document_id}/revocation-requests"
+        digest = _request_hash("POST", path, payload.model_dump(mode="json"))
+        try:
+            with self._session_factory.begin() as session:
+                repository, claim, now = self._claim(
+                    session, actor, idempotency_key, "POST", path, digest
+                )
+                if claim.conflict:
+                    raise _conflict("IDEMPOTENCY_KEY_REUSED", "幂等键已用于其他请求")
+                if claim.is_replay:
+                    return self._replay_revocation_request(claim)
+                policy = repository.lock_policy(actor.organization_id, policy_document_id)
+                if policy is None:
+                    raise _not_found()
+                if policy.row_version != int(payload.row_version):
+                    raise _conflict("RESOURCE_VERSION_CONFLICT", "资源版本已变化")
+                if policy.status != "published":
+                    raise _conflict("POLICY_STATE_CONFLICT", "当前制度状态不可提交撤销确认")
+                if repository.revocation_request(policy.id) is not None:
+                    raise _conflict(
+                        "POLICY_REVOCATION_ALREADY_REQUESTED",
+                        "制度撤销确认已存在",
+                    )
+                request_record = PolicyApprovalRecord(
+                    id=uuid4(),
+                    policy_document_id=policy.id,
+                    action="revoke_request",
+                    from_status="published",
+                    to_status="revoked",
+                    actor_id=actor.user_id,
+                    actor_role_code="audit_reviewer",
+                    related_record_id=None,
+                    reason=payload.reason,
+                    created_at=now,
+                    trace_id=trace_id,
+                )
+                repository.add(request_record)
+                repository.flush()
+                data = PolicyRevocationRequestData(
+                    revocation_request_id=request_record.id,
+                    policy_id=policy.id,
+                    status="pending_execution",
+                    requested_by=actor.user_id,
+                    requested_at=now,
+                )
+                OperationLogRepository(session).append(
+                    organization_id=actor.organization_id,
+                    actor_kind="user",
+                    actor_id=actor.user_id,
+                    action_code="policy.revocation_requested",
+                    outcome="succeeded",
+                    resource_type="policy_document",
+                    resource_id=policy.id,
+                    trace_id=trace_id,
+                    change_summary={
+                        "revocation_request_id": str(request_record.id),
+                        "status": "pending_execution",
+                    },
+                )
+                repository.complete_idempotency(
+                    claim,
+                    response_status=201,
+                    response_body=data.model_dump(mode="json"),
+                    resource_id=policy.id,
+                )
+                return PolicyRevocationRequestMutationResult(data, False, 201)
+        except IntegrityError as error:
+            raise _integrity_error(error) from None
+
+    def revoke(
+        self,
+        actor: AuthenticatedActor,
+        policy_document_id: UUID,
+        payload: PolicyRevokeRequest,
+        idempotency_key: str,
+        trace_id: UUID,
+    ) -> PolicyMutationResult:
+        """由 system_admin 执行已确认的 published → revoked。"""
+
+        _publisher_role(actor)
+        _validate_idempotency_key(idempotency_key)
+        path = f"/api/v1/policy-documents/{policy_document_id}/revoke"
+        digest = _request_hash("POST", path, payload.model_dump(mode="json"))
+        try:
+            with self._session_factory.begin() as session:
+                repository, claim, now = self._claim(
+                    session, actor, idempotency_key, "POST", path, digest
+                )
+                if claim.conflict:
+                    raise _conflict("IDEMPOTENCY_KEY_REUSED", "幂等键已用于其他请求")
+                if claim.is_replay:
+                    return self._replay(claim)
+                policy = repository.lock_policy(actor.organization_id, policy_document_id)
+                if policy is None:
+                    raise _not_found()
+                if policy.row_version != int(payload.row_version):
+                    raise _conflict("RESOURCE_VERSION_CONFLICT", "资源版本已变化")
+                if policy.status != "published":
+                    raise _conflict("POLICY_STATE_CONFLICT", "当前制度状态不可撤销")
+                request_record = repository.lock_revocation_request(
+                    policy.id,
+                    payload.revocation_request_id,
+                )
+                if request_record is None:
+                    raise _conflict(
+                        "POLICY_REVOCATION_REQUEST_CONFLICT",
+                        "撤销确认与当前制度不匹配",
+                    )
+                if repository.revocation_execution(request_record.id) is not None:
+                    raise _conflict(
+                        "POLICY_REVOCATION_ALREADY_EXECUTED",
+                        "制度撤销确认已执行",
+                    )
+                if request_record.actor_id == actor.user_id:
+                    raise _conflict(
+                        "POLICY_SELF_REVOCATION_FORBIDDEN",
+                        "撤销确认人与执行人必须不同",
+                    )
+                if not repository.cas_policy(
+                    policy,
+                    int(payload.row_version),
+                    {
+                        "status": "revoked",
+                        "revoked_at": now,
+                        "revoked_by": actor.user_id,
+                        "revoke_reason": payload.reason,
+                        "updated_at": now,
+                        "updated_by": actor.user_id,
+                    },
+                ):
+                    raise _conflict("RESOURCE_VERSION_CONFLICT", "资源版本已变化")
+                execution_record = PolicyApprovalRecord(
+                    id=uuid4(),
+                    policy_document_id=policy.id,
+                    action="revoke",
+                    from_status="published",
+                    to_status="revoked",
+                    actor_id=actor.user_id,
+                    actor_role_code="system_admin",
+                    related_record_id=request_record.id,
+                    reason=payload.reason,
+                    created_at=now,
+                    trace_id=trace_id,
+                )
+                repository.add(execution_record)
+                repository.flush()
+                data = PolicyWriteData(policy=_project_policy(policy), chunk_set=None)
+                OperationLogRepository(session).append(
+                    organization_id=actor.organization_id,
+                    actor_kind="user",
+                    actor_id=actor.user_id,
+                    action_code="policy.revoked",
+                    outcome="succeeded",
+                    resource_type="policy_document",
+                    resource_id=policy.id,
+                    trace_id=trace_id,
+                    change_summary={
+                        "from_status": "published",
+                        "revocation_request_id": str(request_record.id),
+                        "row_version": str(policy.row_version),
+                        "to_status": "revoked",
+                    },
+                )
+                repository.complete_idempotency(
+                    claim,
+                    response_status=200,
+                    response_body=data.model_dump(mode="json"),
+                    resource_id=policy.id,
+                )
+                return PolicyMutationResult(data, False, 200)
+        except IntegrityError as error:
+            raise _integrity_error(error) from None
+
     def _transition(
         self,
         actor: AuthenticatedActor,
@@ -656,5 +1019,29 @@ class PolicyManagementService:
             claim.replay_status,
         )
 
+    @staticmethod
+    def _replay_revocation_request(
+        claim: IdempotencyClaim,
+    ) -> PolicyRevocationRequestMutationResult:
+        if claim.replay_status != 201 or claim.replay_body is None:
+            raise RuntimeError("policy revocation request replay does not match the contract")
+        return PolicyRevocationRequestMutationResult(
+            PolicyRevocationRequestData.model_validate_json(
+                json.dumps(
+                    claim.replay_body,
+                    ensure_ascii=True,
+                    allow_nan=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+            ),
+            True,
+            201,
+        )
 
-__all__ = ["PolicyManagementService", "PolicyMutationResult"]
+
+__all__ = [
+    "PolicyManagementService",
+    "PolicyMutationResult",
+    "PolicyRevocationRequestMutationResult",
+]

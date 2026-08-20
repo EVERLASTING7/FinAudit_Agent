@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import io
+import json
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
+from pypdf import PdfReader
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_PROJECT_ROOT / "scripts"))
@@ -13,6 +17,7 @@ import benchmark_local_performance as subject  # noqa: E402
 
 def test_performance_evidence_uses_the_current_http_transport_profile() -> None:
     assert subject._TRANSPORT_SCOPE == "http-nginx-backend"
+    assert subject._SCHEMA_VERSION == "finaudit-local-performance-v4"
 
 
 def test_p95_uses_nearest_rank_for_twenty_samples() -> None:
@@ -58,6 +63,105 @@ def test_batch_file_names_are_run_scoped() -> None:
 
     assert first == "local-performance-batch-aaaaaaaaaaaa-01-01.pdf"
     assert first != second
+
+
+def test_twenty_page_contract_fixture_is_run_scoped_and_exactly_twenty_pages() -> None:
+    run_id = "d" * 32
+
+    first = subject._twenty_page_contract_pdf(run_id, 1)
+    second = subject._twenty_page_contract_pdf(run_id, 2)
+
+    assert len(PdfReader(io.BytesIO(first)).pages) == 20
+    assert len(PdfReader(io.BytesIO(second)).pages) == 20
+    assert first != second
+    assert subject._twenty_page_contract_file_name(run_id, 1) == (
+        "local-performance-contract20-dddddddddddd-01.pdf"
+    )
+    assert subject._TWENTY_PAGE_CONTRACT_LIMIT_SECONDS == 120.0
+
+
+def test_twenty_page_contract_runtime_evidence_is_bounded_and_source_bound() -> None:
+    evidence = json.loads(
+        (_PROJECT_ROOT / "tests/evaluation/local-performance-contract20-v3.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert evidence["schema_version"] == "local-performance-contract20-v3"
+    assert evidence["acceptance_boundary"] == {
+        "business_representative": False,
+        "formal_ac": False,
+        "production": False,
+        "reference_environment_capacity": False,
+    }
+    assert evidence["threshold"] == {
+        "all_rounds_passed": True,
+        "limit_ms": 120000,
+        "round_count": 3,
+    }
+    assert len(evidence["rounds"]) == 3
+    assert all(
+        round_evidence["page_count"] == 20 and 0 < round_evidence["processing_ms"] <= 120000
+        for round_evidence in evidence["rounds"]
+    )
+    assert all(
+        len(evidence["source_binding"][f"{key}_sha256"]) == 64
+        and evidence["source_binding"][f"{key}_bytes"] > 0
+        for key in ("benchmark", "wrapper")
+    )
+
+
+def test_clear_invoice_fixture_is_deterministic_complete_and_run_scoped() -> None:
+    run_id = "e" * 32
+
+    first = subject._clear_invoice_docx(run_id, 1)
+    replay = subject._clear_invoice_docx(run_id, 1)
+    second = subject._clear_invoice_docx(run_id, 2)
+
+    assert first == replay
+    assert first != second
+    with zipfile.ZipFile(io.BytesIO(first)) as archive:
+        document = archive.read("word/document.xml").decode("utf-8")
+    assert "发票代码:" in document
+    assert "价税合计: 113.00" in document
+    assert "是否红字: 否" in document
+    assert subject._clear_invoice_file_name(run_id, 1) == (
+        "local-performance-invoice-eeeeeeeeeeee-01.docx"
+    )
+    assert subject._CLEAR_INVOICE_LIMIT_SECONDS == 30.0
+
+
+def test_clear_invoice_runtime_evidence_is_bounded_and_preserves_source_identity() -> None:
+    evidence = json.loads(
+        (_PROJECT_ROOT / "tests/evaluation/local-performance-clear-invoice-v4.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert evidence["schema_version"] == "local-performance-clear-invoice-v4"
+    assert evidence["acceptance_boundary"] == {
+        "business_representative": False,
+        "formal_ac": False,
+        "production": False,
+        "reference_environment_capacity": False,
+    }
+    assert evidence["thresholds"] == {
+        "all_rounds_passed": True,
+        "clear_invoice_limit_ms": 30000,
+        "round_count": 3,
+        "twenty_page_contract_limit_ms": 120000,
+    }
+    assert len(evidence["rounds"]) == 3
+    assert all(
+        0 < round_evidence["clear_invoice_processing_ms"] <= 30000
+        and 0 < round_evidence["twenty_page_contract_processing_ms"] <= 120000
+        for round_evidence in evidence["rounds"]
+    )
+    assert all(
+        len(evidence["source_binding"][f"{key}_sha256"]) == 64
+        and evidence["source_binding"][f"{key}_bytes"] > 0
+        for key in ("benchmark", "wrapper")
+    )
 
 
 def test_validate_batch_limit_response_accepts_contract_error() -> None:

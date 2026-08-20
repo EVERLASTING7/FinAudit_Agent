@@ -6,6 +6,8 @@ from typing import cast
 from uuid import UUID
 
 import pytest
+from sqlalchemy import event
+from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -704,6 +706,46 @@ def test_invoice_duplicate_candidates_use_real_current_head_repository(
             )
         assert captured.value.status_code == 404
         assert captured.value.code == "RESOURCE_NOT_FOUND"
+
+
+def test_invoice_duplicate_candidate_page_uses_one_postgresql_snapshot_statement(
+    database_session: Session,
+) -> None:
+    _seed_identity(database_session)
+    source_id = UUID("74000000-0000-4000-8000-000000000082")
+    candidate_id = UUID("74000000-0000-4000-8000-000000000083")
+    database_session.add_all((_invoice(source_id), _invoice(candidate_id)))
+    database_session.flush()
+    connection = cast(Connection, database_session.get_bind())
+    statements: list[str] = []
+
+    def capture_statement(
+        _connection: object,
+        _cursor: object,
+        statement: str,
+        _parameters: object,
+        _context: object,
+        _executemany: bool,
+    ) -> None:
+        statements.append(statement)
+
+    event.listen(connection, "before_cursor_execute", capture_statement)
+    try:
+        result = FinancialReadRepository(database_session).read_invoice_duplicate_candidate_page(
+            ORGANIZATION_ID,
+            source_id,
+            20,
+        )
+    finally:
+        event.remove(connection, "before_cursor_execute", capture_statement)
+
+    assert result is not None
+    assert result[0] == "ready"
+    assert [candidate.id for candidate in result[1]] == [candidate_id]
+    assert result[2] is False
+    assert len(statements) == 1
+    assert "WITH duplicate_source AS" in statements[0]
+    assert "LEFT OUTER JOIN invoices AS candidate_invoice" in statements[0]
 
 
 def test_invoice_exact_duplicate_pair_uses_real_current_head_self_join(

@@ -1,8 +1,8 @@
-# CR-005-R1：文档核心完整性合同闭合
+# CR-005-R2：文档核心完整性合同闭合与当前实现前向绑定
 
-文档类型：合同候选；可变生命周期状态只记录在第 8 节。
+文档类型：获批前向合同；可变生命周期状态只记录在第 8 节。
 
-日期：2026-08-07
+日期：2026-08-18
 
 ## 1. 变更原因
 
@@ -21,6 +21,14 @@
 | DOC-D-001 | GAP-043 | 同一事务创建 queued 候选 Parse、单条纠错记录与 Job/Outbox；`result_parse_version_id` 改为 NOT NULL，激活仍只走 PARSE-005 |
 | DOC-D-002 | GAP-044 | 使用可哈希的 `asset-security-v1` Profile；统一六态、精确资源上限与重建式重评，只有 `clean` 可以被引用、预览或导出 |
 | DOC-D-003 | GAP-045 | PostgreSQL 16 使用 `UNIQUE NULLS NOT DISTINCT` 实现包含 NULL 的真实唯一性 |
+
+### 2.1 R2/recommended-forward 当前实现增量
+
+- R2 保留 R1 的 DOC-D-001～DOC-D-003、两个 Handler、Scanner 证据投影和 migration/downgrade 语义；只把旧 2026-08-07 基线前向绑定到当前 active Request/runtime，不追认 archive 文档为当前事实源。
+- 当前运行时有 89 个 `/api/v1` operationId。R2 新增 PARSE-004、PARSE-005、PARSE-006 三个 operation，`api_delta=+3`；P0 工作包仍为 86。PARSE-004 固定为 `POST /api/v1/document-blocks/{block_id}/correct`，请求精确 `{field_name,after_value,reason,source_parse_version_id}`，成功 202 返回 `{correction_id,result_parse_version_id,job_id,status='queued'}`。PARSE-005 固定为 `POST /api/v1/document-parse-versions/{parse_version_id}/activate`，请求精确 `{reason}`，成功 200 返回 `{id,status='active',superseded_version_id,activated_at}`。PARSE-006 保持 3.2.3 的 URL/请求和统一 AcceptedJobResponse。
+- PARSE-004/005 不新增 PermissionCode。入口要求 `files.manage OR system.configure`，Service 锁定文件后再按业务类型校验实际角色：invoice 只允许 `finance_reviewer|system_admin`；contract 允许 `finance_reviewer|contract_admin|system_admin`；supplementary_agreement 只允许 `contract_admin|system_admin`；policy 只允许 `audit_reviewer|system_admin`。`read_only` deny override 继续优先。
+- 当前 active runtime 已具有 Job/Step/Outbox、幂等、operation log、AcceptedJobResponse 与 Handler Registry 加载能力；R2 授权为 `manual_correction_snapshot` 增加只读机器制品并实现 local/test PARSE-004/005。缺少 CR-010 current 环境 Profile 时，PARSE-006 必须在创建任何 Parse/Job/Outbox/log 前以 503 `SECURITY_REVALIDATION_CONFIGURATION_ERROR` 失败关闭；不得生成 Asset Scanner 终态或伪造 Profile。
+- 2026-08-18 BOSS 明确授权同步 active Request 与 local/test 文档纠错实现；本授权不允许 Provider、外部网络、production、真实业务数据迁移或自动处置既有业务数据。
 
 ## 3. 待审批推荐合同
 
@@ -126,7 +134,7 @@ PARSE-006 不增加第二份 target selector 或“当前 Scanner”配置。一
 
 #### 3.2.3 安全重评唯一受理入口
 
-- 新增 `PARSE-006 POST /api/v1/document-parse-versions/{parse_version_id}/security-revalidations`，其 `api_delta=+1`，基线锚定 2026-08-07 已同步 CR-001-R2/CR-002-R4、122 API 且 `docs/baseline-manifest.md` SHA-256 为 `717c040569c536a13f4d770ad81414f86da7fc13c2ac6940c8df5ccfd1222f41`。最终同步按届时已生效 CR 的 delta 累加，禁止与 CR-009 各自把最终总数硬编码为 123；本接口归入既有 `DOC-001` 工作包，P0 工作包总数保持 86。不得同时保留未登记的内部 HTTP、运维脚本或第二个公开入口。
+- 新增 `PARSE-006 POST /api/v1/document-parse-versions/{parse_version_id}/security-revalidations`；R2 三个接口合计 `api_delta=+3`，基线锚定批准前 current `docs/baseline-manifest.md` file SHA-256 `a0d1f0581224e9ef1d90136872b92d4f510890ca80406592026a3e2f63c85ed3` 与 89 个现有 `/api/v1` operationId。本接口归入既有 `DOC-001` 工作包，P0 工作包总数保持 86。不得同时保留未登记的内部 HTTP、运维脚本或第二个公开入口。
 - 仅 `system_admin` 可调用并必须携带 `Idempotency-Key`。请求 JSON 只允许 `reason/security_policy_version/force_recheck`：reason 去首尾空白后 1～500 个字符并写脱敏 operation log，Policy version 必须受支持且获准，`force_recheck` 为严格 boolean、默认 false。调用方不能提交结果 Parse、Job、Policy hash、Handler/Scanner Registry 或 Scanner 条目。
 - 完成认证、`system_admin` 权限检查、请求 Schema 校验与规范化后，Service 先按现有唯一键 `organization_id/user_id/Idempotency-Key` 锁定或保留权威幂等记录；现有 `request_method/request_path` 仍逐字保存但不扩展唯一键。请求 hash 对固定方法 `POST`、固定接口标识 `PARSE-006`、path 中的 `parse_version_id` 与规范化后三个 Body 字段共同计算，不包含会随时间变化的当前 Policy/Scanner 选择；因此同一 Key 被复用于其他 endpoint、方法、Path ID 或 Body 时必定形成不同 hash。已有记录且 hash 不同立即返回 `IDEMPOTENCY_CONFLICT`；相同 hash 且已完成时，在任何文件、Parse、候选或当前配置门禁前返回首次保存的完整响应；相同 hash 且进行中时由唯一记录行/唯一约束串行等待创建事务提交，再按完成或回滚后的权威记录重判，不得越过它先返回业务状态冲突。只有新保留的 Key 才继续执行以下可变资源检查。
 - 新 Key 的事务按固定顺序锁定文件行和其当前活动 Parse，再验证 Path ID；不存在、已删除或无查看权限统一 404，锁后已非活动返回 409 `PARSE_VERSION_NOT_ACTIVE`。创建前再次验证父版本仍是锁定文件的 current active；PARSE-005 使用同一文件锁，不能在检查与提交之间 supersede。若已有上文未终结候选则返回 409 `ASSET_REVALIDATION_IN_PROGRESS`，数据库部分唯一约束处理最终竞争。
@@ -185,14 +193,14 @@ UNIQUE NULLS NOT DISTINCT (
 - **安全继承反例**：即使原文件为 `clean`，派生资源为 `pending/infected/scan_failed/unsupported/not_configured` 时也必须阻断。
 - **重评血缘与不可变性**：安全重试与策略升级只通过 `security_revalidation` 候选 Parse 和 `asset_security_revalidation` Job 执行；验证 `VARCHAR(30)` 可写完整枚举。每个新 Asset 一对一指向直接父 Parse 的唯一旧 Asset，新的对象键不能覆盖旧对象，缺失/重复、跨页/跨文件/跨类型/错误代际来源均由 PostgreSQL 拒绝；DELETE、终态更新和获准终态证据列之外的 UPDATE 均失败。
 - **Handler 与输入合同**：两个候选 Handler 的 job_type/schema/code version/first step 精确匹配，两个 `input_json` 分别只接受七键和十四键对象；覆盖缺键、未知键、NULL、非规范 UUID、错误 Handler/Scanner Registry version/hash/entry 与 JCS/input_hash 漂移，并验证 Registry/Adapter/Definition 升级一定改变重评输入 hash。CR-004、CR-010 或最终 Registry 未获批准时，相关 runtime 保持阻塞。
-- **PARSE-006 唯一入口**：覆盖 system_admin 权限、404 不泄露、幂等记录先于可变资源门禁、相同 Key/hash 在候选运行及激活后仍返回首次响应、不同 hash 冲突与并发同 Key 串行化；覆盖文件/活动 Parse 固定锁顺序、与 PARSE-005 并发、仅限制 queued/running 的部分唯一约束、Policy/Scanner 升级、按最大 `version_no` 唯一选择最近不可激活候选（`failed/manual_review_required`）并覆盖两态同目标重评、强制复检、无需重评和未知配置。原子创建 Parse/Job/Outbox/log，并证明 claim、成功、人工处置、失败的 Job/Parse 状态同事务映射，禁止取消和同 Job 重排，sibling 激活 CAS 正确。确认无第二公开/内部 HTTP 入口，`api_delta=+1` 按有效 CR 累加、工作包仍为 86；GAP-018 未闭合时路由保持阻塞。
+- **PARSE-006 唯一入口**：覆盖 system_admin 权限、404 不泄露、幂等记录先于可变资源门禁、相同 Key/hash 在候选运行及激活后仍返回首次响应、不同 hash 冲突与并发同 Key 串行化；覆盖文件/活动 Parse 固定锁顺序、与 PARSE-005 并发、仅限制 queued/running 的部分唯一约束、Policy/Scanner 升级、按最大 `version_no` 唯一选择最近不可激活候选（`failed/manual_review_required`）并覆盖两态同目标重评、强制复检、无需重评和未知配置。原子创建 Parse/Job/Outbox/log，并证明 claim、成功、人工处置、失败的 Job/Parse 状态同事务映射，禁止取消和同 Job 重排，sibling 激活 CAS 正确。确认无第二公开/内部 HTTP 入口，R2 `api_delta=+3`、工作包仍为 86；缺少 CR-010 current 环境 Profile 时只允许 503 fail-closed，不创建 runtime 事实。
 - **映射唯一性**：同一五列键分别以相同非空 `block_id` 和两个 NULL 重复插入，均由数据库拒绝；不同字符范围或不同非空 Block 可正常插入。
 - **映射并发**：两个 PostgreSQL 16 事务并发插入相同 NULL 键，最终只能一个成功；不能只测试 ORM 或离线 SQL 文本。
 - **迁移往返**：在真实 PostgreSQL 16 上完成空库 upgrade/downgrade；按固定顺序锁定全部七张受影响/证据表，任一文档行、manual/security Parse、对应 Job/Step/Outbox 存在时 downgrade 均在 DDL 前原子失败且所有行、列和约束保持不变。确认不影响先前 revision，并以前向修复处理非空环境。
 
 ## 6. 审批后需同步的事实来源
 
-批准后必须同步九份 Request 事实来源：需求规格、系统架构、数据库设计、API 设计、页面与交互、AI/RAG/Prompt、测试与验收、部署运维、开发任务计划；同时更新追踪材料，将本 CR 记录为 `api_delta=+1` 并与届时所有已生效、尚未同步的 CR delta 累加，P0 工作包仍为 86，再生成新的 Request 基线哈希。同步完成只能解除本 CR 自身的合同门禁，3.4 的上游与环境门禁仍分别生效。
+批准后必须同步当前 active Request 三份 SSOT：产品需求、技术规格和实施计划，并更新追踪材料；本 CR 固定记录 `api_delta=+3`，P0 工作包仍为 86，再生成新的 Request 清单哈希。归档九份旧文档不参与当前行为解释，也不得因本 CR 静默改写。同步完成只能解除本 CR 自身的合同门禁，3.4 的上游与环境门禁仍分别生效。
 
 ## 7. 审批边界
 
@@ -215,7 +223,7 @@ UNIQUE NULLS NOT DISTINCT (
 | DOC-D-003 | 需求、数据、后端/API、测试 |
 | migration/downgrade 可实施性 | 架构、数据、运维、安全 |
 
-每条审批记录必须包含：`姓名 / 角色 / APPROVED|REJECTED / selected_option / cr_revision / decision_snapshot_sha256 / baseline_manifest_sha256 / api_delta / environment_scope=contract / 日期 / 证据链接 / 备注`。`selected_option` 必须逐项覆盖 DOC-D-001～DOC-D-003、两个 Handler 候选、CR-010 Scanner 证据投影、PARSE-006 和 migration/downgrade；`baseline_manifest_sha256` 必须是第 3.2.3 节锚定值，`api_delta` 必须为 `+1`。任一必需角色留空、拒绝、基线漂移或选项互相冲突时整体保持 `NOT APPROVED` 并先提升 revision。contract 范围不批准具体 Scanner、网络、真实数据迁移或 production。
+每条审批记录必须包含：`姓名 / 角色 / APPROVED|REJECTED / selected_option / cr_revision / decision_snapshot_sha256 / baseline_manifest_sha256 / api_delta / environment_scope=contract / 日期 / 证据链接 / 备注`。`selected_option` 必须逐项覆盖 DOC-D-001～DOC-D-003、两个 Handler 候选、CR-010 Scanner 证据投影、PARSE-004/005/006 和 migration/downgrade；R2 `baseline_manifest_sha256` 必须是第 3.2.3 节锚定值，`api_delta` 必须为 `+3`。任一必需角色留空、拒绝、基线漂移或选项互相冲突时整体保持 `NOT APPROVED` 并先提升 revision。contract 范围不批准具体 Scanner、网络、真实数据迁移或 production。
 
 `decision_snapshot_sha256` 计算规则：全文行尾规范化为 LF，定位内容完全等于 `## 8. 当前状态` 的唯一标题行，取该行之前的全部行并在末尾保留恰好一个 LF，对 UTF-8 bytes 计算 SHA-256 小写十六进制。首次快照生成后，第 1～7 节任一规范性修改都必须提升 CR revision、重新计算 hash 并重置全部签署。生成初始 hash 只建立可签署对象，不等于批准、Request 同步、migration/runtime 授权或环境放行。
 
@@ -223,11 +231,13 @@ UNIQUE NULLS NOT DISTINCT (
 
 | 项目 | 状态 |
 |---|---|
-| DOC-D-001～DOC-D-003 推荐合同 | `PROPOSED` |
-| decision snapshot | `GENERATED FOR REVIEW；decision_snapshot_sha256=739f2004bd6cc785d0a06a69445af2c35a373bbe1746d9ed1b194cb3f94dd029；NOT APPROVED` |
-| Request 同步 | `NOT AUTHORIZED` |
-| CR-004/006/008、GAP-018 与最终 Handler Registry | `BLOCKING DEPENDENCIES` |
-| CR-010 / Scanner 环境 Profile | `NOT APPROVED / NOT CONFIGURED` |
-| migration / PARSE-006 / Worker runtime | `BLOCKED UNTIL APPROVAL AND DEPENDENCIES` |
+| DOC-D-001～DOC-D-003 / R2 recommended-forward | `APPROVED` |
+| decision snapshot | `APPROVED；decision_snapshot_sha256=c47944096f7ad143044a2347b8b0656190e9f49f0854c5f31a898b4b70872f65` |
+| BOSS 直接批准记录 | `YHBX / requirements_product、architecture、data_dba、backend_api、frontend_ui、ai_rag、ops、security、test / APPROVED / selected_option=DOC-D-001,DOC-D-002,DOC-D-003,manual_correction_snapshot,asset_security_revalidation,CR-010-scanner-evidence,PARSE-004,PARSE-005,PARSE-006,migration,downgrade / cr_revision=CR-005-R2 / decision_snapshot_sha256=c47944096f7ad143044a2347b8b0656190e9f49f0854c5f31a898b4b70872f65 / baseline_manifest_sha256=a0d1f0581224e9ef1d90136872b92d4f510890ca80406592026a3e2f63c85ed3 / api_delta=+3 / environment_scope=contract+local_test / 2026-08-18 / evidence=Codex task 01a0117a-c162-7e81-bf5b-c134b98735a7 user approval / 禁止 Provider、production、真实数据迁移` |
+| Request 同步 | `COMPLETED；active Request 已绑定 CR-005-R2` |
+| 当前 reliability/idempotency/operation-log/AcceptedJobResponse | `ACTIVE；manual_correction Handler artifact/runtime 已实现` |
+| CR-010 / Scanner 环境 Profile | `CR-010-R2 fixed_test 仅在隔离测试显式安装；普通 local 仍 NOT CONFIGURED/503` |
+| migration / PARSE-004/005 / manual Worker runtime | `IMPLEMENTED AND VERIFIED FOR LOCAL/TEST；PostgreSQL 16 File Gate PASS` |
+| PARSE-006 asset-security Job runtime | `IMPLEMENTED AND VERIFIED FOR ISOLATED FIXED_TEST；真实 local/production Scanner 仍 BLOCKED` |
 | fixed_test_provider 网络 | `NOT AUTHORIZED` |
 | production | `NOT AUTHORIZED` |

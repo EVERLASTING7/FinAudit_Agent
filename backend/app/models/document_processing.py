@@ -112,6 +112,15 @@ class DocumentParseVersion(Base):
             unique=True,
             postgresql_where=text("status = 'active' AND archived_at IS NULL"),
         ),
+        Index(
+            "uq_parse_security_revalidation_in_progress",
+            "file_id",
+            "parent_version_id",
+            unique=True,
+            postgresql_where=text(
+                "source_type = 'security_revalidation' AND status IN ('queued','running')"
+            ),
+        ),
         Index("idx_parse_versions_file_created", "file_id", text("created_at DESC")),
     )
 
@@ -225,9 +234,41 @@ class DocumentAsset(Base):
             "'unsupported','not_configured')",
             name="security_status_allowed",
         ),
+        CheckConstraint(
+            "security_policy_version='asset-security-v1' AND "
+            "security_policy_hash='b074e9cb6af5e20b57cb14f042977417bcf6f9d9eb35c47abf6a13de3823efe0'",
+            name="security_policy_identity",
+        ),
+        CheckConstraint(
+            "(security_status='pending' AND security_checked_at IS NULL "
+            "AND security_error_code IS NULL AND security_scanner_invoked IS NULL) OR "
+            "(security_status='clean' AND security_checked_at IS NOT NULL "
+            "AND security_error_code IS NULL AND security_scanner_invoked IS TRUE) OR "
+            "(security_status='infected' AND security_checked_at IS NOT NULL "
+            "AND security_error_code IN ('ACTIVE_CONTENT_DETECTED','MALWARE_DETECTED') "
+            "AND security_scanner_invoked IS TRUE) OR "
+            "(security_status='scan_failed' AND security_checked_at IS NOT NULL "
+            "AND security_error_code IN ('OBJECT_READ_TRANSIENT','SCANNER_TIMEOUT',"
+            "'SCANNER_UNAVAILABLE') AND security_scanner_invoked IS NOT NULL) OR "
+            "(security_status='unsupported' AND security_checked_at IS NOT NULL "
+            "AND security_error_code IN ('IMAGE_DECODE_INVALID','IMAGE_LIMIT_EXCEEDED',"
+            "'MAGIC_BYTES_MISMATCH','MEDIA_TYPE_UNSUPPORTED') "
+            "AND security_scanner_invoked IS FALSE) OR "
+            "(security_status='not_configured' AND security_checked_at IS NOT NULL "
+            "AND security_error_code='SCANNER_NOT_CONFIGURED' "
+            "AND security_scanner_invoked IS FALSE)",
+            name="security_error_matrix",
+        ),
         CheckConstraint("jsonb_typeof(metadata_json) = 'object'", name="metadata_object"),
         UniqueConstraint("minio_object_key", name="uq_document_assets_minio_object_key"),
         Index("idx_document_assets_parse_page", "parse_version_id", "page_no"),
+        Index(
+            "uq_document_assets_parse_source",
+            "parse_version_id",
+            "source_asset_id",
+            unique=True,
+            postgresql_where=text("source_asset_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -249,6 +290,21 @@ class DocumentAsset(Base):
     minio_object_key: Mapped[str] = mapped_column(String(1000), nullable=False)
     content_sha256: Mapped[str] = mapped_column(CHAR(64), nullable=False)
     security_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    security_policy_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    security_policy_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    security_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    security_error_code: Mapped[str | None] = mapped_column(String(80))
+    security_scanner_profile_class: Mapped[str | None] = mapped_column(String(20))
+    security_scanner_registry_version: Mapped[str | None] = mapped_column(String(100))
+    security_scanner_registry_hash: Mapped[str | None] = mapped_column(CHAR(64))
+    security_scanner_adapter_code: Mapped[str | None] = mapped_column(String(64))
+    security_scanner_version: Mapped[str | None] = mapped_column(String(100))
+    security_scanner_definition_version: Mapped[str | None] = mapped_column(Text)
+    security_scanner_invoked: Mapped[bool | None] = mapped_column(Boolean)
+    source_asset_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("document_assets.id", name="fk_document_assets_source_asset"),
+    )
     metadata_json: Mapped[dict[str, object]] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )

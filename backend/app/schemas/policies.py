@@ -97,6 +97,53 @@ class PolicyTransitionRequest(BaseModel):
         return value
 
 
+class PolicyRevokeRequest(PolicyTransitionRequest):
+    revocation_request_id: UUID
+
+    @field_validator("revocation_request_id", mode="before")
+    @classmethod
+    def parse_revocation_request_id(cls, value: object) -> object:
+        if type(value) is UUID:
+            return value
+        if type(value) is not str:
+            raise ValueError("revocation_request_id must be a canonical UUID")
+        try:
+            parsed = UUID(value)
+        except ValueError:
+            raise ValueError("revocation_request_id must be a canonical UUID") from None
+        if str(parsed) != value:
+            raise ValueError("revocation_request_id must be a canonical UUID")
+        return parsed
+
+
+class PolicyRevocationRequestData(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    revocation_request_id: UUID
+    policy_id: UUID
+    status: Annotated[str, Field(pattern=r"^pending_execution$")]
+    requested_by: UUID
+    requested_at: datetime
+
+
+class PendingPolicyRevocationItemData(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    revocation_request_id: UUID
+    policy_id: UUID
+    policy_code: str
+    policy_name: str
+    policy_row_version: PositiveIntegerString
+    requested_by: UUID
+    requested_at: datetime
+
+    @model_validator(mode="after")
+    def validate_requested_at(self) -> PendingPolicyRevocationItemData:
+        if self.requested_at.tzinfo is None:
+            raise ValueError("requested_at must be timezone-aware")
+        return self
+
+
 class PolicyData(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
@@ -117,6 +164,9 @@ class PolicyData(BaseModel):
     business_approved_at: datetime | None
     technical_published_by: UUID | None
     technical_published_at: datetime | None
+    revoked_at: datetime | None
+    revoked_by: UUID | None
+    revoke_reason: str | None
     row_version: PositiveIntegerString
 
     @model_validator(mode="after")
@@ -140,10 +190,23 @@ class PolicyData(BaseModel):
             not submitted or not approved or published
         ):
             raise ValueError("approved policy lifecycle is invalid")
-        if self.status in {PolicyStatus.PUBLISHED, PolicyStatus.SUPERSEDED} and (
-            not submitted or not approved or not published
-        ):
+        if self.status in {
+            PolicyStatus.PUBLISHED,
+            PolicyStatus.SUPERSEDED,
+            PolicyStatus.REVOKED,
+        } and (not submitted or not approved or not published):
             raise ValueError("published policy lifecycle is invalid")
+        revoked = (
+            self.revoked_at is not None
+            and self.revoked_by is not None
+            and self.revoke_reason is not None
+        )
+        if (self.revoked_at is None) != (self.revoked_by is None) or (self.revoked_at is None) != (
+            self.revoke_reason is None
+        ):
+            raise ValueError("revocation metadata is incomplete")
+        if (self.status is PolicyStatus.REVOKED) != revoked:
+            raise ValueError("revocation metadata does not match policy status")
         return self
 
 
@@ -216,17 +279,76 @@ class PolicyListData(BaseModel):
         return self
 
 
+class PendingPolicyRevocationListQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    knowledge_base_id: UUID
+    cursor: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=256,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
+    page_size: int = Field(default=50, ge=1, le=100)
+
+    @field_validator("knowledge_base_id", mode="before")
+    @classmethod
+    def parse_knowledge_base_id(cls, value: object) -> object:
+        if type(value) is UUID:
+            return value
+        if type(value) is not str:
+            raise ValueError("knowledge_base_id must be a canonical UUID")
+        try:
+            parsed = UUID(value)
+        except ValueError:
+            raise ValueError("knowledge_base_id must be a canonical UUID") from None
+        if str(parsed) != value:
+            raise ValueError("knowledge_base_id must be a canonical UUID")
+        return parsed
+
+
+class PendingPolicyRevocationListData(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    items: tuple[PendingPolicyRevocationItemData, ...]
+    page_size: int = Field(ge=1, le=100)
+    next_cursor: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=256,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
+
+    @model_validator(mode="after")
+    def validate_page_shape(self) -> PendingPolicyRevocationListData:
+        if len(self.items) > self.page_size:
+            raise ValueError("items cannot exceed page_size")
+        if self.next_cursor is not None and len(self.items) != self.page_size:
+            raise ValueError("next_cursor requires a full page")
+        identities = tuple(
+            (item.requested_at, item.revocation_request_id.int) for item in self.items
+        )
+        if identities != tuple(sorted(identities)) or len(identities) != len(set(identities)):
+            raise ValueError("items must be strictly ordered")
+        return self
+
+
 class PolicyReadQuery(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
 __all__ = [
+    "PendingPolicyRevocationItemData",
+    "PendingPolicyRevocationListData",
+    "PendingPolicyRevocationListQuery",
     "PolicyChunkSetData",
     "PolicyCreateRequest",
     "PolicyData",
     "PolicyListData",
     "PolicyListQuery",
     "PolicyReadQuery",
+    "PolicyRevocationRequestData",
+    "PolicyRevokeRequest",
     "PolicyStatus",
     "PolicyTransitionRequest",
     "PolicyWriteData",

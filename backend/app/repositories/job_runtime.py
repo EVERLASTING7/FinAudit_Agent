@@ -8,12 +8,13 @@ from datetime import datetime, timedelta
 from typing import Literal, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import Row, func, select, text
+from sqlalchemy import Row, and_, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.models.audit import AuditReport, AuditTask, AuditTaskExecution, AuditTaskSnapshot
 from app.models.document_processing import DocumentParseVersion
 from app.models.documents import FileRecord
+from app.models.knowledge import DocumentBlockCorrection
 from app.models.reliability import AsyncJob, AsyncJobStep, OutboxEvent
 from app.models.retrieval import (
     DocumentIndexVersion,
@@ -191,15 +192,19 @@ class JobRuntimeRepository:
             text(
                 """
                 WITH candidate AS MATERIALIZED (
-                    SELECT id
-                    FROM public.outbox_events
-                    WHERE event_type = 'job.dispatch.requested'
+                    SELECT event.id
+                    FROM public.outbox_events AS event
+                    JOIN public.async_jobs AS candidate_job
+                      ON candidate_job.id = event.aggregate_id
+                    WHERE event.event_type = 'job.dispatch.requested'
+                      AND candidate_job.status = 'queued'
                       AND (
-                        status = 'pending'
-                        OR (status = 'failed' AND next_attempt_at <= clock_timestamp())
+                        event.status = 'pending'
+                        OR (event.status = 'failed'
+                            AND event.next_attempt_at <= clock_timestamp())
                       )
-                    ORDER BY created_at ASC, id ASC
-                    FOR UPDATE SKIP LOCKED
+                    ORDER BY event.created_at ASC, event.id ASC
+                    FOR UPDATE OF event SKIP LOCKED
                     LIMIT 1
                 ), claimed AS (
                     UPDATE public.outbox_events AS event
@@ -329,6 +334,37 @@ class JobRuntimeRepository:
     ) -> bool:
         """按 attempt fencing 记录发送失败，并在最终失败时原子终结 queued Job。"""
 
+        classification = self._session.execute(
+            select(AsyncJob.resource_type, AsyncJob.resource_id).where(AsyncJob.id == claim.job.id)
+        ).one_or_none()
+        manual_file: FileRecord | None = None
+        manual_source: DocumentParseVersion | None = None
+        manual_result: DocumentParseVersion | None = None
+        if classification is not None and classification.resource_type == "document_parse_version":
+            identity = self._session.execute(
+                select(
+                    DocumentParseVersion.file_id,
+                    DocumentParseVersion.parent_version_id,
+                ).where(DocumentParseVersion.id == classification.resource_id)
+            ).one_or_none()
+            if identity is None or identity.parent_version_id is None:
+                return False
+            manual_file = self._session.execute(
+                select(FileRecord)
+                .where(FileRecord.id == identity.file_id)
+                .with_for_update(of=FileRecord)
+            ).scalar_one_or_none()
+            manual_source = self._session.execute(
+                select(DocumentParseVersion)
+                .where(DocumentParseVersion.id == identity.parent_version_id)
+                .with_for_update(of=DocumentParseVersion)
+            ).scalar_one_or_none()
+            manual_result = self._session.execute(
+                select(DocumentParseVersion)
+                .where(DocumentParseVersion.id == classification.resource_id)
+                .with_for_update(of=DocumentParseVersion)
+            ).scalar_one_or_none()
+
         job = self._session.execute(
             select(AsyncJob).where(AsyncJob.id == claim.job.id).with_for_update(of=AsyncJob)
         ).scalar_one_or_none()
@@ -344,6 +380,27 @@ class JobRuntimeRepository:
             or event.attempt_count != claim.attempt_count
         ):
             return False
+        if classification is not None and classification.resource_type == "document_parse_version":
+            expected_source_type = (
+                "manual_correction"
+                if job is not None and job.job_type == "manual_correction_snapshot"
+                else "security_revalidation"
+            )
+            if (
+                manual_file is None
+                or manual_source is None
+                or manual_result is None
+                or job.job_type not in {"manual_correction_snapshot", "asset_security_revalidation"}
+                or job.resource_id != manual_result.id
+                or job.organization_id != manual_file.organization_id
+                or manual_result.file_id != manual_file.id
+                or manual_result.status != "queued"
+                or manual_result.source_type != expected_source_type
+                or manual_result.parent_version_id != manual_source.id
+                or manual_result.trace_id != job.trace_id
+                or manual_source.file_id != manual_file.id
+            ):
+                return False
 
         deterministic_failure = not broker_called and error_code in {
             "UNSUPPORTED_EVENT_VERSION",
@@ -409,6 +466,14 @@ class JobRuntimeRepository:
                 "row_version": job.row_version,
             },
         ).scalar_one_or_none()
+        if updated is not None and manual_result is not None:
+            # queued→running→failed 保持现有数据库状态机，事务外只可见原子 failed。
+            manual_result.status = "running"
+            self._session.flush()
+            manual_result.status = "failed"
+            manual_result.error_code = terminal_code
+            manual_result.error_message = None
+            self._session.flush()
         return updated is not None
 
     def claim_job(
@@ -423,7 +488,9 @@ class JobRuntimeRepository:
         """锁业务资源→Job→Outbox，并以一个 writable CTE 创建首次 Step。"""
 
         classification = self._session.execute(
-            select(AsyncJob.resource_type, AsyncJob.resource_id).where(AsyncJob.id == job_id)
+            select(AsyncJob.resource_type, AsyncJob.resource_id, AsyncJob.job_type).where(
+                AsyncJob.id == job_id
+            )
         ).one_or_none()
         if classification is None:
             return None
@@ -431,6 +498,10 @@ class JobRuntimeRepository:
         locked_audit_snapshot: AuditTaskSnapshot | None = None
         locked_report: AuditReport | None = None
         locked_report_execution: AuditTaskExecution | None = None
+        locked_file: FileRecord | None = None
+        locked_manual_source: DocumentParseVersion | None = None
+        locked_manual_result: DocumentParseVersion | None = None
+        locked_manual_correction: DocumentBlockCorrection | None = None
         if classification.resource_type == "audit_task_execution":
             audit_identity = self._session.execute(
                 select(
@@ -504,6 +575,49 @@ class JobRuntimeRepository:
             ).scalar_one_or_none()
             if locked_file is None:
                 return None
+        elif classification.resource_type == "document_parse_version":
+            result_identity = self._session.execute(
+                select(
+                    DocumentParseVersion.file_id,
+                    DocumentParseVersion.parent_version_id,
+                ).where(DocumentParseVersion.id == classification.resource_id)
+            ).one_or_none()
+            if result_identity is None or result_identity.parent_version_id is None:
+                return None
+            locked_file = self._session.execute(
+                select(FileRecord)
+                .where(FileRecord.id == result_identity.file_id)
+                .with_for_update(of=FileRecord)
+            ).scalar_one_or_none()
+            locked_manual_source = self._session.execute(
+                select(DocumentParseVersion)
+                .where(DocumentParseVersion.id == result_identity.parent_version_id)
+                .with_for_update(of=DocumentParseVersion)
+            ).scalar_one_or_none()
+            locked_manual_result = self._session.execute(
+                select(DocumentParseVersion)
+                .where(DocumentParseVersion.id == classification.resource_id)
+                .with_for_update(of=DocumentParseVersion)
+            ).scalar_one_or_none()
+            if classification.job_type == "manual_correction_snapshot":
+                locked_manual_correction = self._session.execute(
+                    select(DocumentBlockCorrection)
+                    .where(
+                        DocumentBlockCorrection.result_parse_version_id
+                        == classification.resource_id
+                    )
+                    .with_for_update(of=DocumentBlockCorrection)
+                ).scalar_one_or_none()
+            if (
+                locked_file is None
+                or locked_manual_source is None
+                or locked_manual_result is None
+                or (
+                    classification.job_type == "manual_correction_snapshot"
+                    and locked_manual_correction is None
+                )
+            ):
+                return None
         else:
             locked_file = None
 
@@ -562,6 +676,67 @@ class JobRuntimeRepository:
                     "execution_id": str(locked_report.execution_id),
                     "payload_sha256": locked_report.payload_sha256,
                 }
+            ):
+                return None
+        elif job.resource_type == "document_parse_version":
+            if locked_file is None or locked_manual_source is None or locked_manual_result is None:
+                return None
+            shared_invalid = (
+                job.input_schema_version != 1
+                or job.organization_id != locked_file.organization_id
+                or job.resource_id != locked_manual_result.id
+                or locked_manual_result.file_id != locked_file.id
+                or locked_manual_result.status != "queued"
+                or locked_manual_result.parent_version_id != locked_manual_source.id
+                or locked_manual_result.archived_at is not None
+                or locked_manual_source.file_id != locked_file.id
+                or locked_manual_source.status not in {"active", "superseded"}
+                or locked_manual_source.archived_at is not None
+                or locked_manual_result.trace_id != job.trace_id
+            )
+            manual_invalid = job.job_type == "manual_correction_snapshot" and (
+                locked_manual_correction is None
+                or job.current_attempt_start_step_code != "snapshot_rebuild"
+                or locked_manual_result is None
+                or locked_manual_source is None
+                or locked_manual_result.source_type != "manual_correction"
+                or locked_manual_result.code_version != "manual-correction-snapshot-v1"
+                or locked_manual_correction.source_parse_version_id != locked_manual_source.id
+                or locked_manual_correction.result_parse_version_id != locked_manual_result.id
+                or locked_manual_correction.trace_id != job.trace_id
+                or locked_manual_result.created_by != locked_manual_correction.corrected_by
+                or job.input_json
+                != {
+                    "file_id": str(locked_file.id),
+                    "source_parse_version_id": str(locked_manual_source.id),
+                    "result_parse_version_id": str(locked_manual_result.id),
+                    "correction_id": str(locked_manual_correction.id),
+                    "handler_code_version": "manual-correction-snapshot-v1",
+                    "handler_registry_version": job.handler_registry_version,
+                    "handler_registry_hash": job.handler_registry_hash,
+                }
+            )
+            asset_invalid = job.job_type == "asset_security_revalidation" and (
+                locked_manual_result is None
+                or locked_manual_source is None
+                or job.current_attempt_start_step_code != "asset_security_revalidation"
+                or locked_manual_result.source_type != "security_revalidation"
+                or locked_manual_result.code_version != "asset-security-revalidation-v1"
+                or job.input_json.get("file_id") != str(locked_file.id)
+                or job.input_json.get("source_parse_version_id") != str(locked_manual_source.id)
+                or job.input_json.get("result_parse_version_id") != str(locked_manual_result.id)
+                or job.input_json.get("handler_code_version") != "asset-security-revalidation-v1"
+                or len(job.input_json) != 14
+            )
+            if (
+                shared_invalid
+                or job.job_type
+                not in {
+                    "manual_correction_snapshot",
+                    "asset_security_revalidation",
+                }
+                or manual_invalid
+                or asset_invalid
             ):
                 return None
         elif job.resource_type == "file" and job.current_attempt_start_step_code == "scan":
@@ -659,6 +834,9 @@ class JobRuntimeRepository:
             locked_report.status = "generating"
             locked_report.failure_code = None
             locked_report.row_version += 1
+            self._session.flush()
+        if locked_manual_result is not None:
+            locked_manual_result.status = "running"
             self._session.flush()
         return self._claimed_job(row, start_step_seq)
 
@@ -1254,9 +1432,24 @@ class JobRuntimeRepository:
         jobs = self._session.scalars(
             select(AsyncJob)
             .where(
-                AsyncJob.resource_type == "file",
-                AsyncJob.job_type.in_(
-                    ("file_process", "file_scan", "invoice_extract", "contract_extract")
+                or_(
+                    and_(
+                        AsyncJob.resource_type == "file",
+                        AsyncJob.job_type.in_(
+                            (
+                                "file_process",
+                                "file_scan",
+                                "invoice_extract",
+                                "contract_extract",
+                            )
+                        ),
+                    ),
+                    and_(
+                        AsyncJob.resource_type == "document_parse_version",
+                        AsyncJob.job_type.in_(
+                            ("manual_correction_snapshot", "asset_security_revalidation")
+                        ),
+                    ),
                 ),
                 AsyncJob.status == "running",
                 AsyncJob.lease_expires_at.is_not(None),
@@ -1669,7 +1862,6 @@ class JobRuntimeRepository:
         execution.status = "queued"
         execution.failure_code = None
         execution.retryable = False
-        execution.started_at = None
         execution.finished_at = None
         execution.row_version += 1
         self._session.flush()
@@ -2363,13 +2555,42 @@ class JobRuntimeRepository:
         classification = self._session.execute(
             select(AsyncJob.resource_type, AsyncJob.resource_id).where(AsyncJob.id == job_id)
         ).one_or_none()
-        if classification is None or classification.resource_type != "file":
+        if classification is None:
             return LeaseRecoveryResult("stale", job_id)
-        file_record = self._session.execute(
-            select(FileRecord)
-            .where(FileRecord.id == classification.resource_id)
-            .with_for_update(of=FileRecord)
-        ).scalar_one_or_none()
+        manual_result: DocumentParseVersion | None = None
+        manual_source: DocumentParseVersion | None = None
+        if classification.resource_type == "file":
+            file_record = self._session.execute(
+                select(FileRecord)
+                .where(FileRecord.id == classification.resource_id)
+                .with_for_update(of=FileRecord)
+            ).scalar_one_or_none()
+        elif classification.resource_type == "document_parse_version":
+            identity = self._session.execute(
+                select(
+                    DocumentParseVersion.file_id,
+                    DocumentParseVersion.parent_version_id,
+                ).where(DocumentParseVersion.id == classification.resource_id)
+            ).one_or_none()
+            if identity is None or identity.parent_version_id is None:
+                return LeaseRecoveryResult("stale", job_id)
+            file_record = self._session.execute(
+                select(FileRecord)
+                .where(FileRecord.id == identity.file_id)
+                .with_for_update(of=FileRecord)
+            ).scalar_one_or_none()
+            manual_source = self._session.execute(
+                select(DocumentParseVersion)
+                .where(DocumentParseVersion.id == identity.parent_version_id)
+                .with_for_update(of=DocumentParseVersion)
+            ).scalar_one_or_none()
+            manual_result = self._session.execute(
+                select(DocumentParseVersion)
+                .where(DocumentParseVersion.id == classification.resource_id)
+                .with_for_update(of=DocumentParseVersion)
+            ).scalar_one_or_none()
+        else:
+            return LeaseRecoveryResult("stale", job_id)
         job = self._session.execute(
             select(AsyncJob).where(AsyncJob.id == job_id).with_for_update(of=AsyncJob)
         ).scalar_one_or_none()
@@ -2380,13 +2601,41 @@ class JobRuntimeRepository:
             or job.lease_expires_at is None
             or job.current_attempt_start_step_code != start_step_code
             or job.organization_id != file_record.organization_id
-            or job.resource_id != file_record.id
+        ):
+            return LeaseRecoveryResult("stale", job_id)
+        if classification.resource_type == "file" and job.resource_id != file_record.id:
+            return LeaseRecoveryResult("stale", job_id)
+        if classification.resource_type == "document_parse_version" and (
+            manual_source is None
+            or manual_result is None
+            or job.job_type not in {"manual_correction_snapshot", "asset_security_revalidation"}
+            or job.resource_id != manual_result.id
+            or start_step_code
+            != (
+                "snapshot_rebuild"
+                if job.job_type == "manual_correction_snapshot"
+                else "asset_security_revalidation"
+            )
+            or manual_result.file_id != file_record.id
+            or manual_result.status != "running"
+            or manual_result.source_type
+            != (
+                "manual_correction"
+                if job.job_type == "manual_correction_snapshot"
+                else "security_revalidation"
+            )
+            or manual_result.parent_version_id != manual_source.id
+            or manual_result.trace_id != job.trace_id
+            or manual_source.file_id != file_record.id
         ):
             return LeaseRecoveryResult("stale", job_id)
         database_now = self._session.scalar(select(func.clock_timestamp()))
         if database_now is None or database_now < job.lease_expires_at + _LEASE_RECOVERY_GRACE:
             return LeaseRecoveryResult("stale", job_id)
-        if start_step_code == "scan":
+        if classification.resource_type == "document_parse_version":
+            if job.max_attempts != 1:
+                return LeaseRecoveryResult("stale", job_id)
+        elif start_step_code == "scan":
             scan_source_available = (
                 file_record.status == "validating" and file_record.security_scan_status == "pending"
             ) or (
@@ -2478,6 +2727,11 @@ class JobRuntimeRepository:
                     "row_version": job.row_version,
                 },
             ).scalar_one_or_none()
+            if updated is not None and manual_result is not None:
+                manual_result.status = "failed"
+                manual_result.error_code = "WORKER_LOST"
+                manual_result.error_message = None
+                self._session.flush()
             return LeaseRecoveryResult("exhausted" if updated is not None else "stale", job_id)
 
         new_step_id = uuid4()

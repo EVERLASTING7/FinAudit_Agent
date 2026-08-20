@@ -1,0 +1,78 @@
+{
+  "acceptance_boundary": {
+    "business_representative": false,
+    "formal_ac": false,
+    "production": false,
+    "reference_environment_capacity": false
+  },
+  "cleanup": {
+    "container_count": 0,
+    "image_tag_count": 0,
+    "runtime_directory_present": false,
+    "runtime_secrets_present": false,
+    "volumes_removed": true
+  },
+  "environment": {
+    "ai_provider": "disabled",
+    "docker_cpus": 20,
+    "docker_memory_bytes": 8223625216,
+    "docker_server_version": "29.6.1",
+    "image_id": "sha256:a4ecb7fc68c9f117a5222df329f01ddec98a87b6a02020766d3fca0a58be4c26",
+    "image_revision": "perf-invoice-v4",
+    "ocr": "not_run",
+    "production": "not_run",
+    "scanner": "local-clamav",
+    "transport": "http-nginx-backend",
+    "worker_concurrency": 2
+  },
+  "gates": {
+    "clear_invoice": "passed",
+    "clear_invoice_database": "passed",
+    "client": "passed",
+    "database": "passed",
+    "dependency_restore": "passed",
+    "twenty_page_contract": "passed",
+    "twenty_page_contract_database": "passed"
+  },
+  "recorded_on": "2026-08-19",
+  "rounds": [
+    {
+      "clear_invoice_acceptance_ms": 34.18,
+      "clear_invoice_processing_ms": 635.969,
+      "round": 1,
+      "twenty_page_contract_processing_ms": 1165.315
+    },
+    {
+      "clear_invoice_acceptance_ms": 29.745,
+      "clear_invoice_processing_ms": 603.018,
+      "round": 2,
+      "twenty_page_contract_processing_ms": 830.661
+    },
+    {
+      "clear_invoice_acceptance_ms": 29.384,
+      "clear_invoice_processing_ms": 605.273,
+      "round": 3,
+      "twenty_page_contract_processing_ms": 576.725
+    }
+  ],
+  "schema_version": "local-performance-clear-invoice-v4",
+  "source_binding": {
+    "benchmark_bytes": 74304,
+    "benchmark_path": "scripts/benchmark_local_performance.py",
+    "benchmark_sha256": "1118575f9cb0f946b1fa90fd73f7cbb5142a1858d7c9f1d90041327e76cce5b3",
+    "wrapper_bytes": 147820,
+    "wrapper_path": "scripts/verify-local-stack.ps1",
+    "wrapper_sha256": "00ea27f02b03787df7be4336df188e55e95db7f0cdb8f523a419ad844f649d3e"
+  },
+  "thresholds": {
+    "all_rounds_passed": true,
+    "clear_invoice_limit_ms": 30000,
+    "round_count": 3,
+    "twenty_page_contract_limit_ms": 120000
+  },
+  "workload": {
+    "clear_invoice": "synthetic_docx_http_to_clamav_to_file_process_to_invoice_extract",
+    "clear_invoice_database_manifest": "13_field_evidence_one_item_file_binding_two_jobs",
+    "twenty_page_contract": "synthetic_text_pdf_http_to_active_parse_and_markdown"
+  }
+}

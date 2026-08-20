@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 
+import DocumentCorrectionPanel from '@/components/DocumentCorrectionPanel.vue'
 import { ApiError } from '@/services/api'
+import type { DocumentCorrectionEvidence } from '@/services/documentCorrections'
 import {
   invoiceApi,
   type InvoiceCorrectionHistoryData,
@@ -76,6 +78,19 @@ const validReason = computed(() => {
 const evidenceIsCurrent = computed(
   () => evidence.value !== null && evidence.value.rowVersion === props.invoice.rowVersion,
 )
+const documentCorrectionEvidence = computed<DocumentCorrectionEvidence[]>(() => {
+  const current = evidence.value
+  if (current === null) return []
+  return [
+    ...current.fieldEvidence.map((item) => item.evidence),
+    ...Object.values(current.itemEvidence).flat(),
+  ].map((item) => ({
+    blockId: item.blockId,
+    parseVersionId: item.parseVersionId,
+    pageNo: item.pageNo,
+    quoteText: item.quoteText,
+  }))
+})
 const canReplaceFacts = computed(
   () =>
     canManage.value &&
@@ -500,6 +515,13 @@ onUnmounted(() => {
         <div v-else class="empty-inline">当前没有字段证据；后端不会允许缺失核心证据的确认。</div>
       </div>
     </div>
+
+    <DocumentCorrectionPanel
+      v-if="evidence"
+      business-type="invoice"
+      :evidence-items="documentCorrectionEvidence"
+      @activated="emit('refreshRequested')"
+    />
 
     <div v-if="history" class="section-card">
       <div class="section-card-header"><div><h2>发票修正与处置历史</h2><p>追加式记录事实替换、确认、拒绝和重复状态变更。</p></div></div>

@@ -196,11 +196,12 @@ SSOT 使用规则：
 ### 6.14 `invoice-exact-duplicate-candidates-read-v1`
 
 - `GET /api/v1/invoices/{invoice_id}/duplicate-candidates` 只读取一张可见发票基于当前持久化三元组 `invoice_code + invoice_number + seller_tax_no` 的精确重复候选；`invoice_id` 只接受 canonical lowercase UUID。它不执行 trim、大小写折叠、模糊匹配、供应商归一化、税务真伪校验或历史版本回放，也不写入 `duplicate_status`、风险、审核任务或 operation-log。
-- 请求必须先得到数据库重验后的 Actor，再要求 `financial.read`。Repository 必须先以 `Actor.organization_id + invoice_id + deleted_at IS NULL` 读取源发票锚点；跨组织、不存在和软删除统一返回 404 `RESOURCE_NOT_FOUND`。若源发票 `status = voided`，`basis_status = source_voided`；否则三元组任一字段为数据库 `NULL` 时 `basis_status = incomplete_identity`；其余情况为 `ready`。状态判定优先级固定为 `source_voided` 高于 `incomplete_identity`，字符串值不做隐式清理或转换。
+- 请求必须先得到数据库重验后的 Actor，再要求 `financial.read`。Repository 必须在一条 SQL statement 中以 `Actor.organization_id + invoice_id + deleted_at IS NULL` 建立源发票 CTE，并由同一 statement 投影 basis 与候选页；跨组织、不存在和软删除统一返回 404 `RESOURCE_NOT_FOUND`。若源发票 `status = voided`，`basis_status = source_voided`；否则三元组任一字段为数据库 `NULL` 时 `basis_status = incomplete_identity`；其余情况为 `ready`。状态判定优先级固定为 `source_voided` 高于 `incomplete_identity`，字符串值不做隐式清理或转换。
 - Query 只允许可选 `cursor` 与 `page_size`：`page_size` 默认 20、范围 1～100；其他参数固定 422。`cursor` 是长度不超过 256 的无 padding canonical base64url UTF-8 JSON，解码后精确为 `{v:1,id:canonical-lowercase-UUID}`；非法编码、非 canonical 表示、未知键或非法字段固定 422。即使当前 `basis_status` 不是 `ready`，传入 cursor 也必须先完成同一严格校验，不能形成宽松旁路。
-- 只有 `basis_status = ready` 才执行候选查询。候选必须同时满足：与源发票属于同一 Actor 组织、不是源发票自身、未软删除、`status <> voided`，且三元组逐字段使用数据库等值比较；`archived` 候选保留。排序固定为 `id ASC`，后继条件为 `id > cursor.id`，Repository 使用 `LIMIT page_size + 1`，不执行 OFFSET、total count、全组织物化或 Python 排序。该条件复用 accepted `idx_invoices_duplicate_lookup` 的组织与三元组前缀；UUID tie-break 未声明为容量或性能证明。
+- 同一 statement 以源 CTE LEFT JOIN 候选；只有源 basis 可为 `ready` 时连接条件才可能产出候选。候选必须同时满足：与源发票属于同一 Actor 组织、不是源发票自身、未软删除、`status <> voided`，且三元组逐字段使用数据库等值比较；`archived` 候选保留。Cursor 后继条件必须位于 JOIN 条件内，使合法源在本页无候选时仍保留 basis 投影。排序固定为候选 `id ASC NULLS LAST`，后继条件为 `id > cursor.id`，statement 使用 `LIMIT page_size + 1`，不执行 OFFSET、total count、全组织物化或 Python 排序。该条件复用 accepted `idx_invoices_duplicate_lookup` 的组织与三元组前缀；UUID tie-break 未声明为容量或性能证明。
 - 成功返回 `SuccessResponse[InvoiceDuplicateCandidateListData]`，其中 `data` 精确为 `{basis_status, items, page_size, next_cursor}`。`basis_status` 精确为 `ready|incomplete_identity|source_voided`；`items` 复用第 6.8 节严格字段与约束的 `InvoiceListItemData`，页内 ID 必须严格升序且不得重复。只有读取到额外一条时才基于本页最后一个候选 ID 生成 `next_cursor`，因此 `next_cursor` 非空时本页必须恰有 `page_size` 项；`basis_status` 不是 `ready` 时必须固定返回空 `items` 与 `next_cursor = null`。
-- 响应不返回源发票三元组、`seller_tax_no`、`organization_id`、供应商、证据、关键事实哈希、Actor、`row_version`、匹配分数、自由文本原因或写能力；成功响应固定 `Cache-Control: private, no-store`。`ready + 空页` 只表示本次数据库读取未发现精确候选，不等同于税务唯一性、外部真伪或人工确认结论。当前普通 `READ COMMITTED` Session 的源锚点与候选查询不声明单一 MVCC 快照；跨页也不提供冻结快照。重复确认、例外批准、重新检测、状态写入和高风险落库仍受公开写合同、CAS/幂等与 `BLOCKED-OPERATION-LOG` 约束，Frontend 必须保持不可用。
+- 响应不返回源发票三元组、`seller_tax_no`、`organization_id`、供应商、证据、关键事实哈希、Actor、`row_version`、匹配分数、自由文本原因或写能力；成功响应固定 `Cache-Control: private, no-store`。`ready + 空页` 只表示本次数据库 statement snapshot 未发现精确候选，不等同于税务唯一性、外部真伪或人工确认结论。PostgreSQL `READ COMMITTED` 下，一次 API 请求的源 basis 与候选页现在共享同一 statement MVCC snapshot；不同翻页请求仍各自取得新 snapshot，Cursor 不冻结跨页数据集。重复确认、例外批准、重新检测、状态写入和高风险落库继续受其公开写合同、CAS/幂等与 operation-log 约束。
+- `local-invoice-duplicate-browser-v1` 在 disposable local/test HTTP 应用中使用真实 finance_reviewer 登录，按可见导航进入发票列表与源发票详情，渲染一个 archived 精确候选，并仅在用户点击“对比”后调用两票点查。受保护 completion 必须观测候选列表 GET 与 pair GET 均为 200，并重新核对两票三元组、源 `unique`、候选 `suspected/archived` 未被只读路径改变；浏览器必须同时可见 source/candidate ID、共同身份和两行摘要，console warning/error 为 0。该合成门禁不执行重复决定，不代表税务真伪、代表性质量、正式可访问性、production 或 AC。
 
 ### 6.15 `invoice-exact-duplicate-pair-read-v1`
 
@@ -386,7 +387,7 @@ SSOT 使用规则：
 - Worker claim、heartbeat、阶段完成和终态提交必须受 Lease 与数据库时间保护。
 - Job 和当前 Step 的状态推进必须保持事务一致。
 - 失败只使用受控错误码；第三方自由文本必须脱敏或丢弃。
-- 重试沿用原 Job 并保留历史 attempt；具体 HTTP fencing 合同仍受第 15 节约束。
+- 重试沿用原 Job 并保留历史 attempt；HTTP 动作按 `CR-027-R1` 同时校验资源版本和 Job `row_version`，两者不得互相替代。
 - 取消请求只在安全检查点终结，不删除已产生的可追溯结果。
 
 ### 8.3 当前实现边界
@@ -397,15 +398,25 @@ SSOT 使用规则：
 - 文件 scan/parse、发票提取、知识 index/eval、审核和报告 Executor 均写入现有 Job/Step/Outbox 闭环；Dispatcher、Handler、Broker 和恢复路径已有单元/数据库证据，显式 loopback Redis/Celery transport Gate 已通过且测试容器残留为 0。
 - 以上通用证据不自动证明 production Broker、强杀/断电、容量、监控或完整 Compose；显式 local Compose 门禁已分别验证 `file_process` 在 scan 中 SIGKILL、同容器受管重启、attempt-2 `scan → parse → markdown` 恢复及下游合同提取，以及 `contract_extract`、`invoice_extract` 本体在 attempt 1 `extract` 中 SIGKILL、零业务事实回滚、`LEASE_EXPIRED` 和 Maintenance attempt 2 唯一事实收敛。发票门禁还核对 13 个字段证据、1 条明细证据、原件 SHA-256/ETag 与唯一发票/明细/绑定/日志；`audit_execute` 门禁在 attempt 1 `evaluate` 中强杀 Worker，精确终止唯一孤儿等待后端并核对零规则/风险/执行日志回滚，再由 attempt 2 收敛为 15 条规则、2 条风险和唯一日志。`report_generate` 门禁在 PDF/XLSX 已写 MinIO、数据库制品事实未提交时强杀并核对孤儿对象保留、attempt-2 相同字节和唯一 ready 报告；`knowledge_index_build` 门禁在 Qdrant 点与 PostgreSQL 成员 Hash 已提交、ready 事务未提交时强杀并核对相同 Point ID 幂等重放、跨恢复不变摘要和唯一 ready 索引。production、Docker 自动重启与主机断电仍须独立运行。
 
+### 8.4 `CR-027-R1` Job HTTP fencing
+
+- `AuditExecutionData` 与 `FileListItemData` 对绑定 Job 增加精确 `{id,status,stage,attempt_no,max_attempts,row_version,retryable}` 投影；不存在 Job 时为 null。不得返回 Job input、Worker/Lease、错误正文、对象键或 secret。
+- `POST /api/v1/audit-executions/{execution_id}/retry` 要求 `audits.complete`、Idempotency-Key 和 `{execution_row_version,job_row_version,reason}`。只允许 failed execution + 同一 failed `audit_execute` Job、冻结快照未漂移、attempt 未耗尽且 `next_retry_at<=database_now`；同事务把两者置 queued、保留结果、创建唯一下一 sequence Outbox，不创建 Step。成功 202 返回 execution/job 两版本、attempt、scheduled attempt 与计划 stage=`evaluate`。
+- `POST /api/v1/audit-executions/{execution_id}/cancel` 请求为 `{execution_row_version,job_row_version,reason}`。draft/validating 无 Job且 job version 必须 null；queued/running/pending-review 有 Job且必须匹配。execution 提交后直接 cancelled；queued Job cancelled，running Job cancel_requested，succeeded Job保持不变。相同幂等请求重读并返回当前 Job 投影。
+- `POST /api/v1/files/{file_id}/retry` 请求为 `{file_row_version,job_id,job_row_version,reason}`；文件版本保护资源绑定，Job 版本保护 failed→queued。成功响应返回更新后的文件与 Job 投影。
+- 稳定冲突码为 `RESOURCE_VERSION_CONFLICT`、`JOB_VERSION_CONFLICT`、`JOB_RETRY_NOT_READY`；当前基线新增 AUDIT-007 一个 operation，`api_delta=+1`，不新增核心表或 PermissionCode。
+- 当前 checkout 的 `/api/v1` OpenAPI 为 98 个唯一 operationId；CR-005/027/028 的实际增量分别保持 `+3/+1/+2`。CR-027/028 R1 中签署前绝对计数遗漏了三个已授权 CR-005 operation，该数值只保留为历史签署输入，不覆盖当前机器事实。
+
 ## 9. 数据库与存储契约
 
 ### 9.1 当前物理数据库
 
-- 当前 accepted Alembic head 为 `20260817_024`，ORM 与运行时 catalog 覆盖 57/57 张核心物理表。
+- 当前 accepted Alembic head 为 `20260818_027`，ORM 与运行时 catalog 覆盖 58/58 张核心物理表。
 - `20260815_021` 不新增表；它在升级时检查既有活动索引、已批准评测集和已结束评测运行的完整性，并用 PostgreSQL `BEFORE INSERT` 触发器强制索引、评测集和评测运行分别从 `building`、`draft`、`running` 创建，防止绕过正式评测与发布状态机。
 - `20260816_022` 允许未确认发票的 currency 为空、移除无证据 CNY 默认，并由数据库继续强制 confirmed 发票 currency 非空。
 - `20260816_023` 为风险解释和报告草稿增加 `disabled|succeeded|degraded`、严格 JSON 与 SHA-256 事实，并只放行受控 AI 采用转换；既有报告状态机与 ready 制品不可变规则保持有效。
 - `20260817_024` 保留 Event v1 与非空 legacy USD 历史，增加 Event v2 的 USD/CNY 通用 microunit 费用列和版本/货币一致性约束；pending 审计事实阻断升级，任何 v2 事实阻断 downgrade，禁止隐式 FX。
+- `20260818_025` 落实文档纠错、独立激活与 Asset 安全字段/血缘边界；`20260818_026` 增加制度撤销 request/execute 一一关联和 published→revoked 数据库守卫；`20260818_027` 新增唯一第 58 张 `scanner_registry_profiles` 技术表、current/history/selector validator 和 Asset 重评消费者守卫。
 - accepted 线性迁移是当前物理 Schema 的唯一来源。
 - 当前 head 覆盖扩展、身份、幂等、财务主数据与关系、可靠性、特权授权、追加式操作日志、文件/文档处理、Markdown/分块、知识检索/评测、审核执行和正式报告。
 - 旧数据库设计与历史迁移候选仍不参与解释当前 Schema；物理事实只来自 accepted 线性 head 和 PostgreSQL catalog 验证。
@@ -514,6 +525,41 @@ SSOT 使用规则：
 - P0 分块只使用应用内 `chunk-profile-v1`。ChunkSet 固化 profile version/hash 和实际参数；不提供在线编辑、A/B、语义分块或自动多业务文档拆分。
 - 每个 Chunk 必须非空、有界，并可经 Markdown source map 追溯到一个或多个真实 document block；分块只读取同文件当前 active 且质量通过的 Markdown。
 
+### 10.8 `CR-005-R2` 文档纠错、激活与安全重评
+
+- `PARSE-004 POST /api/v1/document-blocks/{block_id}/correct` 要求 `Idempotency-Key` 和 `files.manage OR system.configure`。请求精确为 `{field_name,after_value,reason,source_parse_version_id}`；`field_name` 只允许 `text_content|block_type|reading_order|bbox`，after value 按字段严格校验，reason 去首尾后 1～1000 字符，来源版本与 Path block 均为 canonical UUID。Service 锁定文件和当前活动 Parse 后按业务类型校验角色：invoice=`finance_reviewer|system_admin`，contract=`finance_reviewer|contract_admin|system_admin`，supplementary_agreement=`contract_admin|system_admin`，policy=`audit_reviewer|system_admin`。成功 202 精确返回 `{correction_id,result_parse_version_id,job_id,status='queued'}`。
+- 同一事务创建 `source_type='manual_correction'`、parent 指向当前 active 的 queued Parse、唯一不可变 correction、`job_type='manual_correction_snapshot'` Job 和 sequence 1 Outbox；Job input 只含 CR-005-R2 七个冻结键，正文、before/after 和 reason 不进入 Job/Outbox。失败全部回滚，相同 Idempotency-Key/hash 重放首次响应，不同 hash 返回 409。
+- Worker 的唯一 `snapshot_rebuild` step 从 PostgreSQL 重建完整 pages/blocks/exclusions 快照，只对目标块应用一个获准字段；结果 Parse 成功后为 `succeeded`，不改变活动 Parse/Markdown。Job 与 Parse 的 queued/running/succeeded/failed 投影由可延迟数据库守卫保持一致，dispatch 最终失败和单次 Lease 耗尽也原子收敛。当前 local/test 不复制或伪造 MinIO Asset；来源 Parse 含 Asset 时固定以 `DOCUMENT_ASSET_SNAPSHOT_UNSUPPORTED` 失败并保留旧 active，等待 CR-010 Profile 与安全重建链。旧 Parse、块和纠错禁止覆盖或删除。
+- `local-document-correction-crash-recovery-v1` 只在独占可丢弃 Compose 项目运行：先以合成补充协议穿过 HTTP/ClamAV/file_process 并从 CR-029 读取活动 Block，再用测试会话对 `document_content_exclusions` 持有 `ACCESS EXCLUSIVE` 锁，使纠错 Worker 在事务内读取 exclusions 时阻塞。门禁只对精确归属 Worker SIGKILL 并要求退出码 137，释放唯一锁后先验证候选 Page/Block/Markdown 零提交，再启动同一 Worker 容器。由于 CR-005 固定 `max_attempts=1`，60 秒 Lease 加 15 秒宽限后唯一合法终态是 Maintenance `exhausted`、Job/step/候选 Parse `failed/WORKER_LOST`；旧 active、来源文本 Hash 与原件 SHA-256 必须不变，PARSE-005 对失败候选固定 409 `PARSE_STATE_CONFLICT`。该门禁不增加自动重试，不向生产 Executor 注入故障分支。
+- `PARSE-005 POST /api/v1/document-parse-versions/{parse_version_id}/activate` 同样要求 `Idempotency-Key` 与上述权限/业务角色矩阵，请求精确 `{reason}`。锁定文件后仅允许 target 为当前 active 时幂等成功，或 target `status='succeeded'` 且 `parent_version_id=current_active.id`；否则返回 `PARSE_PARENT_STALE`/状态冲突。Markdown/source-map/质量门禁与 Parse/Markdown active 切换同事务完成；成功 200 返回 `{id,status='active',superseded_version_id,activated_at}`。
+- `PARSE-006 POST /api/v1/document-parse-versions/{parse_version_id}/security-revalidations` 要求 system_admin、Idempotency-Key 和精确 `{reason,security_policy_version,force_recheck}`；reason 去首尾后为 1～500 字符，成功形状复用统一 AcceptedJobResponse。`CR-010-R2` 只允许可丢弃测试数据库显式安装 `fixed_test-registry-v1 / 4e53b4749ccafa9ac4812054244d8a908efdf77f7ac280b38cb6ea047e0ebc1a`；普通 Profile 表为空时必须在任何 Parse/Job/Outbox/log 写入前返回 503 `SECURITY_REVALIDATION_CONFIGURATION_ERROR`。
+- 当前 R2 新增三个 operationId，`api_delta=+3`，不新增核心表或 PermissionCode；增量迁移把 correction result 改为 NOT NULL+UNIQUE，并增加纠错血缘/Job/Outbox 延迟约束与安全 downgrade。Provider、外部网络、production 和真实数据迁移不在授权范围。
+
+### 10.9 `CR-010-R2` fixed_test Scanner Registry
+
+- `scanner_registry_profiles` 是 Profile class、registry version/hash、规范 bytes、批准摘要和 installed/current/historical 生命周期的唯一数据库事实；activation 使用全局事务锁与 expected-current CAS，新 Job current 校验持有 `FOR SHARE`，历史结果只接受曾激活 tuple。
+- 表与 migration 默认不安装 Profile。隔离测试唯一允许 Profile 精确为 `fixed_test / fixed-test-registry-v1 / fixed_test / fixed-test-scanner-v1 / fixed-test-definition-v1`；JCS 为 366 bytes，SHA-256 为 `4e53b4749ccafa9ac4812054244d8a908efdf77f7ac280b38cb6ea047e0ebc1a`。
+- `asset_security_revalidation` 使用 `file-handler-registry-v4` 与十四键 Job input；Worker 为每个父 Asset 创建新对象键和直接 `source_asset_id`，只把实际观察且通过 history validator 的 Scanner tuple 写入终态。全 clean 时 Parse succeeded，存在 non-clean 时 manual_review_required，配置/存储/快照失败时 Job/Parse 原子 failed；激活仍只能走 PARSE-005。
+- fixed-test Scanner 与内存 Asset 存储只由隔离测试显式注入，默认 Worker 不构造；它不打开 socket，也不证明真实 ClamAV/Definition、完整图片解码、MinIO Asset copy、staging、production、容量或告警。
+
+### 10.10 `CR-029-R1` 通用文档纠错来源读取
+
+- `GET /api/v1/files/{file_id}/document-correction-blocks` 的 operationId 固定为 `list_document_correction_blocks_v1`。Path 只接受 canonical lowercase UUID；Query 精确为 `page_size=1..100`（默认 50）和可空 opaque cursor，未知 Query 固定 422。成功固定 `Cache-Control: private, no-store`，无副作用且不接受 `Idempotency-Key`。
+- 入口要求数据库 Actor 的 `files.manage OR system.configure`，再逐字复用 PARSE-004/005 的四业务角色矩阵和 read_only deny-overrides。不存在、跨组织或软删除统一 404；文件非 `stored+clean` 返回 409 `FILE_STATE_CONFLICT`，没有当前 active Parse 返回 409 `DOCUMENT_PARSE_NOT_READY`。
+- Repository 只联查同一文件当前 `status='active' AND archived_at IS NULL` 的 Parse、Page 与 `is_effective_content=true AND text_content IS NOT NULL` Block，按 `page_no ASC, block_index ASC, block_id ASC` 做 `LIMIT page_size+1` keyset 分页；禁止 OFFSET、全量物化或 Python 排序。
+- 响应 `data` 精确为 `{file_id,business_type,parse_version_id,items,page_size,next_cursor}`；item 精确为 `{block_id,page_no,block_index,block_type,text_content,reading_order,bbox}`。Cursor 至少绑定 Parse 与最后一项三元顺序，非法或跨文件锚点固定 422；Cursor Parse 已不再 active 返回 409 `PARSE_VERSION_CHANGED`，不能静默切换版本。
+- 响应不得返回组织、文件名、Parser/OCR 身份、置信度、Asset、对象键、哈希、来源映射、纠错历史、Actor 或原因。Frontend 严格解码并在 FileDetail 为四类文件提供 loading/empty/error/retry/Abort/分页；只把服务端身份投影给现有纠错组件，不推导 Block/Parse ID、不自动写入，激活成功后必须丢弃旧 Cursor 并刷新。
+- 本合同 `api_delta=+1`，不新增 PermissionCode、核心表、迁移或 operation-log action；不改变 PARSE-004/005/006 的写合同。
+
+### 10.11 `CR-030-R1` 制度撤销待执行请求读取
+
+- `GET /api/v1/policy-documents/revocation-requests` 的 operationId 固定为 `list_pending_policy_revocation_requests_v1`。Query 精确为必填 canonical `knowledge_base_id`、`page_size=1..100`（默认 50）和可空 opaque cursor；未知 Query 固定 422。成功固定 `Cache-Control: private, no-store`，无副作用且不接受 `Idempotency-Key`。
+- 入口只允许 `knowledge.approve + audit_reviewer` 或 `knowledge.publish + system_admin`，并继续应用 read_only deny-overrides；不授予 `knowledge.use`。知识库不存在、跨组织、软删除或不可见统一 404。
+- Repository 使用单条有界 PostgreSQL 查询，固定筛选同组织、指定知识库、未软删除且仍为 published 的 Policy，以及 `action='revoke_request' AND to_status='revoked' AND related_record_id IS NULL` 且尚无 `action='revoke' AND related_record_id=request.id` 的 approval record；按 `requested_at ASC, request_id ASC` 做 `LIMIT page_size+1` keyset 分页，禁止 OFFSET、N+1、全组织枚举或 Python 排序。
+- 响应 `data` 精确为 `{items,page_size,next_cursor}`；item 精确为 `{revocation_request_id,policy_id,policy_code,policy_name,policy_row_version,requested_by,requested_at}`。Cursor 至少绑定 knowledge base、requested_at 与 request ID；非法、非 canonical 或跨知识库 Cursor 固定 422。不得返回请求/撤销原因、scope、制度正文、Chunk/Index/Qdrant、来源文件、组织、审批备注、对象键、哈希或 secret。
+- 列表不是执行锁。既有 revoke 接口仍在同一事务锁定 Policy/request 并重验 row_version、归属、未执行、published 和请求/执行 Actor 不同；陈旧项稳定 409。Frontend 删除手工 UUID 输入，两个角色均可查看 pending，只有 system_admin 可在填写独立原因后显式执行；禁止自动、批量或轮询触发执行。
+- 本合同 `api_delta=+1`，不新增 PermissionCode、核心表、迁移或 operation-log action。与 CR-029 同批落地后当前 `/api/v1` 为 97 个唯一 operationId，全 OpenAPI 含 `/health`、`/health/dependencies`、`/metrics` 三个非 API-v1 运维 operation 共 100 个；两份已签 CR 把 pre 总数 98 误标为 API-v1 数，但各自 `+1` 增量及全部路径/operationId 合同不变。
+
 ## 11. 检索、引用与审核
 
 - PostgreSQL 保存知识库成员、制度状态、有效期、活动索引和权限事实。
@@ -552,6 +598,8 @@ SSOT 使用规则：
 - 查询固定三阶段：PG 生成有界允许 Point ID 集；Qdrant 使用 `has_id` must-filter 召回；PG 按返回 ID 重读并终审组织、权限、制度状态、有效期、活动成员、Chunk/Markdown/原文摘要。服务端返回越权、缺失或漂移 ID 时整次失败关闭。
 - Qdrant payload 只保存重建需要的无敏感最小投影；PostgreSQL 保存索引版本、成员、向量摘要、活动状态和评测事实。向量摘要按 Qdrant 实际持久化的 IEEE-754 float32 字节规范化，避免写入前 Python float64 与读取后 float32 的正常精度差异被误判为成员漂移；非有限值和 float32 溢出仍失败关闭。候选索引完整写入、成员一致性与门禁通过后才可事务激活，失败时旧 active 不变。
 - RAG 生成器只接收终审后的本次候选。引用逐项绑定制度版本、Markdown、Chunk、document block、页码、索引版本和冻结正文；引用验证失败、无答案、越权、提示注入或依赖降级时返回受控拒答，不采用模型补造内容。
+- `CR-028-R1` 撤销采用两阶段：`POST /policy-documents/{id}/revocation-requests` 由 audit_reviewer/`knowledge.approve` 创建唯一确认；`POST /policy-documents/{id}/revoke` 由不同的 system_admin/`knowledge.publish` 绑定该记录并原子执行 `published→revoked`。审批记录通过 related record 一一关联，revoked 为 P0 终态，archived 不开放。
+- 撤销事务不调用 Qdrant。提交后所有新查询的 allowed-set 与 final recheck 仍只接受 published，故 revoked ID 即时退出候选；现存派生点、历史 index item、Chunk/Markdown、审核快照和引用保留。普通 knowledge.use 列表/详情不显示 revoked；knowledge.publish 仅获得执行所需的制度元数据读取，不获得 QA/RET 权限。
 
 ### 11.4 `retrieval-evaluation-v1`
 
@@ -735,8 +783,9 @@ SSOT 使用规则：
 - PostgreSQL、Redis、MinIO、Qdrant、ClamAV、Python、Node 和 Nginx 基础镜像都必须使用 tag+manifest digest；不得使用 `latest`。Qdrant local 继续固定 `1.10.0`：现有 1.10 派生卷直接启动 1.18 已实际因 segment 格式不兼容失败，因此升级必须采用显式快照或从 PostgreSQL 事实重建，不得静默删除卷。
 - 只有 Nginx HTTP 入口映射到主机 `127.0.0.1:${FINAUDIT_HTTP_PORT}`；Backend、数据库、缓存、对象存储、向量库和 Scanner 不发布主机端口。业务容器使用只读根文件系统和 `no-new-privileges`；Backend、Worker、Dispatcher、Maintenance 丢弃全部 capabilities，Frontend/Nginx 也先 `cap_drop: ALL`，只补回官方镜像启动所需的 `CHOWN/SETGID/SETUID`。`app`/`data` 网络为 internal；仅 ClamAV 同时加入 `scanner_updates` 网络以更新本地病毒库。该宽出口只允许 local，production 必须使用域名出口控制、代理、告警和定义版本审计。
 - `scripts/start-local-stack.ps1` 在 `%LOCALAPPDATA%/FinAuditAgent/runtime/<project>` 创建带归属标记的运行时 Secret 与 Ed25519 keyring，并通过只读 Secret mount 注入容器；`CR-024` 后不再生成或挂载 TLS 证书/私钥，也不创建或读取仓库 `.env`。启动器执行当前 accepted head `20260817_024` 迁移、七 Bucket、Qdrant Collection 和 first-org/admin 幂等 bootstrap，初始密码只输出文件路径且首次登录强制换密。
-- `scripts/verify-local-stack.ps1` 分开验证依赖、HTTP/Nginx 文件链、六类 Worker 崩溃恢复、性能和安全基线。文件 smoke 使用独立 `finance_reviewer` 并等待 ClamAV → Celery Worker → PostgreSQL `stored/clean/succeeded`，最后核对 MinIO 原件；各恢复门禁继续核对 `LEASE_EXPIRED`、attempt 2、唯一事实、日志/Outbox 与依赖恢复。安全门禁核对 HTTP/CSRF/锁定/防枚举/授权拒绝/Trace/审计回滚/日志不可变、容器权限和 loopback 暴露；浏览器直接访问门禁输出的 HTTP origin 完成登录、问答与拒答后，再由 PostgreSQL 终审 Query、Hash、Trace 和操作日志。HTTP 结果不提供传输加密证据。
-- 性能门禁只允许专用 `finaudit-perf-*` 项目；每个 run 连续三轮测量审核列表、单文件受理、默认最大 20 件批量及其同键重放，并运行 207 部分失败和 21 件超限 413，最后按 run-scoped 文件名核对 61 组文件/Job/attempt-1 scan step/published Outbox 与超限零副作用。该门禁可在同一隔离栈以新 run 重复执行，但小型合成 PDF 和 local 硬件结果不得外推为正式参考环境完整容量。
+- `scripts/verify-local-stack.ps1` 分开验证依赖、HTTP/Nginx 文件链、七类 Worker 崩溃/故障收敛、性能和安全基线。文件 smoke 使用独立 `finance_reviewer` 并等待 ClamAV → Celery Worker → PostgreSQL `stored/clean/succeeded`，最后核对 MinIO 原件；可重试恢复门禁继续核对 `LEASE_EXPIRED`、attempt 2、唯一事实、日志/Outbox 与依赖恢复，文档纠错门禁则按冻结 `max_attempts=1` 核对 `WORKER_LOST` 终态、零候选事实和旧 active 保留。安全门禁核对 HTTP/CSRF/锁定/防枚举/授权拒绝/Trace/审计回滚/日志不可变、容器权限和 loopback 暴露；浏览器直接访问门禁输出的 HTTP origin 完成登录、问答与拒答后，再由 PostgreSQL 终审 Query、Hash、Trace 和操作日志。HTTP 结果不提供传输加密证据。
+- `local-performance-baseline-v4` 只允许专用 `finaudit-perf-*` 项目；每个 run 连续三轮保留列表、单件、默认最大 20 件批量/重放、207 部分失败和 21 件超限 413，并在每轮各提交一份 run-scoped 20 页合成文本合同与一张字段完整合成发票。合同从 HTTP 计时到 `file_process=succeeded`，数据库须确认 stored+clean、attempt-1 scan/parse/markdown、published Outbox、20 Page active Parse 和零 blocking issue active Markdown，逐轮上限 120 s。发票从 HTTP 计时到可由发票 API 读取未确认候选，数据库须确认文件业务绑定、file_process+invoice_extract 双 Job/Outbox、13 字段证据、1 条明细、`draft/unconfirmed/unique` 与精确金额日期，逐轮上限 30 s。2026-08-19 发票三轮为 `635.969/603.018/605.273 ms`，同轮 20 页合同为 `1165.315/830.661/576.725 ms`；合成 DOCX/PDF、AI/OCR disabled 和 local 硬件结果不得外推为代表性质量、正式参考环境容量或正式 AC。
+- `local-knowledge-performance-v5` 复用专用 `finaudit-security-*` Profile，但必须在新的独占 Compose 项目中运行；Provider 和 production 固定关闭。门禁先以合成 PDF 完成 ClamAV→Worker→制度双人审批→索引构建/评测/激活，再发布唯一清洁制度并撤销先前注入制度，使 PostgreSQL 允许集只有清洁制度；随后每轮提交 20 个新的 HTTP QA 请求，连续三轮。每个请求必须穿过 PostgreSQL 允许集、`fixed_test` 1024 维确定性 Embedding、真实 Qdrant Top-5、PostgreSQL 终审和确定性回答，并持久化 answered Query、至少一条引用、1～5 命中与追加日志。nearest-rank 的完整 RAG P95 必须不高于 15 s；因为该端到端时间包含 Top-5 子阶段，同值只作为 Top-5 P95 的保守上界并须不高于 2 s，不宣称分阶段精确计时。2026-08-19 三轮均为 20 样本，P95 为 `40.774/38.884/41.064 ms`；机器证据 `tests/evaluation/local-knowledge-performance-v5.json` 绑定 runner/wrapper SHA-256。合成制度、fixed_test、单客户端和当前本机资源不构成代表性质量、正式容量、Provider、production、UAT 或正式 AC。
 - `scripts/backup-local-stack.ps1` 先静默业务写入，再生成 PostgreSQL custom dump 与 MinIO 停机一致整卷归档；manifest 保存 SHA-256、核心表行数和 MinIO 内容摘要，不包含 Secret。`scripts/restore-local-stack.ps1` 只允许新项目隔离恢复，逐表/逐摘要核对后重建 Redis/Qdrant/ClamAV 派生状态并等待 dependency-ready；恢复仍需要源 Secret 或等价受控注入。
 - `scripts/stop-local-stack.ps1` 默认保留卷与 Secret；只有显式 `-Purge` 且归属标记、项目名和受管绝对路径全部匹配时才删除。`CR-024` 前的本地启动、文件、恢复、性能和安全证据保留为历史；HTTP Profile 必须重新验证入口、Cookie、文件和浏览器链。跨组织 IDOR、传输加密、完整审计链、正式 DAST、Secret Manager、正式 Scanner/OCR、正式参考环境完整容量性能、异地备份、RPO/RTO、UAT 和 AC 仍为 `NOT_RUN`。
 
@@ -744,8 +793,9 @@ SSOT 使用规则：
 
 以下阻断只限制对应最小切片，不得扩张为全项目停工：
 
-- `BLOCKED-JOB-HTTP`：重试/取消动作的 `row_version` 来源、响应投影和冲突错误必须由新 OpenAPI 统一，不能拼接旧文档结论。
-- `BLOCKED-DOCUMENT-CORRECTION`：纠错结果版本回填与追加写不可变要求冲突。
+- `CR-027-R1-JOB-HTTP`：资源与 Job 双版本、AUDIT-007/008、FILE-007 和 Frontend 已实现并通过聚焦合同检查；完整 PostgreSQL/全量门禁仍按当前 checkout 重验。
+- `CR-005-R2-DOCUMENT-CORRECTION / CR-010-R2`：PARSE-004/005 与 manual correction 已实现；PARSE-006 只在可丢弃测试数据库显式激活 fixed_test Profile并注入无网络运行时时通过，普通 local/test 仍 503 fail-closed。production Scanner 继续阻塞。
+- `CR-028-R1-POLICY-REVOCATION`：两阶段撤销、PG 即时检索失效、历史保留、archived 非目标和两角色 Frontend 已实现；完整 PostgreSQL/全量门禁仍按当前 checkout 重验。
 - `BLOCKED-SCANNER`：local Profile 已使用官方 ClamAV INSTREAM 并有真实 clean-path 证据，但不能冒充 production Scanner；生产产品、病毒库更新/回滚、出口、资源、告警和验证载体仍未闭合。
 - `BLOCKED-AI-PROVIDER`：local Chat/Embedding 的端点、模型、网络 allowlist、Event/Policy v2 USD/CNY/no-FX 审计、持久 reserve/complete、Redis 运行门禁和业务采用已验证；完整百炼索引重建、代表性质量，以及 production Profile/Secret/quota/canary 仍未授权或未运行。
 

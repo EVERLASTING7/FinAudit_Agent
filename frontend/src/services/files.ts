@@ -1,4 +1,5 @@
 import { ApiClient, UUID_PATTERN, apiClient, type ApiBinaryResponse } from './api'
+import { decodeJobAction, type JobActionProjection } from './jobs'
 
 export const fileStatuses = ['uploaded', 'validating', 'stored', 'rejected', 'archived'] as const
 export const securityScanStatuses = [
@@ -48,6 +49,7 @@ export interface FileRecordData {
 export interface FileListItem extends FileRecordData {
   sizeBytes: string
   createdAt: string
+  job: JobActionProjection | null
 }
 
 export interface FileListData {
@@ -131,7 +133,7 @@ const uploadKeys = [
   'next_stage',
   'row_version',
 ] as const
-const listItemKeys = [...uploadKeys, 'size_bytes', 'created_at'] as const
+const listItemKeys = [...uploadKeys, 'size_bytes', 'created_at', 'job'] as const
 const listKeys = ['items', 'page_size', 'next_cursor'] as const
 const batchKeys = ['items', 'accepted_count', 'rejected_count'] as const
 const batchItemKeys = [
@@ -246,7 +248,12 @@ export function decodeFileListItem(value: unknown): FileListItem {
   ) {
     throw new TypeError('invalid file list item')
   }
-  return { ...record, sizeBytes: value.size_bytes, createdAt: value.created_at }
+  return {
+    ...record,
+    sizeBytes: value.size_bytes,
+    createdAt: value.created_at,
+    job: value.job === null ? null : decodeJobAction(value.job),
+  }
 }
 
 export function decodeFileList(value: unknown): FileListData {
@@ -574,19 +581,39 @@ export class FileApi {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<FileListItem> {
-    return this.mutate(fileId, 'archive', rowVersion, reason, idempotencyKey, undefined, signal)
+    return this.mutate(
+      fileId,
+      'archive',
+      rowVersion,
+      reason,
+      idempotencyKey,
+      undefined,
+      undefined,
+      signal,
+    )
   }
 
   async retry(
     fileId: string,
-    rowVersion: string,
+    fileRowVersion: string,
     jobId: string,
+    jobRowVersion: string,
     reason: string,
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<FileListItem> {
     if (!UUID_PATTERN.test(jobId)) throw new TypeError('invalid job id')
-    return this.mutate(fileId, 'retry', rowVersion, reason, idempotencyKey, jobId, signal)
+    if (!positiveIntegerPattern.test(jobRowVersion)) throw new TypeError('invalid Job version')
+    return this.mutate(
+      fileId,
+      'retry',
+      fileRowVersion,
+      reason,
+      idempotencyKey,
+      jobId,
+      jobRowVersion,
+      signal,
+    )
   }
 
   private async mutate(
@@ -596,6 +623,7 @@ export class FileApi {
     reason: string,
     idempotencyKey: string,
     jobId?: string,
+    jobRowVersion?: string,
     signal?: AbortSignal,
   ): Promise<FileListItem> {
     if (!UUID_PATTERN.test(fileId) || !positiveIntegerPattern.test(rowVersion)) {
@@ -606,9 +634,10 @@ export class FileApi {
     const response = await this.client.request(`/files/${fileId}/${action}`, {
       method: 'POST',
       body: {
-        row_version: rowVersion,
+        ...(action === 'archive' ? { row_version: rowVersion } : { file_row_version: rowVersion }),
         reason,
         ...(jobId === undefined ? {} : { job_id: jobId }),
+        ...(jobRowVersion === undefined ? {} : { job_row_version: jobRowVersion }),
       },
       idempotencyKey,
       signal,

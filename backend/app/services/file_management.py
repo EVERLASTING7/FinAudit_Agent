@@ -272,7 +272,7 @@ class FileManagementService:
             source.updated_at = now
             source.updated_by = actor.user_id
             repository.flush()
-            data = project_file_list_item(FileJobView(source, job))
+            data = project_file_list_item(FileJobView(source, job), now)
             OperationLogRepository(session).append(
                 organization_id=actor.organization_id,
                 actor_kind="user",
@@ -304,11 +304,12 @@ class FileManagementService:
         path = f"/api/v1/files/{file_id}/retry"
         digest = _canonical_hash(
             {
+                "file_row_version": payload.file_row_version,
                 "job_id": str(payload.job_id),
+                "job_row_version": payload.job_row_version,
                 "method": "POST",
                 "path": path,
                 "reason": payload.reason,
-                "row_version": payload.row_version,
             }
         )
         with self._session_factory.begin() as session:
@@ -324,11 +325,13 @@ class FileManagementService:
             source = repository.lock_file(actor.organization_id, file_id)
             if source is None:
                 raise _error(404, "RESOURCE_NOT_FOUND", "资源不存在")
-            if source.row_version != int(payload.row_version):
-                raise _error(409, "ROW_VERSION_CONFLICT", "文件版本已变化")
+            if source.row_version != int(payload.file_row_version):
+                raise _error(409, "RESOURCE_VERSION_CONFLICT", "文件版本已变化")
             job = repository.job_for_file(source.id, lock=True)
             if job is None or job.id != payload.job_id:
                 raise _error(409, "FILE_JOB_CONFLICT", "文件处理任务已变化")
+            if job.row_version != int(payload.job_row_version):
+                raise _error(409, "JOB_VERSION_CONFLICT", "文件处理任务版本已变化")
             if (
                 job.job_type not in {"file_scan", "file_process"}
                 or job.status != "failed"
@@ -337,6 +340,9 @@ class FileManagementService:
                 or job.attempt_no >= job.max_attempts
             ):
                 raise _error(409, "FILE_JOB_NOT_RETRYABLE", "文件处理任务当前不可重试")
+            now = repository.database_now()
+            if job.next_retry_at > now:
+                raise _error(409, "JOB_RETRY_NOT_READY", "文件处理任务尚未到达重试时间")
             try:
                 handler = load_file_handler(cast(FileJobType, job.job_type))
                 handler.validate_input(job.input_json)
@@ -354,13 +360,12 @@ class FileManagementService:
             if not JobRuntimeRepository(session).requeue_failed_file_job(
                 job_id=job.id,
                 start_step_code=start_step,
-                allow_before_next_retry=True,
             ):
                 raise _error(409, "FILE_JOB_NOT_RETRYABLE", "文件处理任务当前不可重试")
             refreshed = repository.job_for_file(source.id, lock=True)
             if refreshed is None or refreshed.id != job.id or refreshed.status != "queued":
                 raise RuntimeError("requeued file job projection is inconsistent")
-            data = project_file_list_item(FileJobView(source, refreshed))
+            data = project_file_list_item(FileJobView(source, refreshed), now)
             OperationLogRepository(session).append(
                 organization_id=actor.organization_id,
                 actor_kind="user",
@@ -374,7 +379,7 @@ class FileManagementService:
                     "job_id": str(refreshed.id),
                     "reason_sha256": hashlib.sha256(payload.reason.encode("utf-8")).hexdigest(),
                     "stage": start_step,
-                    "row_version": data.row_version,
+                    "row_version": str(refreshed.row_version),
                 },
             )
             self._complete(idempotency, data)

@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import hashlib
 import io
+import math
 import xml.etree.ElementTree as ElementTree
 import zipfile
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, SupportsFloat, cast
 
 import pypdf
 from pypdf import PdfReader
 
-from app.adapters.ocr import OcrEngine, OcrError, PdfPageRenderer
+from app.adapters.ocr import OcrEngine, OcrError, OcrLine, OcrPage, PdfPageRenderer
 
 _DOCX_DOCUMENT_PART = "word/document.xml"
 _WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -109,8 +110,8 @@ class DocumentParser:
         total_chars = 0
         for page_no, page in enumerate(reader.pages, start=1):
             try:
-                width = Decimal(str(float(page.mediabox.width)))
-                height = Decimal(str(float(page.mediabox.height)))
+                width = _pdf_dimension(page.mediabox.width)
+                height = _pdf_dimension(page.mediabox.height)
             except Exception:
                 raise DocumentParseError("PDF_PARSE_INVALID", retryable=False) from None
             try:
@@ -121,6 +122,8 @@ class DocumentParser:
                 text = ""
             except Exception:
                 raise DocumentParseError("PDF_PARSE_INVALID", retryable=False) from None
+            if not _is_persistable_text(text):
+                raise DocumentParseError("PDF_PARSE_INVALID", retryable=False)
             if text:
                 page_blocks, block_index = _text_blocks(
                     text,
@@ -141,7 +144,9 @@ class DocumentParser:
                     raise DocumentParseError("PDF_OCR_RENDERER_NOT_CONFIGURED", retryable=False)
                 try:
                     rendered = self._pdf_renderer.render_page(payload, page_no=page_no)
-                    recognized = self._ocr.recognize_image(rendered, mime_type="image/png")
+                    recognized = _validate_ocr_page(
+                        self._ocr.recognize_image(rendered, mime_type="image/png")
+                    )
                 except OcrError as error:
                     raise DocumentParseError(error.code, retryable=error.retryable) from None
                 used_ocr = True
@@ -189,17 +194,35 @@ class DocumentParser:
     def _parse_docx(self, payload: bytes) -> ParsedDocument:
         try:
             with zipfile.ZipFile(io.BytesIO(payload)) as archive:
-                info = archive.getinfo(_DOCX_DOCUMENT_PART)
+                parts = tuple(
+                    info for info in archive.infolist() if info.filename == _DOCX_DOCUMENT_PART
+                )
+                if len(parts) != 1:
+                    raise ValueError
+                info = parts[0]
                 if (
                     info.file_size <= 0
                     or info.file_size > _MAX_DOCX_XML_BYTES
                     or info.compress_size <= 0
                     or info.file_size > info.compress_size * 100
+                    or info.flag_bits & 0x1
+                    or info.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED}
                 ):
                     raise ValueError
                 raw_xml = archive.read(info)
+                if len(raw_xml) != info.file_size:
+                    raise ValueError
             root = ElementTree.fromstring(raw_xml)
-        except (ElementTree.ParseError, KeyError, OSError, ValueError, zipfile.BadZipFile):
+            if root.tag != f"{{{_WORD_NAMESPACE}}}document":
+                raise ValueError
+        except (
+            ElementTree.ParseError,
+            KeyError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            zipfile.BadZipFile,
+        ):
             raise DocumentParseError("DOCX_PARSE_INVALID", retryable=False) from None
 
         paragraphs: list[tuple[str, str]] = []
@@ -252,7 +275,7 @@ class DocumentParser:
 
     def _parse_image(self, payload: bytes, *, mime_type: str) -> ParsedDocument:
         try:
-            recognized = self._ocr.recognize_image(payload, mime_type=mime_type)
+            recognized = _validate_ocr_page(self._ocr.recognize_image(payload, mime_type=mime_type))
         except OcrError as error:
             raise DocumentParseError(error.code, retryable=error.retryable) from None
         blocks = tuple(
@@ -291,9 +314,79 @@ class DocumentParser:
 def _confidence(value: float | None) -> Decimal | None:
     if value is None:
         return None
-    if value < 0 or value > 1:
+    if type(value) is not float or not math.isfinite(value) or value < 0 or value > 1:
         raise DocumentParseError("OCR_OUTPUT_INVALID", retryable=False)
     return Decimal(str(value)).quantize(Decimal("0.00001"))
+
+
+def _pdf_dimension(value: object) -> Decimal:
+    parsed = Decimal(str(float(cast(SupportsFloat, value))))
+    if not parsed.is_finite() or parsed <= 0:
+        raise ValueError
+    return parsed
+
+
+def _is_persistable_text(value: object) -> bool:
+    if type(value) is not str or "\x00" in value:
+        return False
+    try:
+        value.encode("utf-8", errors="strict")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _validate_ocr_page(value: object) -> OcrPage:
+    if (
+        type(value) is not OcrPage
+        or type(value.engine_name) is not str
+        or not value.engine_name.strip()
+        or value.engine_name != value.engine_name.strip()
+        or type(value.engine_version) is not str
+        or not value.engine_version.strip()
+        or value.engine_version != value.engine_version.strip()
+        or type(value.width) is not int
+        or not 1 <= value.width <= 1_000_000_000
+        or type(value.height) is not int
+        or not 1 <= value.height <= 1_000_000_000
+        or type(value.text) is not str
+        or not value.text.strip()
+        or not _is_persistable_text(value.text)
+        or type(value.lines) is not tuple
+        or not value.lines
+    ):
+        raise DocumentParseError("OCR_OUTPUT_INVALID", retryable=False)
+    _confidence(value.confidence)
+    for line in value.lines:
+        if (
+            type(line) is not OcrLine
+            or type(line.text) is not str
+            or not line.text.strip()
+            or not _is_persistable_text(line.text)
+            or type(line.bbox) is not dict
+            or set(line.bbox) != {"left", "top", "width", "height"}
+        ):
+            raise DocumentParseError("OCR_OUTPUT_INVALID", retryable=False)
+        _confidence(line.confidence)
+        left, top, width, height = (
+            line.bbox["left"],
+            line.bbox["top"],
+            line.bbox["width"],
+            line.bbox["height"],
+        )
+        if (
+            any(type(item) is not int for item in (left, top, width, height))
+            or left < 0
+            or top < 0
+            or width <= 0
+            or height <= 0
+            or left + width > value.width
+            or top + height > value.height
+        ):
+            raise DocumentParseError("OCR_OUTPUT_INVALID", retryable=False)
+    if value.text != "\n".join(line.text for line in value.lines):
+        raise DocumentParseError("OCR_OUTPUT_INVALID", retryable=False)
+    return value
 
 
 def _text_blocks(
