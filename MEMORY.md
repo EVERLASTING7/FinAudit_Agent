@@ -4,6 +4,13 @@
 
 - 2026-08-12 起，活跃开发规格只包含 `Request/README.md`、`PRODUCT_REQUIREMENTS.md`、`TECHNICAL_SPEC.md` 和 `IMPLEMENTATION_PLAN.md`。旧九份文档字节级保存在 `Request/archive/legacy-v1/`，其历史身份仍由 `docs/baseline-manifest.md` 记录，但不参与解释当前行为。未批准 CR/DEP 的 registry、pin、签名或治理条件不能反向成为 P0 全局前置；只有可从活跃需求或机器事实独立复现的歧义才阻断受影响的最小切片。Provider/其他外网、真实数据、部署与 production 始终另行授权。
 
+## 2026-08-20 Local MVP 0.1.1 收口
+
+- 027 整批变更以 `61b2c17039d08205afe7cc2ac4114aeda05dbad4` 冻结；历史备份恢复修复后最终应用源码为 `03b6bbc41a1c330df3be538e4c46b74dfe383671`。两次提交都只在本地 `release/local-mvp-0.1.0`，未 push。0.1.1 是不可覆盖 0.1.0 的后继记录。
+- 发票重复候选浏览器 Gate 真实完成登录→列表→源详情→候选→pair，保护 completion 接受两个 200 GET；入口 wrapper 仅在 Gate PASS 后自动计算 runner/shared wrapper/entry wrapper/frontend view 的 bytes 与 SHA-256并原子更新证据。最终完整离线门禁为 Backend `3127 passed / 147 skipped / 1 warning`、Ruff 520、mypy 283、Frontend 28 files/539 tests/151 modules PASS。
+- 持久 `finaudit-local` 在本轮开始时已是 027，故不能声称本轮首次升级。先创建 backup ID `0016f52d-2ac4-4b8f-842c-42a74843f80a`；旧 backup `b94b77a1-1221-49bf-af87-927f97cb3300` 被独立确认是 024、17 表 22 行且 MinIO 哈希匹配，再在隔离项目用当前镜像迁移到 027。首次完整启动因当前 runtime marker 的管理员用户名与历史备份不同而在 admin-bootstrap 安全失败；恢复脚本改为从已验证数据库读取唯一活动 bootstrap 身份、校验 Compose 安全字符并重写隔离 marker/env，不重置密码。相同备份清洁重跑后行数/MinIO/派生重建/运维/冷启动 PASS，隔离资源清理为 0。
+- 持久实例随后重建到镜像 revision `local-mvp-0.1.1`，Backend/Frontend image ID 匹配、head 027、权威行数 7→7、依赖失败 0、Frontend 200、Operations Readiness PASS。0.1.1 最小技术 UAT PASS；没有读取或复用持久管理员凭据，因此真实管理员浏览器复登 `NOT_RUN`，2026-08-18 的人工 UAT 签署不转移到新版本。
+
 ## 2026-08-18 CR-005-R2 文档纠错闭环
 
 - BOSS 批准 `CR-005-R2/recommended-forward`、DOC-D-001～003、两个 Handler、PARSE-004/005/006 与 migration/downgrade，并授权同步 active Request 和 local/test 实现；正确的单 LF exact decision snapshot 为 `c47944096f7ad143044a2347b8b0656190e9f49f0854c5f31a898b4b70872f65`。旧 `3f13…` 使用两个尾随 LF，不是规范快照；v2 approval schema 与 pre-meta 已绑定 R2、snapshot 和 `api_delta=3`。

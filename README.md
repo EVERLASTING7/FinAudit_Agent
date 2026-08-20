@@ -20,16 +20,16 @@
 | 层级 | 当前状态 |
 |---|---|
 | Backend | Auth、用户/Break-glass、文件、财务、供应商、知识、审核、报告、工作台、依赖健康、OPS-005 与内部 metrics 均已有 Router → Service → Repository/Adapter 运行路径 |
-| Database | accepted Alembic 单一 head 为 `20260817_024`，当前核心 Schema 与 ORM 覆盖 57/57 张表；这不等于生产迁移已执行 |
-| Worker | Celery Dispatcher/Worker 已承载文件、合同/发票提取、知识索引/评测、审核与 PDF/XLSX 报告任务，并有恢复与真实依赖证据 |
-| Frontend | 主要 P0 页面已接同源真实 API；文件、合同/发票、关联、供应商、知识/问答、审核与报告操作均有实现，不再以静态演示冒充业务状态 |
+| Database | accepted Alembic 单一 head 为 `20260818_027`，当前核心 Schema 与 ORM 覆盖 58/58 张表；024→027 已在历史权威备份的隔离副本完成迁移与恢复演练，这不等于 production 迁移已执行 |
+| Worker | Celery Dispatcher/Worker 已承载文件、文档纠错、合同/发票提取、知识索引/评测、审核与 PDF/XLSX 报告任务，并有恢复与真实依赖证据 |
+| Frontend | 主要 P0 页面已接同源真实 API；文件/文档纠错、合同/发票、关联、供应商、制度撤销、知识/问答、审核与报告操作均有实现，不再以静态演示冒充业务状态 |
 | AI | 默认关闭；批准的 local/test Profile 已接真实 MiniMax-M3 Chat 与百炼 Embedding、持久审计和业务事实原子采用；`CR-026` 批量复核以 5 次请求、4971 input tokens、CNY 0.002486 得到 49/50 与授权泄露 0，因 1 个 no-answer 假阳性安全停止，100 条未运行 |
 | Infrastructure | 完整 local Compose、固定镜像、loopback Nginx/HTTP、first-org/admin、ClamAV、依赖健康、容器最小权限和 PG/MinIO 隔离备份恢复已实现；HTTP 不提供传输加密，局域网/公网与 production 发布仍被阻断 |
-| Acceptance | CR-025 Local MVP 的 AC-001/002/015/016 与 YHBX UAT 已 `ACCEPTED`；隔离浏览器业务闭环、本地 Compose/安全/性能、备份恢复与受限真实 LLM/Embedding smoke 已通过。LibreOffice Calc 当前挂起，真实 50 条技术检索门禁失败；Edge/屏幕阅读器/全路由键盘、业务代表性质量、其余 AC、正式 DAST、正式参考容量及 production 未通过或未执行 |
+| Acceptance | CR-025 Local MVP 的 AC-001/002/015/016 与 0.1.0 的 YHBX UAT 已 `ACCEPTED`；0.1.1 对 revision `03b6bbc41a1c330df3be538e4c46b74dfe383671` 完成最小技术 UAT。旧人工签署未被静默转移，真实管理员复登未复用凭据；production 与其余正式边界保持独立 |
 
 任务状态和证据以 `docs/testing/p0-traceability-matrix.csv` 及实际测试输出为准。旧表/API/工作包数量只作历史盘点，不是产品数量合同。
 
-当前发布决定见 [Local MVP 0.1.0 发布记录](docs/releases/local-mvp-0.1.0-2026-08-18.md)：仅对 CR-025 Windows 本机 loopback HTTP Profile 为 `GO`，13 个 TEST/DEP 工作包继续保持 `partial`，不声明 production ready。
+当前本地发布决定见 [Local MVP 0.1.1 发布记录](docs/releases/local-mvp-0.1.1-2026-08-20.md)：源码 revision 为 `03b6bbc41a1c330df3be538e4c46b74dfe383671`，只对 CR-025 Windows 本机 loopback HTTP Profile 为 `GO`，未推送远程，不声明 production ready。0.1.0 的历史发布与 UAT 记录保持不变。
 
 ## 架构边界
 
@@ -148,6 +148,8 @@ npm run build
 .\scripts\test-verify-local-offline.ps1
 .\scripts\verify-local-offline.ps1
 ```
+
+0.1.1 当前 checkpoint：Backend `3127 passed / 147 skipped / 1 warning`，Ruff 520 files、mypy 283 sources、Frontend 28 files/539 tests 与 151-module build，最终 `LOCAL_OFFLINE_QUALITY=PASS`。PostgreSQL 16.14 current-head `20260818_027` 的完整 154 项双轮 PASS；这些层级仍与 Compose、浏览器、Provider 和 production 分开记录。
 
 这些命令不自动证明 Docker、真实 PostgreSQL 业务链、浏览器 E2E、Provider、远程分支保护、production 或 AC 通过。完整 local Compose、Worker 故障注入和三轮性能子集见 [本地栈运行手册](docs/runbooks/local-stack.md)；未运行的层级必须记录为 `NOT_RUN`。
 

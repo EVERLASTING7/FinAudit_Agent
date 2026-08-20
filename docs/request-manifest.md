@@ -1,10 +1,10 @@
 # 当前活跃 Request 清单
 
-基线日期：2026-08-19。此清单已同步 `CR-005-R2` 文档纠错、`CR-010-R2` 隔离 fixed_test Scanner Profile、`CR-027-R1` Job HTTP 双版本、`CR-028-R1` 制度撤销、`CR-029-R1` 通用纠错来源读取、`CR-030-R1` 撤销待执行读取合同、`local-knowledge-performance-v5`、`local-document-correction-crash-recovery-v1` 和 INV-004 single-statement/native-browser 当前工程证据，以及既有 `CR-021～026` local/test/Local MVP 决策；只校验 `Request/` 根目录的当前开发规格，归档文档不参与现行行为解释。Provider、production、真实数据迁移、提交和推送不在本次同步授权内。
+基线日期：2026-08-20。此清单已同步 `CR-005-R2` 文档纠错、`CR-010-R2` 隔离 fixed_test Scanner Profile、`CR-027-R1` Job HTTP 双版本、`CR-028-R1` 制度撤销、`CR-029-R1` 通用纠错来源读取、`CR-030-R1` 撤销待执行读取合同、`local-knowledge-performance-v5`、`local-document-correction-crash-recovery-v1`、INV-004 single-statement/native-browser、Local MVP 0.1.1 和 024→027 隔离迁移恢复当前工程证据，以及既有 `CR-021～026` local/test 决策；只校验 `Request/` 根目录的当前开发规格，归档文档不参与现行行为解释。Provider、production、远程发布和 production 真实数据迁移仍未运行。
 
 | 文件 | 字节 | SHA-256 |
 |---|---:|---|
-| `IMPLEMENTATION_PLAN.md` | 75748 | `62F9092066990370A8D7703F3C3E332A740A0054DC67FBB2E212574BDAC80BD5` |
+| `IMPLEMENTATION_PLAN.md` | 76323 | `A7993A05AC6BF087FC44ACD6639E9159168BADFBB83710888984A4314DCF4F72` |
 | `PRODUCT_REQUIREMENTS.md` | 45504 | `DA094135578155D23F46133C8BB1B500ABD9DB8521A68B36C9766ACEFFDB19CB` |
 | `README.md` | 8733 | `6E7AE9E61CED4E681B24F38FC89FB8DFCAF9094A6CBC1D36EA3C0AF0C914ED66` |
 | `TECHNICAL_SPEC.md` | 155111 | `4E5CEA80F665A6FCCBF38245A5D65A1EA30C3130908988BC435F293C4B5661F8` |

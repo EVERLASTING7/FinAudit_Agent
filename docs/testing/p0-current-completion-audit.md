@@ -9,7 +9,7 @@ Local MVP AC 级状态：`AC-001/002/015/016 ACCEPTED`
 
 当前 84 个 `partial` 不是 84 个都缺代码。矩阵把“生产代码是否存在”“本地是否运行通过”“对应 AC 是否正式签署”压在同一个状态中，因此大量任务虽已达到 `TEST_PASS` 或隔离环境 `RUNTIME_PASS`，仍必须保持 `partial`。
 
-YHBX 已选择 CR-025 Local MVP 发布收口；应用决定、回滚依据和排除项见 `docs/releases/local-mvp-0.1.0-2026-08-18.md`。该 `GO` 只适用于本机 Profile，不改变本审计的 86 行工作包状态或 production 结论。
+YHBX 已选择 CR-025 Local MVP 发布收口；0.1.0 历史记录保持不变，当前应用决定、回滚依据和排除项见 `docs/releases/local-mvp-0.1.1-2026-08-20.md`。该 `GO` 只适用于本机 Profile，不改变本审计的 86 行工作包状态或 production 结论。
 
 2026-08-18，BOSS 明确把当前验收环境收窄为本机 Local MVP；`CR-025` 因此重新定义 AC-001、AC-002、AC-015、AC-016 的本地完成口径。当前 HTTP 安全基线/浏览器终审、文件链、备份/隔离恢复/冷启动和 YHBX UAT 已完成，四项 AC 级结论均为 `ACCEPTED`；86 行矩阵仍表示跨 AC 的工作包状态，不能把其 `partial` 与 AC 级结论混为一谈。
 
@@ -102,7 +102,7 @@ Chrome `151.0.7922.138` 已在可丢弃报告门禁中完成真实原生登录 T
 
 ## 5. 本轮新增验证
 
-- 当前完整离线门禁：Backend `3121 passed / 147 skipped / 1 warning`，Ruff check/format 518 files、mypy 283 sources、pip check、Frontend typecheck、28 files/539 tests 与 151-module build 全部通过；新增 skip 是需显式真实 PostgreSQL 的 INV-004 单 statement 集成门禁。baseline、Git governance、分支保护 fixture 和测试资产正负门禁也在同一 wrapper 通过；Compose、浏览器、Provider、remote 和 production 在离线 wrapper 中仍按设计为 `NOT_RUN`，PostgreSQL Full 与四项 local 运行证据为独立显式门禁。
+- 当前完整离线门禁：Backend `3127 passed / 147 skipped / 1 warning`，Ruff check/format 520 files、mypy 283 sources、pip check、Frontend typecheck、28 files/539 tests 与 151-module build 全部通过。baseline、Git governance、分支保护 fixture 和测试资产正负门禁也在同一 wrapper 通过；Compose、浏览器、Provider、remote 和 production 在离线 wrapper 中仍按设计为 `NOT_RUN`，PostgreSQL Full 与 local 运行证据为独立显式门禁。
 - Redis 控制器单元与调用链聚焦测试：`29 passed`。
 - 隔离真实 Redis 7.4.9（锁定 digest）专项测试：`3 passed`，覆盖独立客户端共享并发门禁、RPM/TPM、滚动熔断、并发旧成功不得误关熔断、单 half-open 探针、探针租约 TTL 和恢复；当前 Redis/Celery wrapper 合计 `4 passed`。
 - 临时 Redis 容器使用唯一名称/标签和 loopback 随机端口；测试后已停止并删除。
@@ -124,5 +124,5 @@ Chrome `151.0.7922.138` 已在可丢弃报告门禁中完成真实原生登录 T
 - 2026-08-18 当前 checkout 的全新财务浏览器门禁使用合成 DOCX 完成上传、ClamAV、Dispatcher/Celery Worker、合同/发票提取与人工修正确认、合同来源供应商单条聚合纠错并激活、发票来源精确复用、主合同建议/确认、15 规则审核、财务复核、ready PDF/XLSX 和五纯角色授权矩阵。受保护 manifest 精确接受 `2 files / 1 contract / 1 invoice / 1 supplier / 1 relation / 1 task / 1 execution / 1 report / 5 actors`，completion 返回 `accepted`；测试容器清理，MinIO 测试数据卷按策略保留。
 - 文件能力浏览器门禁：`FILE_UPLOAD_BROWSER_GATE=PASS`。真实同源登录后一次批量上传两份 PDF；正常样本完成原文与解析预览并归档，失败一次的样本复用原文件和原 Job 重新排队至 attempt 2 后成功并预览。受保护 manifest 精确核对两份权威文件、`files.previewed/files.archived/files.retry_queued` 操作日志、扫描/Job 终态和 batch 幂等声明；专用 PostgreSQL/Redis/MinIO/Worker 已清理。
 - AC-016 本地运行与恢复：权威 PostgreSQL/MinIO 备份已恢复到独立项目并校验行数、对象摘要、冷启动、Redis/Qdrant 重建；`file_process`、`audit_execute`、`report_generate`、`knowledge_index_build` 和独立 AI 审计强杀恢复均有 SIGKILL、受管重启、Lease attempt 2、回滚/孤儿保留、同 ID 重放、唯一事实与日志脱敏证据。`CR-024` 后 persistent/disposable Compose 又通过 HTTP 启动、依赖、ClamAV 文件上传与预览；TLS 证据只保留为历史，HTTP 不提供加密。
-- BOSS 已冻结 Local MVP 本机 Profile：Windows + Docker Desktop、当前实际使用者 1 人但系统支持多账号/五角色、`http://localhost:8443`、仅 `127.0.0.1`、全局 HTTP、本地 ClamAV、OCR/AI 关闭、仓库外受管 Secret、本机 PostgreSQL/MinIO 数据卷、重要操作前本地备份，且不作多人并发、正式容量/RPO/RTO/DAST/异地备份承诺。当前 `finaudit-local` 与一次性栈均 `LOCAL_STACK_START=PASS`，Alembic `20260817_024`、10 个长期服务、依赖 `ok`、Scanner `ok`、AI `disabled`、Frontend HTTP 200、HTTPS 握手失败、唯一 `127.0.0.1:8443` 绑定、零 TLS mount/生成文件和真实浏览器零 console warning/error 均已核对。`CR-023`/`CR-024` 的一次性运行通过 5 字符拒绝、弱 6 字符拒绝、安全 6 字符创建/换密/登录、普通会话、授权读取、Refresh/Logout 和无 Secure 的 HttpOnly/SameSite Cookie；专用栈、卷、Secret 和镜像已清理。BOSS 随后亲自完成持久 `admin` 换密并重新登录；数据库确认 force-change false 和普通会话 1，浏览器确认系统管理员工作台/用户管理读取成功且文件管理直达为 `AUTH_FORBIDDEN`，恢复密码已清零删除。YHBX 于 2026-08-18 明确签署 `Local MVP UAT通过`，故记录 `LOCAL_RUNTIME=VERIFIED`、`LOCAL_ADMIN_RECOVERY=VERIFIED`、`LOCAL_USER_SESSION=VERIFIED`、`LOCAL_AUTHORIZATION_SOD=VERIFIED`、`LOCAL_MVP_UAT=ACCEPTED`；production 与正式 AC 保持独立。
+- BOSS 已冻结 Local MVP 本机 Profile：Windows + Docker Desktop、当前实际使用者 1 人但系统支持多账号/五角色、`http://localhost:8443`、仅 `127.0.0.1`、全局 HTTP、本地 ClamAV、OCR/AI 关闭、仓库外受管 Secret、本机 PostgreSQL/MinIO 数据卷、重要操作前本地备份，且不作多人并发、正式容量/RPO-RTO/DAST/异地备份承诺。0.1.1 持久 `finaudit-local` 当前 Alembic 为 `20260818_027`、镜像 revision 为 `local-mvp-0.1.1`，权威行数重建前后 7→7、必需依赖失败 0、Frontend HTTP 200、Operations Readiness PASS。历史 024 备份又在隔离项目真实迁移到 027并通过行数/MinIO/派生重建/冷启动。2026-08-18 的 YHBX `Local MVP UAT通过` 仍只绑定 0.1.0；2026-08-20 的 0.1.1 最小技术 UAT 为 PASS，但未读取或复用持久管理员凭据，不能冒充新的人工作业签署。
 - production、业务代表性数据、业务人类 UAT、100 条 `formal_release`、正式索引激活和其余 AC 签署：`NOT_RUN`；50 条技术质量门禁为实际 `FAILED (49/50)`，不是 `NOT_RUN` 或 `PASS`。Local MVP 的 AC-001/002/015/016 结论仍按 `CR-025` 与签署制品独立为 `ACCEPTED`。

@@ -1,0 +1,76 @@
+{
+  "schema_version": "finaudit-local-mvp-release-manifest-v1",
+  "release": "local-mvp-0.1.1",
+  "recorded_on": "2026-08-20",
+  "source": {
+    "branch": "release/local-mvp-0.1.0",
+    "revision": "03b6bbc41a1c330df3be538e4c46b74dfe383671",
+    "parent_revision": "61b2c17039d08205afe7cc2ac4114aeda05dbad4",
+    "remote_publish": "not_run"
+  },
+  "images": {
+    "revision": "local-mvp-0.1.1",
+    "backend_id": "sha256:cab70984f418b4f2279d5f21cf00d7ef42ffa3396e4c8ff636997e1b5e8556b8",
+    "frontend_id": "sha256:c828fbcce8d3b0c4ee5944f04dc844fad8d4fa0a9e11a2d1d3ebd3fe191debf2"
+  },
+  "quality": {
+    "local_offline_quality": "pass",
+    "backend_passed": 3127,
+    "backend_skipped": 147,
+    "backend_warnings": 1,
+    "ruff_files": 520,
+    "mypy_sources": 283,
+    "frontend_test_files": 28,
+    "frontend_tests": 539,
+    "frontend_modules": 151,
+    "postgresql_current_head": "20260818_027",
+    "postgresql_full_tests_per_round": 154,
+    "postgresql_full_rounds": 2
+  },
+  "browser_gate": {
+    "evidence": "tests/evaluation/local-invoice-duplicate-browser-v1.json",
+    "status": "pass",
+    "protected_read_count": 2,
+    "console_warning_error_count": 0,
+    "source_binding_generated_by_gate": true
+  },
+  "migration_restore_drill": {
+    "source_backup_id": "b94b77a1-1221-49bf-af87-927f97cb3300",
+    "source_revision": "20260817_024",
+    "target_revision": "20260818_027",
+    "source_authoritative_rows": 22,
+    "postgresql_row_counts": "verified",
+    "minio_volume_digest": "verified",
+    "redis": "rebuilt",
+    "qdrant": "rebuilt",
+    "clamav": "rehydrated",
+    "operations_readiness": "pass",
+    "cold_start": "pass",
+    "target_cleanup": "complete"
+  },
+  "persistent_runtime": {
+    "project": "finaudit-local",
+    "url": "http://localhost:8443",
+    "alembic_revision": "20260818_027",
+    "authoritative_rows_before": 7,
+    "authoritative_rows_after": 7,
+    "required_dependency_failures": 0,
+    "frontend_http_status": 200,
+    "operations_readiness": "pass",
+    "backup_id": "0016f52d-2ac4-4b8f-842c-42a74843f80a",
+    "backup_includes_secrets": false
+  },
+  "uat": {
+    "record": "docs/testing/local-mvp-uat-2026-08-20.md",
+    "status": "pass_minimum_technical",
+    "persistent_admin_browser_login": "not_run_credentials_not_reused",
+    "human_signature_carried_forward": false
+  },
+  "acceptance_boundary": {
+    "local_mvp_only": true,
+    "business_representative": false,
+    "formal_production_acceptance": false,
+    "provider_run": false,
+    "remote_release": false
+  }
+}
