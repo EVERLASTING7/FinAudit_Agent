@@ -51,8 +51,75 @@ function Test-IsExactChild([string]$Parent, [string]$Child) {
     )
 }
 
+function Assert-SafeDotEnvValue([string]$Name, [string]$Value, [int]$MaximumLength) {
+    if (
+        [string]::IsNullOrWhiteSpace($Value) -or
+        $Value.Length -gt $MaximumLength -or
+        $Value -cne $Value.Trim() -or
+        $Value -match '[\r\n"''#$\\]'
+    ) {
+        throw "The restored $Name cannot be written safely to the local Compose profile."
+    }
+}
+
 function Write-Utf8File([string]$Path, [string[]]$Lines) {
     [IO.File]::WriteAllLines($Path, $Lines, [Text.UTF8Encoding]::new($false))
+}
+
+function Get-RestoredBootstrapIdentity([string[]]$ComposeArguments) {
+    $sql = @'
+SELECT json_build_object(
+    'organizationName', o.name,
+    'organizationUscc', o.unified_social_credit_code,
+    'organizationTaxNumber', o.tax_number,
+    'adminUsername', u.username,
+    'adminDisplayName', u.display_name
+)::text
+FROM organizations AS o
+JOIN users AS u ON u.organization_id = o.id
+JOIN user_roles AS ur ON ur.user_id = u.id
+JOIN roles AS r ON r.id = ur.role_id
+WHERE o.status = 'active'
+  AND o.deleted_at IS NULL
+  AND u.status = 'active'
+  AND u.deleted_at IS NULL
+  AND r.code = 'system_admin'
+  AND r.is_enabled = true
+  AND ur.assignment_source = 'bootstrap'
+  AND ur.assignment_reason = 'system_bootstrap'
+  AND ur.expires_at IS NULL
+  AND ur.revoked_at IS NULL
+ORDER BY u.id;
+'@
+    $raw = Invoke-Docker (
+        $ComposeArguments + @(
+            'exec', '-T', 'postgresql', 'psql', '--username=finaudit',
+            '--dbname=finaudit', '--tuples-only', '--no-align', '--command', $sql
+        )
+    ) 'Unable to read the restored bootstrap identity.'
+    $lines = @($raw -split '\r?\n' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($lines.Count -ne 1) {
+        throw 'The restored database does not contain one active bootstrap administrator.'
+    }
+    try {
+        $identity = $lines[0] | ConvertFrom-Json
+    }
+    catch {
+        throw 'The restored bootstrap identity is invalid.'
+    }
+    $values = [ordered]@{
+        organizationName = [string]$identity.organizationName
+        organizationUscc = [string]$identity.organizationUscc
+        organizationTaxNumber = [string]$identity.organizationTaxNumber
+        adminUsername = [string]$identity.adminUsername
+        adminDisplayName = [string]$identity.adminDisplayName
+    }
+    Assert-SafeDotEnvValue 'organization name' $values.organizationName 200
+    Assert-SafeDotEnvValue 'organization USCC' $values.organizationUscc 32
+    Assert-SafeDotEnvValue 'organization tax number' $values.organizationTaxNumber 32
+    Assert-SafeDotEnvValue 'administrator username' $values.adminUsername 64
+    Assert-SafeDotEnvValue 'administrator display name' $values.adminDisplayName 100
+    return $values
 }
 
 function ConvertFrom-GateOutput([string]$Output) {
@@ -364,6 +431,26 @@ try {
         }
     }
 
+    $restoredIdentity = Get-RestoredBootstrapIdentity $composeArguments
+    $targetMarker.organizationName = $restoredIdentity.organizationName
+    $targetMarker.organizationUscc = $restoredIdentity.organizationUscc
+    $targetMarker.organizationTaxNumber = $restoredIdentity.organizationTaxNumber
+    $targetMarker.adminUsername = $restoredIdentity.adminUsername
+    $targetMarker.adminDisplayName = $restoredIdentity.adminDisplayName
+    Write-Utf8File (Join-Path $targetRuntime $markerName) @(
+        ($targetMarker | ConvertTo-Json -Depth 4)
+    )
+    Write-Utf8File $targetEnvPath @(
+        "FINAUDIT_RUNTIME_DIR=$targetForCompose",
+        "FINAUDIT_HTTP_PORT=$HttpPort",
+        "FINAUDIT_IMAGE_REVISION=$imageRevision",
+        "BOOTSTRAP_ORGANIZATION_NAME=$($restoredIdentity.organizationName)",
+        "BOOTSTRAP_ORGANIZATION_USCC=$($restoredIdentity.organizationUscc)",
+        "BOOTSTRAP_ORGANIZATION_TAX_NUMBER=$($restoredIdentity.organizationTaxNumber)",
+        "BOOTSTRAP_ADMIN_USERNAME=$($restoredIdentity.adminUsername)",
+        "BOOTSTRAP_ADMIN_DISPLAY_NAME=$($restoredIdentity.adminDisplayName)"
+    )
+
     $null = Invoke-Docker ($composeArguments + @('up', '--detach')) `
         'Unable to start the isolated restored application stack.'
     Wait-LocalReadiness $HttpPort
@@ -420,4 +507,5 @@ Write-Output 'LOCAL_STACK_RESTORE_MINIO=VERIFIED_VOLUME_DIGEST'
 Write-Output 'LOCAL_STACK_RESTORE_REDIS=REBUILT'
 Write-Output 'LOCAL_STACK_RESTORE_QDRANT=REBUILT'
 Write-Output 'LOCAL_STACK_RESTORE_CLAMAV=REHYDRATED_FROM_PINNED_IMAGE'
-Write-Output 'LOCAL_STACK_RESTORE_PASSWORD=USE_EXISTING_SOURCE_ADMIN_PASSWORD'
+Write-Output 'LOCAL_STACK_RESTORE_BOOTSTRAP_IDENTITY=VERIFIED_FROM_BACKUP'
+Write-Output 'LOCAL_STACK_RESTORE_PASSWORD=RESTORED_DATABASE_STATE'

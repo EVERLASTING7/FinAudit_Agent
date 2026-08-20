@@ -356,7 +356,7 @@ docker compose `
   -HttpPort 9443
 ```
 
-恢复流程会先核对 Compose 和备份文件摘要，再创建隔离卷、恢复 MinIO、恢复 PostgreSQL、逐表比较核心事实行数，最后重建 Redis/Qdrant、重新加载 ClamAV 定义并等待 dependency-ready。恢复目标继续使用源管理员当前密码；源初始密码文件不再被描述为有效登录密码。
+恢复流程会先核对 Compose 和备份文件摘要，再创建隔离卷、恢复 MinIO、恢复 PostgreSQL、逐表比较核心事实行数，并从已验证数据库读取唯一活动 bootstrap 管理员身份后更新隔离 marker/Compose Profile，最后重建 Redis/Qdrant、重新加载 ClamAV 定义并等待 dependency-ready。管理员凭据恢复为备份时的数据库状态；当前源实例密码不保证适用于历史备份，初始密码文件也不得被描述为有效登录密码。
 
 本地恢复通过不等于正式 RPO/RTO。production 还需要异地主备份、保留期、加密密钥托管、定时任务、恢复权限、目标硬件和三轮实际计时。
 
