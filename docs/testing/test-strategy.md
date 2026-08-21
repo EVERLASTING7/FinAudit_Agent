@@ -303,6 +303,8 @@ YHBX 于 2026-08-18 明确签署 `Local MVP UAT通过`。`docs/testing/local-mvp
 
 2026-08-20 的 0.1.1 最小技术 UAT 绑定源码 `03b6bbc41a1c330df3be538e4c46b74dfe383671`：完整离线门禁为 Backend 3127/147/1、Ruff 520、mypy 283、Frontend 539/151；旧 024 权威备份先独立确认 head/行数/MinIO 哈希，再在隔离项目迁移到 027并通过运维与冷启动；持久 027 实例以新备份为回滚依据重建到 0.1.1 且权威行数 7→7。持久管理员浏览器复登因不读取凭据而 `NOT_RUN`，当前认证 UI 证据使用隔离合成 finance_reviewer，不转移 0.1.0 的人工签署。
 
+2026-08-21 的 0.1.2 后继技术冻结绑定应用源码 `140c31156412360ecc7f48ae5a26f3112d050763`：完整离线门禁为 Backend 3165/147/1、Ruff 528、mypy 283、Frontend 539/151；PostgreSQL 16.14 Full 154×2，文档纠错、制度撤销、发票重复、报告原生下载和 Excel/LibreOffice 兼容 Gate 均 PASS。新权威备份 `9b5acc63-bcc5-471e-98b2-83ee4099a426` 排除 Secrets；持久实例重建到 0.1.2 后为 head 027、58 表、权威行数 7→7、依赖失败 0、Frontend 200、Operations Readiness PASS。持久 `local-admin` 浏览器复登和 YHBX 独立人工 UAT仍为 `PENDING`，发布决定保持 `HOLD`，不得转移 0.1.0/0.1.1 结论。
+
 这些结果证明当前 loopback Local MVP 的功能可用性，不证明传输机密性或服务器身份认证。HTTP 不得开放局域网或公网；任何非 loopback 发布必须先恢复受信任 TLS 或在受信任反向代理终止 TLS，并重跑 Cookie、Origin、DAST 和发布验收。
 
 2026-08-18 当前 Goal 收口重跑：完整 `verify-local-offline` 为 Backend `3089 passed / 144 skipped / 1 Starlette deprecation warning`、Ruff check/format 504 files、mypy 275 sources、pip check、Frontend typecheck、28 files/534 Vitest 与 150-module build 全部 PASS；PostgreSQL 16.14 current-head `20260818_025` File 范围 15 项 PASS。024 的 Full wrapper 149 项连续两轮仍只作为历史证据；本轮尝试 025 Full 时 Docker daemon 已停止且脚本未自动启动，因此 025 全目录双轮为 `NOT_RUN`。Redis/Celery wrapper 4 项 PASS。全新隔离财务浏览器门禁 completion 返回 `accepted` 并输出 `FINANCIAL_LOOP_BROWSER_GATE=PASS`，受保护 manifest 精确核对 2 个文件/绑定和唯一合同、发票、供应商、主关系、任务、执行、ready 报告及 5 个纯角色 Actor。

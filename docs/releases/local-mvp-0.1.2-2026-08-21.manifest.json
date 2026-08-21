@@ -1,0 +1,78 @@
+{
+  "schema_version": "finaudit-local-mvp-release-manifest-v1",
+  "release": "local-mvp-0.1.2",
+  "recorded_on": "2026-08-21",
+  "source": {
+    "branch": "release/local-mvp-0.1.0",
+    "revision": "140c31156412360ecc7f48ae5a26f3112d050763",
+    "parent_revision": "1b7fb0b7e2863d680d1b65bb5d44cc2297bab2b3",
+    "remote_publish": "pending_explicit_authorization",
+    "remote_ahead_before_evidence_commit": 4
+  },
+  "images": {
+    "revision": "local-mvp-0.1.2",
+    "backend_id": "sha256:86127b8348c93bb46a2e52dd2d32452f36e9ef635221cef533400063e0401387",
+    "frontend_id": "sha256:7d4ec725964bd69f0d114a385ae1e0b1492aa45bb90b8a8bbc22eb2d6eda9e1d"
+  },
+  "quality": {
+    "local_offline_quality": "pass",
+    "backend_passed": 3165,
+    "backend_skipped": 147,
+    "backend_warnings": 1,
+    "ruff_files": 528,
+    "mypy_sources": 283,
+    "frontend_test_files": 28,
+    "frontend_tests": 539,
+    "frontend_modules": 151,
+    "postgresql_current_head": "20260818_027",
+    "postgresql_table_count": 58,
+    "postgresql_full_tests_per_round": 154,
+    "postgresql_full_rounds": 2
+  },
+  "browser_gates": {
+    "document_correction": "pass",
+    "policy_revocation": "pass",
+    "invoice_duplicate": "pass",
+    "report_native_download": "pass",
+    "report_artifact_compatibility": "pass",
+    "console_warning_error_count": 0,
+    "p1_evidence": "tests/evaluation/local-p1-browser-closure-v1.json",
+    "p2_evidence": "tests/evaluation/local-p2-experience-compatibility-v1.json"
+  },
+  "persistent_runtime": {
+    "project": "finaudit-local",
+    "url": "http://localhost:8443",
+    "alembic_revision": "20260818_027",
+    "table_count": 58,
+    "authoritative_rows_before": 7,
+    "authoritative_rows_after": 7,
+    "required_dependency_failures": 0,
+    "frontend_http_status": 200,
+    "operations_readiness": "pass",
+    "backup_id": "9b5acc63-bcc5-471e-98b2-83ee4099a426",
+    "backup_includes_secrets": false
+  },
+  "uat": {
+    "record": "docs/testing/local-mvp-uat-2026-08-21.md",
+    "technical_status": "pass",
+    "status": "pending_yhbx_human_relogin_and_signoff",
+    "persistent_admin_browser_login": "pending_yhbx",
+    "human_signature_carried_forward": false
+  },
+  "known_limitations": {
+    "ocr_default_enabled": false,
+    "public_invoice_proxy_accuracy": "46.15%",
+    "local_qwen_invoice_accuracy": "78.85%",
+    "default_supported_format_parse": "34/65",
+    "representative_quality": "out_of_scope_known_limitation_not_passed",
+    "ai_provider_default_enabled": false,
+    "backend_image_risk": "2C/2H_not_fixed_unsigned"
+  },
+  "acceptance_boundary": {
+    "local_mvp_only": true,
+    "business_representative": false,
+    "formal_production_acceptance": false,
+    "provider_run_for_release": false,
+    "remote_release": false
+  }
+}

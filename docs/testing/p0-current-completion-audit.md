@@ -9,7 +9,9 @@ Local MVP AC 级状态：`AC-001/002/015/016 ACCEPTED`
 
 当前 84 个 `partial` 不是 84 个都缺代码。矩阵把“生产代码是否存在”“本地是否运行通过”“对应 AC 是否正式签署”压在同一个状态中，因此大量任务虽已达到 `TEST_PASS` 或隔离环境 `RUNTIME_PASS`，仍必须保持 `partial`。
 
-YHBX 已选择 CR-025 Local MVP 发布收口；0.1.0 历史记录保持不变，当前应用决定、回滚依据和排除项见 `docs/releases/local-mvp-0.1.1-2026-08-20.md`。该 `GO` 只适用于本机 Profile，不改变本审计的 86 行工作包状态或 production 结论。
+YHBX 已选择 CR-025 Local MVP 发布收口；0.1.0/0.1.1 历史记录保持不变。当前后继源码已冻结为 `140c31156412360ecc7f48ae5a26f3112d050763`，持久栈已运行 `local-mvp-0.1.2`，技术门禁、回滚依据和排除项见 `docs/releases/local-mvp-0.1.2-2026-08-21.md`。在 YHBX 持久管理员复登和独立人工 UAT 前，该后继发布保持 `HOLD`，不得沿用历史 `GO`；这不改变本审计的 86 行工作包状态或 production 结论。
+
+本轮原 29 个 tracked 修改、35 个 untracked 文件连同 head 027、58 表和 remote/upstream 纠偏，共 66 个文件已经进入上述应用 revision；当前不再依赖未提交工作树恢复运行代码或机器证据。发布分支仍未推送本轮本地提交，远程交接和分支保护继续独立未闭合。
 
 2026-08-18，BOSS 明确把当前验收环境收窄为本机 Local MVP；`CR-025` 因此重新定义 AC-001、AC-002、AC-015、AC-016 的本地完成口径。当前 HTTP 安全基线/浏览器终审、文件链、备份/隔离恢复/冷启动和 YHBX UAT 已完成，四项 AC 级结论均为 `ACCEPTED`；86 行矩阵仍表示跨 AC 的工作包状态，不能把其 `partial` 与 AC 级结论混为一谈。
 
