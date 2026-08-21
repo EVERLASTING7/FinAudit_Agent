@@ -6,7 +6,7 @@
     "branch": "release/local-mvp-0.1.0",
     "revision": "140c31156412360ecc7f48ae5a26f3112d050763",
     "parent_revision": "1b7fb0b7e2863d680d1b65bb5d44cc2297bab2b3",
-    "remote_publish": "pending_explicit_authorization",
+    "remote_publish": "authorized_normal_push_pending",
     "remote_ahead_before_evidence_commit": 4
   },
   "images": {
@@ -55,9 +55,15 @@
   "uat": {
     "record": "docs/testing/local-mvp-uat-2026-08-21.md",
     "technical_status": "pass",
-    "status": "pending_yhbx_human_relogin_and_signoff",
-    "persistent_admin_browser_login": "pending_yhbx",
-    "human_signature_carried_forward": false
+    "status": "pass_yhbx_human_uat",
+    "persistent_admin_browser_login": "pass_yhbx_attested",
+    "human_signature_carried_forward": false,
+    "signoff_ref": "current_user_message_2026-08-21",
+    "signoff_recorded_at": "2026-08-21T10:23:23+08:00",
+    "signoff_utf8_bytes": 87,
+    "signoff_sha256": "24F56175644C59F3E7A0167A65BE5EEFFC218EAD52314A023DDDB4BF6601E245",
+    "normal_push_authorized": true,
+    "force_push_authorized": false
   },
   "known_limitations": {
     "ocr_default_enabled": false,

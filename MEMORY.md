@@ -4,12 +4,12 @@
 
 - 2026-08-12 起，活跃开发规格只包含 `Request/README.md`、`PRODUCT_REQUIREMENTS.md`、`TECHNICAL_SPEC.md` 和 `IMPLEMENTATION_PLAN.md`。旧九份文档字节级保存在 `Request/archive/legacy-v1/`，其历史身份仍由 `docs/baseline-manifest.md` 记录，但不参与解释当前行为。未批准 CR/DEP 的 registry、pin、签名或治理条件不能反向成为 P0 全局前置；只有可从活跃需求或机器事实独立复现的歧义才阻断受影响的最小切片。Provider/其他外网、真实数据、部署与 production 始终另行授权。
 
-## 2026-08-21 Local MVP 0.1.2 技术冻结（人工 UAT 待签）
+## 2026-08-21 Local MVP 0.1.2 技术冻结与人工 UAT
 
 - 2026-08-21 的 66 个运行代码、测试、CR、浏览器脚本、机器证据和规格纠偏文件以应用 revision `140c31156412360ecc7f48ae5a26f3112d050763` 冻结；活跃 Request 已统一为 Alembic head `20260818_027`、58/58 张物理表，完成度审计也改为已有 `origin`/upstream 但远程治理未闭合。当前分支仍未推送本轮提交。
 - 当前完整离线门禁为 Backend `3165 passed / 147 skipped / 1 warning`、Ruff 528、mypy 283、Frontend 539 tests/151 modules；PostgreSQL 16.14 Full 154×2、文档纠错、制度撤销、发票重复、报告原生下载和 Excel/LibreOffice 兼容 Gate 均 PASS。Vitest 的 localhost:3000 连接拒绝/重置是受控负例输出，测试和退出码通过。
 - 新权威备份 ID `9b5acc63-bcc5-471e-98b2-83ee4099a426` 包含 PostgreSQL/MinIO 且排除 Secrets；持久栈已重建为 `local-mvp-0.1.2`，Backend/Frontend image ID 匹配、head 027、58 表、权威行数 7→7、依赖失败 0、Frontend 200、Operations Readiness PASS。
-- 0.1.2 当前只能标记 `TECHNICALLY READY / PENDING YHBX HUMAN UAT`。持久 `local-admin` 浏览器复登、刷新恢复、文件管理 SoD 拒绝和 YHBX 明确签署尚未执行；0.1.0/0.1.1 的人工或技术结论不转移。OCR/代表性质量/正式 AC/常驻 AI/production/P3 治理边界继续保留。
+- YHBX 于当前任务明确签署 `Local MVP 0.1.2 UAT通过`，并授权普通 push 当前 release 分支、禁止 Force Push；持久 `local-admin` 复登、工作台/用户管理、刷新恢复、文件管理 SoD 拒绝和退出按 `YHBX ATTESTED` 记录，不冒充 Codex 代输密码或独立观察。0.1.0/0.1.1 结论不转移；OCR/代表性质量/正式 AC/常驻 AI/production/P3 治理边界继续保留。
 
 ## 2026-08-20 Local MVP 0.1.1 收口
 

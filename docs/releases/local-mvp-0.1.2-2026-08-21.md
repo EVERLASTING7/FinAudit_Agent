@@ -4,18 +4,18 @@
 
 | 项目 | 结论 |
 |---|---|
-| 应用发布决定 | `HOLD / TECHNICALLY READY, PENDING YHBX HUMAN UAT` |
+| 应用发布决定 | `GO / CR-025 LOCAL MVP ONLY` |
 | production ready | `NO` |
 | 应用源码 revision | `140c31156412360ecc7f48ae5a26f3112d050763` |
 | 持久镜像 revision | `local-mvp-0.1.2` |
 | Alembic head / 表数 | `20260818_027` / 58 |
 | 技术门禁 | `PASS` |
-| 持久管理员复登 | `PENDING YHBX` |
-| 独立人工 UAT | `PENDING YHBX SIGN-OFF`；不继承 0.1.0/0.1.1 结论 |
-| 远程发布 | `NOT_RUN`；等待明确普通 push 授权，禁止 Force Push |
+| 持久管理员复登 | `PASS / YHBX ATTESTED` |
+| 独立人工 UAT | `PASS / YHBX HUMAN UAT`；不继承 0.1.0/0.1.1 结论 |
+| 远程发布 | `AUTHORIZED / PENDING NORMAL PUSH`；禁止 Force Push |
 | 记录日期 | 2026-08-21（Asia/Shanghai） |
 
-0.1.2 是 0.1.1 的后继，不覆盖历史记录。本记录只绑定 Windows 本机、Docker Desktop、`127.0.0.1` HTTP、ClamAV、OCR/AI disabled 与本机 PostgreSQL/MinIO/备份边界。只有 YHBX 在持久 `local-admin` 上完成复登并明确签署后，应用发布决定才能从 `HOLD` 改为 Local MVP `GO`。
+0.1.2 是 0.1.1 的后继，不覆盖历史记录。本记录只绑定 Windows 本机、Docker Desktop、`127.0.0.1` HTTP、ClamAV、OCR/AI disabled 与本机 PostgreSQL/MinIO/备份边界。YHBX 已在当前任务中按约定文本签署持久管理员复登和独立人工 UAT，并授权对当前 release 分支执行普通 push；人工步骤记为 `YHBX ATTESTED`，不是 Codex 代替输入密码或独立观察所得。
 
 ## 2. 已通过的当前证据
 
@@ -27,7 +27,7 @@
 - 持久项目：Backend image ID `sha256:86127b8348c93bb46a2e52dd2d32452f36e9ef635221cef533400063e0401387`，Frontend image ID `sha256:7d4ec725964bd69f0d114a385ae1e0b1492aa45bb90b8a8bbc22eb2d6eda9e1d`；运行容器与 0.1.2 tags 一致。head 027、58 表、权威行数 7→7、必需依赖失败 0、Frontend 200，依赖、bounded logging、restart policy 和受保护 metrics 均 PASS。
 - 当前权威备份 ID `9b5acc63-bcc5-471e-98b2-83ee4099a426`；PostgreSQL/MinIO 包含，Secrets 排除，旧备份未覆盖。
 
-机器可读事实见 `local-mvp-0.1.2-2026-08-21.manifest.json`；待执行的人工作业见 `docs/testing/local-mvp-uat-2026-08-21.md`。
+机器可读事实见 `local-mvp-0.1.2-2026-08-21.manifest.json`；YHBX 人工 UAT 结果见 `docs/testing/local-mvp-uat-2026-08-21.md`。
 
 ## 3. 回滚依据
 

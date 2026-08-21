@@ -1,14 +1,18 @@
 # Local MVP 0.1.2 独立 UAT 记录
 
-- 当前状态：`TECHNICAL PASS / PENDING YHBX HUMAN UAT`
+- 当前状态：`PASS / YHBX HUMAN UAT`
 - 请求人：YHBX（BOSS）
 - 技术执行人：Codex
-- 人工执行人：`PENDING YHBX`
+- 人工执行人：YHBX（BOSS）
 - 执行日期：2026-08-21（Asia/Shanghai）
 - 应用源码 revision：`140c31156412360ecc7f48ae5a26f3112d050763`
 - 持久镜像 revision：`local-mvp-0.1.2`
 - 运行地址：`http://localhost:8443`
 - 人工签署继承：`NO`；0.1.0 的历史签署和 0.1.1 的最小技术 UAT 均不转移
+- YHBX 签署：`Local MVP 0.1.2 UAT通过`
+- 普通 push 授权：`AUTHORIZED`；当前 release 分支，禁止 Force Push
+- 签署记录时间：2026-08-21T10:23:23+08:00
+- 签署文本绑定：UTF-8 87 bytes；SHA-256 `24F56175644C59F3E7A0167A65BE5EEFFC218EAD52314A023DDDB4BF6601E245`
 
 ## 技术前置与结果
 
@@ -36,15 +40,15 @@
 
 | 人工检查 | 当前结果 |
 |---|---|
-| 持久管理员浏览器复登 | `PENDING YHBX` |
-| 工作台与用户管理 | `PENDING YHBX` |
-| 刷新恢复 | `PENDING YHBX` |
-| 文件管理职责分离拒绝 | `PENDING YHBX` |
-| 正常退出 | `PENDING YHBX` |
-| YHBX 独立签署 | `PENDING YHBX` |
+| 持久管理员浏览器复登 | `PASS / YHBX ATTESTED` |
+| 工作台与用户管理 | `PASS / YHBX ATTESTED` |
+| 刷新恢复 | `PASS / YHBX ATTESTED` |
+| 文件管理职责分离拒绝 | `PASS / YHBX ATTESTED` |
+| 正常退出 | `PASS / YHBX ATTESTED` |
+| YHBX 独立签署 | `PASS` |
 
 ## 明确不外推
 
 - 本 UAT 只接受 CR-025 Windows 本机、loopback HTTP、ClamAV、OCR/AI disabled 与本机数据/备份边界。
 - OCR 扫描件、代表性合同/发票/重复/风险质量、AC-003～014、真实常驻 AI、production、受信任 TLS、正式 DAST/容量/RPO-RTO、异地恢复、镜像风险签署和远程治理均不在本次通过范围。
-- 在 YHBX 完成人工清单并明确签署前，本记录保持 `PENDING`，不得被发布记录或 Agent 汇报改写为 `PASS/GO`。
+- 本记录的人工步骤依据 YHBX 当前任务中的明确签署记为 `PASS / YHBX ATTESTED`，不是 Codex 代替输入密码或独立观察所得；不得外推到 production 或未列入本 UAT 的正式业务验收。

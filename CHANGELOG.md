@@ -1,6 +1,6 @@
 # Changelog
 
-- 2026-08-21：将 P1/P2 浏览器脚本、公开质量测量、CR-031、运行代码、测试与机器证据冻结为应用 revision `140c311…`；活跃规格同步为 Alembic head 027、58 表和已存在的 origin/upstream。完整离线、PostgreSQL Full、文档纠错、制度撤销、发票重复、报告下载与 Excel/LibreOffice 门禁通过，持久栈重建为 `local-mvp-0.1.2` 并以新权威备份保护；YHBX 持久管理员复登和独立人工 UAT仍为待签，不把技术 Gate 冒充发布 `GO`。
+- 2026-08-21：将 P1/P2 浏览器脚本、公开质量测量、CR-031、运行代码、测试与机器证据冻结为应用 revision `140c311…`；活跃规格同步为 Alembic head 027、58 表和已存在的 origin/upstream。完整离线、PostgreSQL Full、文档纠错、制度撤销、发票重复、报告下载与 Excel/LibreOffice 门禁通过，持久栈重建为 `local-mvp-0.1.2` 并以新权威备份保护；YHBX 随后明确签署持久管理员复登与独立人工 UAT，并授权当前 release 分支普通 push、禁止 Force Push。
 - 2026-08-17：按 BOSS 明确批准将全局密码策略升级为 `auth-password-v2`，最小长度由 15 调整为 6；最大长度、UTF-8 上限、Argon2id、锁定策略和弱密码拒绝继续生效，并补充常见 6 字符弱密码。
 - 2026-08-17：按 BOSS 明确批准将内置应用入口全局改为 HTTP；Nginx、Origin/CORS、Cookie、启动/恢复/验证脚本和浏览器门禁同步切换，停止生成或挂载 TLS 证书，并保留当前 `127.0.0.1` 限制。HTTP 不提供传输加密，局域网或公网发布前必须恢复受信任 TLS。
 - 2026-08-18：BOSS 完成持久本地管理员强制换密并重新登录；数据库与真实浏览器验证普通会话、用户管理授权读取和文件管理 `AUTH_FORBIDDEN` 职责分离，临时恢复密码已清零删除。
