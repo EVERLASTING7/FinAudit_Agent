@@ -102,3 +102,68 @@ def test_missing_currency_remains_null_instead_of_using_a_local_default() -> Non
     assert candidate.facts.invoice_number == "00000001"
     assert candidate.facts.currency is None
     assert tuple(item.field_code for item in candidate.field_evidence) == ("invoice_number",)
+
+
+def test_extracts_standard_english_invoice_labels_without_local_defaults() -> None:
+    candidate = extract_invoice_candidate(
+        (
+            _block(0, "INVOICE"),
+            _block(1, "Invoice #: INV-001"),
+            _block(2, "Invoice Date: 06/01/2026"),
+            _block(3, "Bill To: Buyer Example LLC"),
+            _block(4, "Vendor: Seller Example LLC"),
+            _block(5, "Federal ID: 12-3456789"),
+            _block(6, "Subtotal: $100.00"),
+            _block(7, "Sales Tax: $6.25"),
+            _block(8, "Amount Due: USD 106.25"),
+        )
+    )
+
+    assert candidate.facts.model_dump(mode="json") == {
+        "invoice_code": None,
+        "invoice_number": "INV-001",
+        "invoice_type": "standard",
+        "is_red_invoice": False,
+        "invoice_date": "2026-06-01",
+        "buyer_name": "Buyer Example LLC",
+        "buyer_tax_no": None,
+        "seller_name": "Seller Example LLC",
+        "seller_tax_no": "123456789",
+        "amount_excluding_tax": "100.00",
+        "tax_amount": "6.25",
+        "total_amount": "106.25",
+        "currency": "USD",
+    }
+    assert {item.field_code for item in candidate.field_evidence} == {
+        "invoice_number",
+        "invoice_type",
+        "is_red_invoice",
+        "invoice_date",
+        "buyer_name",
+        "seller_name",
+        "seller_tax_no",
+        "amount_excluding_tax",
+        "tax_amount",
+        "total_amount",
+        "currency",
+    }
+
+
+def test_extracts_multiple_english_fields_from_one_layout_line() -> None:
+    candidate = extract_invoice_candidate(
+        (
+            _block(
+                0,
+                "Invoice No 44920   Invoice Date 05/18/22   "
+                "Subtotal $2,150.00   Sales Tax $0.00   Total $2,150.00",
+            ),
+        )
+    )
+
+    assert candidate.facts.invoice_number == "44920"
+    assert candidate.facts.invoice_date is not None
+    assert candidate.facts.invoice_date.isoformat() == "2022-05-18"
+    assert candidate.facts.amount_excluding_tax == "2150.00"
+    assert candidate.facts.tax_amount == "0.00"
+    assert candidate.facts.total_amount == "2150.00"
+    assert candidate.facts.currency is None

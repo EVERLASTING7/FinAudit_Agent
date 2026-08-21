@@ -77,16 +77,29 @@ from tests.integration.database.test_policy_management import (  # noqa: E402
     _actor,
 )
 
-_CONFIRMATION = "ALLOW_ONE_BOUNDED_BAILIAN_SYNTHETIC_BENCHMARK_V2_BATCHED_100"
+_CONFIRMATION = "RUN_BAILIAN_V3_AUTHORIZED_20260820"
+_AUTHORIZATION_GRANTED = True
 _REVIEW_PATH = (
-    PROJECT_ROOT / "tests" / "evaluation" / "synthetic-benchmark-owner-delegated-review-v1.json"
+    PROJECT_ROOT
+    / "tests"
+    / "evaluation"
+    / "synthetic-benchmark-owner-delegated-review-v3.json"
 )
 _CORPUS_PATH = PROJECT_ROOT / "tests" / "evaluation" / "synthetic-policy-corpus-v1.json"
-_REVIEW_SHA256 = "87F5627F0306AA4D5B89E148EB0B4C8D970E80956CFAE624F0783BB66B3DA70F"
+_AUTHORIZATION_PATH = (
+    PROJECT_ROOT
+    / "tests"
+    / "evaluation"
+    / "synthetic-benchmark-v3-run-authorization-v1.json"
+)
+_REVIEW_SHA256 = "AE9B525F2703C22D1A11EDC1FAC28EC52214CF5D306F67CE86F87F522C60E2FA"
 _CORPUS_SHA256 = "2CE2BE5118ADAC7D185D239AFD4713D3F637BDF9D12D314D7690732A8DFAD9E3"
+_AUTHORIZATION_SHA256 = (
+    "120618F65F519700E10EC0FB9CAFC94B44B03EE757FAE0A78D732126A2720B72"
+)
 _DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 _ANSWER_SCORE_THRESHOLD = "0.650000"
-_MAX_PROVIDER_REQUESTS = 100
+_MAX_PROVIDER_REQUESTS = 10
 _MAX_INPUT_TOKENS = 50_000
 _MAX_COST_MICROCNY = 10_000_000
 _EMBEDDING_BATCH_SIZE = 20
@@ -103,11 +116,14 @@ def _sha256(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest().upper()
 
 
-def _batched_texts(values: tuple[str, ...], batch_size: int) -> tuple[tuple[str, ...], ...]:
+def _batched_texts(
+    values: tuple[str, ...], batch_size: int
+) -> tuple[tuple[str, ...], ...]:
     if not values or not 1 <= batch_size <= _EMBEDDING_BATCH_SIZE:
         raise LiveSyntheticBenchmarkError("PROVIDER_REQUEST_PLAN_INVALID")
     return tuple(
-        values[offset : offset + batch_size] for offset in range(0, len(values), batch_size)
+        values[offset : offset + batch_size]
+        for offset in range(0, len(values), batch_size)
     )
 
 
@@ -124,39 +140,84 @@ def _object(path: Path, expected_sha256: str) -> dict[str, object]:
 def _load_assets() -> tuple[dict[str, object], dict[str, object]]:
     review = _object(_REVIEW_PATH, _REVIEW_SHA256)
     corpus = _object(_CORPUS_PATH, _CORPUS_SHA256)
+    run_authorization = _object(_AUTHORIZATION_PATH, _AUTHORIZATION_SHA256)
     if (
-        review.get("schema_version") != "synthetic-benchmark-owner-delegated-review-v1"
+        review.get("schema_version") != "synthetic-benchmark-owner-delegated-review-v3"
         or corpus.get("schema_version") != "synthetic-policy-corpus-v1"
+        or run_authorization.get("schema_version")
+        != "synthetic-benchmark-v3-run-authorization-v1"
     ):
         raise LiveSyntheticBenchmarkError("SYNTHETIC_ASSET_INVALID")
     authority = cast(dict[str, object], review.get("review_authority"))
     authorization = cast(dict[str, object], review.get("runtime_authorization"))
     boundaries = cast(dict[str, object], review.get("boundaries"))
-    expected_authorization = {
+    expected_candidate_authorization = {
+        "authorization_state": "requires_new_explicit_authorization",
         "activate_disposable_index": True,
         "automatic_scope_expansion": False,
-        "cost_cap_cny": "1.000000",
+        "cost_cap_cny": "0.100000",
         "create_disposable_approved_datasets": True,
         "input_token_cap": 50_000,
         "no_fx": True,
         "production": False,
-        "provider_request_cap": 152,
+        "provider_request_cap": 10,
         "run_formal_release": True,
         "run_mvp_uat": True,
         "single_run": True,
     }
+    current_authority = cast(dict[str, object], run_authorization.get("authority"))
+    current_authorization = cast(
+        dict[str, object], run_authorization.get("authorization")
+    )
+    bound_assets = cast(dict[str, object], run_authorization.get("bound_assets"))
+    expected_current_authorization = {
+        "allow_offline_fix_and_retest": True,
+        "automatic_provider_retry_cap": 0,
+        "cost_cap_cny": "10.000000",
+        "cost_cap_microunits": 10_000_000,
+        "cost_currency": "CNY",
+        "input_token_cap": 50_000,
+        "no_fx": True,
+        "production": False,
+        "provider_request_cap": 10,
+        "retry_budget_scope": "remaining_cumulative_session_caps",
+        "run_sequence": ["mvp_uat_50", "formal_release_100", "activate_index"],
+        "until_success_is_bounded_by_caps": True,
+    }
     if (
         authority.get("human_review_claimed") is not False
-        or authorization != expected_authorization
+        or authorization != expected_candidate_authorization
         or boundaries.get("may_mark_ac_accepted") is not False
+        or current_authority
+        != {
+            "authority_ref": "current_user_message_2026-08-20",
+            "human_review_claimed": False,
+            "instruction_sha256": (
+                "F3DD8479D7E55BFDE41E5A5EDDE329DBB95937A2EA8C00B08C12F1266BE75BAD"
+            ),
+            "instruction_utf8_bytes": 244,
+            "reuse_existing_bailian_key": True,
+        }
+        or current_authorization != expected_current_authorization
+        or bound_assets
+        != {
+            "corpus_path": "tests/evaluation/synthetic-policy-corpus-v1.json",
+            "corpus_sha256": _CORPUS_SHA256,
+            "review_path": "tests/evaluation/synthetic-benchmark-owner-delegated-review-v3.json",
+            "review_sha256": _REVIEW_SHA256,
+        }
     ):
         raise LiveSyntheticBenchmarkError("SYNTHETIC_REVIEW_AUTHORIZATION_INVALID")
     return review, corpus
 
 
-def _clause_docx(title: str, clause_ref: str, heading: str, topic: str, text: str) -> bytes:
+def _clause_docx(
+    title: str, clause_ref: str, heading: str, topic: str, text: str
+) -> bytes:
     lines = (title, f"证据编号 {clause_ref}；主题 {topic}；条款标题 {heading}。{text}")
-    paragraphs = "".join(f"<w:p><w:r><w:t>{escape(line)}</w:t></w:r></w:p>" for line in lines)
+    paragraphs = "".join(
+        f"<w:p><w:r><w:t>{escape(line)}</w:t></w:r></w:p>" for line in lines
+    )
     content_types = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -242,7 +303,9 @@ def _approved_clause_policy(
             issuing_department="虚构测试制度管理部",
             effective_from=date.fromisoformat(str(policy["valid_from"])),
             effective_to=(
-                None if policy["valid_to"] is None else date.fromisoformat(str(policy["valid_to"]))
+                None
+                if policy["valid_to"] is None
+                else date.fromisoformat(str(policy["valid_to"]))
             ),
             scope={"classification": "synthetic", "source_policy_ref": policy_ref},
         ),
@@ -276,14 +339,18 @@ def _approved_clause_policy(
         chunks = tuple(
             session.scalars(
                 select(DocumentChunk)
-                .join(DocumentChunkSet, DocumentChunkSet.id == DocumentChunk.chunk_set_id)
+                .join(
+                    DocumentChunkSet, DocumentChunkSet.id == DocumentChunk.chunk_set_id
+                )
                 .where(
                     DocumentChunkSet.policy_document_id == created.data.policy.id,
                     DocumentChunkSet.status == "active",
                 )
             ).all()
         )
-    matching = tuple(chunk for chunk in chunks if str(clause["text"]) in chunk.content_text)
+    matching = tuple(
+        chunk for chunk in chunks if str(clause["text"]) in chunk.content_text
+    )
     if len(chunks) != 1 or len(matching) != 1:
         raise LiveSyntheticBenchmarkError("SYNTHETIC_CLAUSE_MAPPING_FAILED")
     return created.data.policy.id, matching[0].id
@@ -301,9 +368,13 @@ def _runtime_case(
         for policy_ref in cast(list[str], case["allowed_policy_refs"])
         for policy_id in policy_ids[policy_ref]
     )
-    expected = tuple(chunk_ids[ref] for ref in cast(list[str], case["expected_evidence_refs"]))
+    expected = tuple(
+        chunk_ids[ref] for ref in cast(list[str], case["expected_evidence_refs"])
+    )
     forbidden = (
-        tuple(chunk_ids[ref] for ref in cast(list[str], case["forbidden_evidence_refs"]))
+        tuple(
+            chunk_ids[ref] for ref in cast(list[str], case["forbidden_evidence_refs"])
+        )
         if label is EvaluationLabel.UNAUTHORIZED
         else ()
     )
@@ -369,7 +440,9 @@ def _create_approved_dataset(
     ):
         raise LiveSyntheticBenchmarkError("SYNTHETIC_DATASET_APPROVAL_FAILED")
     with management._session_factory() as session:
-        stored_cases = RetrievalRuntimeRepository(session).dataset_cases(approved.data.id)
+        stored_cases = RetrievalRuntimeRepository(session).dataset_cases(
+            approved.data.id
+        )
     if len(stored_cases) != len(source_case_ids):
         raise LiveSyntheticBenchmarkError("SYNTHETIC_SOURCE_CASE_MAPPING_INVALID")
     return approved.data.id, {
@@ -403,7 +476,9 @@ def _execute_run(
         event_schema_version=outbox.event_version,
         worker_id=f"synthetic-benchmark-evaluation-{suffix}",
     )
-    final = management.get_evaluation_run(smoke._publisher(), KNOWLEDGE_BASE_ID, run.data.id)
+    final = management.get_evaluation_run(
+        smoke._publisher(), KNOWLEDGE_BASE_ID, run.data.id
+    )
     if (
         executed.outcome != "succeeded"
         or final.status != "passed"
@@ -423,9 +498,13 @@ def _execute_run(
                 ).all()
             )
         try:
-            failed_case_ids = tuple(case_source_ids[value] for value in failed_runtime_case_ids)
+            failed_case_ids = tuple(
+                case_source_ids[value] for value in failed_runtime_case_ids
+            )
         except KeyError:
-            raise LiveSyntheticBenchmarkError("SYNTHETIC_SOURCE_CASE_MAPPING_INVALID") from None
+            raise LiveSyntheticBenchmarkError(
+                "SYNTHETIC_SOURCE_CASE_MAPPING_INVALID"
+            ) from None
         _SAFE_FAILURE_TELEMETRY.update(
             evaluation_failed_case_ids=failed_case_ids,
             evaluation_failure_code=final.failure_code,
@@ -468,7 +547,9 @@ def _execute(
                 )(),
             ),
         )
-        file_executor = _executor(factory, _RuntimeStorage(quarantine), _CleanDocumentScanner())
+        file_executor = _executor(
+            factory, _RuntimeStorage(quarantine), _CleanDocumentScanner()
+        )
         policies = PolicyManagementService(factory)
 
         policy_ids_mutable: dict[str, list[UUID]] = {}
@@ -517,8 +598,12 @@ def _execute(
         formal_source_case_ids = tuple(
             str(cast(dict[str, object], raw)["case_id"]) for raw in formal_raw
         )
-        mvp_source_case_ids = tuple(str(case_id) for case_id in cast(list[object], mvp_ids))
-        mvp_cases = tuple(formal_by_id[str(case_id)] for case_id in cast(list[object], mvp_ids))
+        mvp_source_case_ids = tuple(
+            str(case_id) for case_id in cast(list[object], mvp_ids)
+        )
+        mvp_cases = tuple(
+            formal_by_id[str(case_id)] for case_id in cast(list[object], mvp_ids)
+        )
         if len(mvp_cases) != 50 or len(formal_cases) != 100:
             raise LiveSyntheticBenchmarkError("SYNTHETIC_RUNTIME_CASE_COUNT_INVALID")
 
@@ -538,11 +623,16 @@ def _execute(
             uuid4(),
         )
         with factory() as session:
-            items = RetrievalRuntimeRepository(session).materialization_items(index.data.id)
+            items = RetrievalRuntimeRepository(session).materialization_items(
+                index.data.id
+            )
         if len(items) != 36:
             raise LiveSyntheticBenchmarkError("SYNTHETIC_INDEX_MEMBER_PLAN_DRIFT")
         index_calls = tuple(
-            tuple(item.content_text for item in items[offset : offset + _EMBEDDING_BATCH_SIZE])
+            tuple(
+                item.content_text
+                for item in items[offset : offset + _EMBEDDING_BATCH_SIZE]
+            )
             for offset in range(0, len(items), _EMBEDDING_BATCH_SIZE)
         )
         mvp_calls = _batched_texts(
@@ -584,7 +674,9 @@ def _execute(
             event_schema_version=build_outbox.event_version,
             worker_id="synthetic-benchmark-index-worker",
         )
-        ready = management.get_index(smoke._publisher(), KNOWLEDGE_BASE_ID, index.data.id)
+        ready = management.get_index(
+            smoke._publisher(), KNOWLEDGE_BASE_ID, index.data.id
+        )
         if (
             built.outcome != "succeeded"
             or ready.status.value != "ready"
@@ -608,12 +700,14 @@ def _execute(
             suffix="mvp-uat-050",
             expected_count=50,
         )
-        formal_dataset_id, formal_case_source_ids_by_runtime_id = _create_approved_dataset(
-            management,
-            tier=EvaluationTier.FORMAL_RELEASE,
-            cases=formal_cases,
-            source_case_ids=formal_source_case_ids,
-            suffix="formal-release-100",
+        formal_dataset_id, formal_case_source_ids_by_runtime_id = (
+            _create_approved_dataset(
+                management,
+                tier=EvaluationTier.FORMAL_RELEASE,
+                cases=formal_cases,
+                source_case_ids=formal_source_case_ids,
+                suffix="formal-release-100",
+            )
         )
         _, formal_metrics = _execute_run(
             management=management,
@@ -640,7 +734,9 @@ def _execute(
             raise LiveSyntheticBenchmarkError("FORMAL_RELEASE_ACTIVATION_FAILED")
 
         bounded.assert_consumed()
-        projected_event_count = smoke._project_audit(audit, bounded.provider_request_count)
+        projected_event_count = smoke._project_audit(
+            audit, bounded.provider_request_count
+        )
         with factory() as session:
             logs = tuple(
                 session.scalars(
@@ -652,7 +748,9 @@ def _execute(
                     .order_by(AiCallLog.started_at, AiCallLog.id)
                 ).all()
             )
-            result_count = session.scalar(select(func.count()).select_from(RetrievalEvalResult))
+            result_count = session.scalar(
+                select(func.count()).select_from(RetrievalEvalResult)
+            )
             dataset_rows = tuple(session.scalars(select(RetrievalEvalDataset)).all())
             run_rows = tuple(session.scalars(select(RetrievalEvalRun)).all())
             stored_index = session.get(DocumentIndexVersion, ready.id)
@@ -677,7 +775,8 @@ def _execute(
                 or log.actual_cost_microunits is None
                 for log in logs
             )
-            or sum(cast(int, log.input_tokens) for log in logs) != bounded.actual_input_tokens
+            or sum(cast(int, log.input_tokens) for log in logs)
+            != bounded.actual_input_tokens
             or sum(cast(int, log.actual_cost_microunits) for log in logs)
             != bounded.actual_cost_microunits
         ):
@@ -687,6 +786,8 @@ def _execute(
             "actual_cost_microunits": bounded.actual_cost_microunits,
             "actual_input_tokens": bounded.actual_input_tokens,
             "answer_score_threshold": _ANSWER_SCORE_THRESHOLD,
+            "authorization_receipt_sha256": _AUTHORIZATION_SHA256,
+            "automatic_provider_retry_count": 0,
             "audit_attempt_count": len(logs),
             "audit_projected_event_count": projected_event_count,
             "cost_currency": "CNY",
@@ -703,6 +804,7 @@ def _execute(
             "provider_request_cap": _MAX_PROVIDER_REQUESTS,
             "provider_request_count": bounded.provider_request_count,
             "qdrant_collection_verified": True,
+            "retest_authorized_within_remaining_cumulative_caps": True,
             "status": "passed",
             "vector_dimension": settings.qdrant_vector_size,
             "worker_index_outcome": built.outcome,
@@ -712,9 +814,15 @@ def _execute(
             _SAFE_FAILURE_TELEMETRY.update(
                 actual_cost_microunits=bounded.actual_cost_microunits,
                 actual_input_tokens=bounded.actual_input_tokens,
+                authorization_receipt_sha256=_AUTHORIZATION_SHA256,
+                automatic_provider_retry_count=0,
+                cost_cap_microunits=_MAX_COST_MICROCNY,
                 cost_currency="CNY",
                 input_token_upper_bound=bounded.input_token_upper_bound,
+                input_token_cap=_MAX_INPUT_TOKENS,
+                provider_request_cap=_MAX_PROVIDER_REQUESTS,
                 provider_request_count=bounded.provider_request_count,
+                retest_authorized_within_remaining_cumulative_caps=True,
             )
         raise
     finally:
@@ -727,7 +835,13 @@ def _run() -> dict[str, object]:
     if sys.argv != [sys.argv[0]]:
         raise LiveSyntheticBenchmarkError("ARGUMENTS_NOT_SUPPORTED")
     if os.environ.get("FINAUDIT_LIVE_BAILIAN_SYNTHETIC_BENCHMARK") != _CONFIRMATION:
-        raise LiveSyntheticBenchmarkError("LIVE_SYNTHETIC_BENCHMARK_CONFIRMATION_REQUIRED")
+        raise LiveSyntheticBenchmarkError(
+            "LIVE_SYNTHETIC_BENCHMARK_CONFIRMATION_REQUIRED"
+        )
+    if not _AUTHORIZATION_GRANTED:
+        raise LiveSyntheticBenchmarkError(
+            "LIVE_SYNTHETIC_BENCHMARK_AUTHORIZATION_REQUIRED"
+        )
     review, corpus = _load_assets()
     api_key = smoke._api_key()
     database_url = smoke._database_url()

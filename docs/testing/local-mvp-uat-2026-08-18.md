@@ -37,3 +37,7 @@
 - AC-003～014、production 环境下的 AC-001/002/015/016 或全量 production AC-001～016。
 
 `CR-025` 后，`Local MVP UAT=ACCEPTED` 同时支持 AC-001、AC-002、AC-015、AC-016 的 Local MVP `ACCEPTED` 结论；AC 级证据见 `docs/testing/local-mvp-ac-acceptance-2026-08-18.md`。追踪矩阵中的工作包仍可因其他 AC 或未来环境保持 `partial`。
+
+## 2026-08-20 范围补充（CR-031）
+
+BOSS 明确把代表性业务准确率第 6 项作为 Local MVP 已知限制并移出当前 Goal。该补充不修改 2026-08-18 的历史签署，也不把合同 85%、发票 95%、重复发票识别、风险规则有效性或复杂多格式文档质量标记为通过；现有失败/不可计算证据与正式验收缺口继续保留。

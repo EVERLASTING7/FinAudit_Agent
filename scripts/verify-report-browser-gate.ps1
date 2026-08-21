@@ -4,7 +4,7 @@ param(
     [int]$Port = 4173,
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$')]
     [string]$PostgresImage = 'postgres:16-alpine',
-    [ValidateSet('Report', 'FileUpload', 'FinancialLoop', 'SupplementaryAgreement', 'InvoiceDuplicate', 'DocumentCorrection')]
+    [ValidateSet('Report', 'Accessibility', 'FileUpload', 'FinancialLoop', 'SupplementaryAgreement', 'InvoiceDuplicate', 'DocumentCorrection', 'PolicyRevocation')]
     [string]$Mode = 'Report',
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$')]
     [string]$RedisImage = 'redis:7.4.9-alpine'
@@ -13,16 +13,27 @@ param(
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $backendRoot = Join-Path $projectRoot 'backend'
+$frontendRoot = Join-Path $projectRoot 'frontend'
 $pythonPath = Join-Path $backendRoot '.venv\Scripts\python.exe'
+$browserRunnerPath = Join-Path $projectRoot 'scripts\run-browser-gate.cjs'
+$narratorEtwPath = Join-Path $projectRoot 'scripts\narrator-accessibility-etw.ps1'
+$focusAccessibilityEdgePath = Join-Path $projectRoot 'scripts\focus-accessibility-edge.ps1'
 $startMinioPath = Join-Path $projectRoot 'scripts\start-local-minio.ps1'
 $stopMinioPath = Join-Path $projectRoot 'scripts\stop-local-minio.ps1'
+$accessibilityMode = $Mode -ceq 'Accessibility'
+$reportMode = $Mode -in @('Report', 'Accessibility')
 $fileUploadMode = $Mode -ceq 'FileUpload'
 $financialLoopMode = $Mode -ceq 'FinancialLoop'
 $supplementaryMode = $Mode -ceq 'SupplementaryAgreement'
 $invoiceDuplicateMode = $Mode -ceq 'InvoiceDuplicate'
 $documentCorrectionMode = $Mode -ceq 'DocumentCorrection'
+$policyRevocationMode = $Mode -ceq 'PolicyRevocation'
 $workerMode = $fileUploadMode -or $financialLoopMode -or $documentCorrectionMode
-$gateSlug = if ($financialLoopMode) {
+$automatedBrowserMode = $reportMode -or $invoiceDuplicateMode -or $documentCorrectionMode -or $policyRevocationMode
+$gateSlug = if ($accessibilityMode) {
+    'accessibility-browser'
+}
+elseif ($financialLoopMode) {
     'financial-loop-browser'
 }
 elseif ($fileUploadMode) {
@@ -37,10 +48,16 @@ elseif ($invoiceDuplicateMode) {
 elseif ($documentCorrectionMode) {
     'document-correction-browser'
 }
+elseif ($policyRevocationMode) {
+    'policy-revocation-browser'
+}
 else {
     'report-browser'
 }
-$databaseName = if ($financialLoopMode) {
+$databaseName = if ($accessibilityMode) {
+    'finaudit_accessibility_browser_test'
+}
+elseif ($financialLoopMode) {
     'finaudit_financial_loop_browser_test'
 }
 elseif ($fileUploadMode) {
@@ -55,6 +72,9 @@ elseif ($invoiceDuplicateMode) {
 elseif ($documentCorrectionMode) {
     'finaudit_document_correction_browser_test'
 }
+elseif ($policyRevocationMode) {
+    'finaudit_policy_revocation_browser_test'
+}
 else {
     'finaudit_report_browser_test'
 }
@@ -66,16 +86,21 @@ $redisContainerName = "finaudit-$gateSlug-redis-$runId"
 $redisContainerId = $null
 $minioStarted = $false
 $browserExitCode = $null
+$narratorEtwState = $null
+$narratorEtwResult = $null
 $managedNames = @(
     'DATABASE_URL',
     'TEST_DATABASE_URL',
     'FINAUDIT_ALLOW_DESTRUCTIVE_DB_TESTS',
+    'FINAUDIT_ACCESSIBILITY_GATE',
     'FINAUDIT_BROWSER_GATE',
     'FINAUDIT_BROWSER_PORT',
     'FINAUDIT_BROWSER_PUBLIC_ORIGIN',
     'FINAUDIT_BROWSER_REDIS_URL',
     'FINAUDIT_BROWSER_REDIS_RESULT_URL',
-    'FINAUDIT_BROWSER_SCANNER_PORT'
+    'FINAUDIT_BROWSER_SCANNER_PORT',
+    'FINAUDIT_NARRATOR_MARKER_PATH',
+    'FINAUDIT_POWERSHELL_PATH'
 )
 $previous = @{}
 
@@ -187,6 +212,41 @@ try {
     if ($dockerReady.ExitCode -ne 0) {
         throw 'Docker daemon is unavailable.'
     }
+    if ($automatedBrowserMode) {
+        $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+        $npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
+        if (
+            $null -eq $nodeCommand -or
+            $null -eq $npmCommand -or
+            -not (Test-Path -LiteralPath $browserRunnerPath -PathType Leaf) -or
+            -not (Test-Path -LiteralPath (Join-Path $frontendRoot 'node_modules\ws') -PathType Container)
+        ) {
+            throw 'The automated browser gate runtime is unavailable.'
+        }
+        $nodePath = $nodeCommand.Source
+        if (
+            $accessibilityMode -and
+            (
+                -not (Test-Path -LiteralPath $narratorEtwPath -PathType Leaf) -or
+                -not (Test-Path -LiteralPath $focusAccessibilityEdgePath -PathType Leaf) -or
+                $null -eq (Get-Command logman.exe -ErrorAction SilentlyContinue) -or
+                $null -eq (Get-Command tracerpt.exe -ErrorAction SilentlyContinue) -or
+                -not (Test-Path -LiteralPath 'C:\Windows\System32\Narrator.exe' -PathType Leaf)
+            )
+        ) {
+            throw 'The Windows Narrator ETW gate runtime is unavailable.'
+        }
+        Push-Location $frontendRoot
+        try {
+            & $npmCommand.Source run build
+            if ($LASTEXITCODE -ne 0) {
+                throw 'The current Frontend build failed.'
+            }
+        }
+        finally {
+            Pop-Location
+        }
+    }
     $postgresImageId = Resolve-CachedImageId $PostgresImage 'PostgreSQL 16'
     if ($workerMode) {
         $redisImageId = Resolve-CachedImageId $RedisImage 'Redis'
@@ -212,7 +272,7 @@ try {
         $scannerListener.Stop()
     }
 
-    if (-not $supplementaryMode) {
+    if (-not ($supplementaryMode -or $policyRevocationMode)) {
         . $startMinioPath
         $minioStarted = $true
     }
@@ -381,26 +441,66 @@ try {
     elseif ($documentCorrectionMode) {
         'RUN_DISPOSABLE_DOCUMENT_CORRECTION_BROWSER_V1'
     }
+    elseif ($policyRevocationMode) {
+        'RUN_DISPOSABLE_POLICY_REVOCATION_BROWSER_V1'
+    }
     else {
         'RUN_DISPOSABLE_REPORT_BROWSER_V1'
+    }
+    if ($accessibilityMode) {
+        $env:FINAUDIT_ACCESSIBILITY_GATE = 'RUN_DISPOSABLE_ACCESSIBILITY_BROWSER_V1'
     }
     $env:FINAUDIT_BROWSER_PORT = "$Port"
     $env:FINAUDIT_BROWSER_PUBLIC_ORIGIN = "http://127.0.0.1:$Port"
 
-    Push-Location $backendRoot
     try {
-        & $pythonPath -m alembic upgrade head
-        if ($LASTEXITCODE -ne 0) {
-            throw 'Alembic did not reach current head.'
+        if ($accessibilityMode) {
+            . $narratorEtwPath
+            $narratorTraceRoot = Join-Path `
+                ([IO.Path]::GetTempPath()) `
+                "FinAuditAgent\narrator-accessibility-$runId"
+            $narratorEtwState = Start-FinAuditNarratorEtw $narratorTraceRoot
+            $env:FINAUDIT_NARRATOR_MARKER_PATH = $narratorEtwState.MarkerPath
+            $env:FINAUDIT_POWERSHELL_PATH = Join-Path $PSHOME 'pwsh.exe'
         }
-        & $pythonPath -m tests.manual_financial_read_browser
-        $browserExitCode = $LASTEXITCODE
+        Push-Location $backendRoot
+        try {
+            & $pythonPath -m alembic upgrade head
+            if ($LASTEXITCODE -ne 0) {
+                throw 'Alembic did not reach current head.'
+            }
+            if ($automatedBrowserMode) {
+                & $nodePath $browserRunnerPath --mode $Mode --python $pythonPath --port "$Port"
+            }
+            else {
+                & $pythonPath -m tests.manual_financial_read_browser
+            }
+            $browserExitCode = $LASTEXITCODE
+        }
+        finally {
+            Pop-Location
+        }
+        if ($browserExitCode -ne 0) {
+            throw 'The browser gate application exited unsuccessfully.'
+        }
+        if ($accessibilityMode) {
+            try {
+                $narratorEtwResult = Stop-FinAuditNarratorEtw $narratorEtwState -Validate
+            }
+            finally {
+                $narratorEtwState = $null
+            }
+        }
     }
     finally {
-        Pop-Location
-    }
-    if ($browserExitCode -ne 0) {
-        throw 'The browser gate application exited unsuccessfully.'
+        if ($null -ne $narratorEtwState) {
+            try {
+                [void](Stop-FinAuditNarratorEtw $narratorEtwState)
+            }
+            finally {
+                $narratorEtwState = $null
+            }
+        }
     }
 }
 finally {
@@ -505,7 +605,14 @@ finally {
     }
 }
 
-if ($supplementaryMode) {
+if ($accessibilityMode) {
+    Write-Output "POSTGRESQL_IMAGE_ID=$postgresImageId"
+    Write-Output "NARRATOR_FILE_VERSION=$($narratorEtwResult.NarratorFileVersion)"
+    Write-Output "NARRATOR_EVENT_COUNTS=$($narratorEtwResult.EventCounts | ConvertTo-Json -Compress)"
+    Write-Output 'EDGE_NARRATOR_SCREEN_READER_GATE=PASS'
+    Write-Output 'ACCESSIBILITY_BROWSER_GATE=PASS'
+}
+elseif ($supplementaryMode) {
     Write-Output "POSTGRESQL_IMAGE_ID=$postgresImageId"
     Write-Output 'SUPPLEMENTARY_AGREEMENT_BROWSER_GATE=PASS'
 }
@@ -517,6 +624,10 @@ elseif ($documentCorrectionMode) {
     Write-Output "POSTGRESQL_IMAGE_ID=$postgresImageId"
     Write-Output "REDIS_IMAGE_ID=$redisImageId"
     Write-Output 'DOCUMENT_CORRECTION_BROWSER_GATE=PASS'
+}
+elseif ($policyRevocationMode) {
+    Write-Output "POSTGRESQL_IMAGE_ID=$postgresImageId"
+    Write-Output 'POLICY_REVOCATION_BROWSER_GATE=PASS'
 }
 elseif ($financialLoopMode) {
     Write-Output "POSTGRESQL_IMAGE_ID=$postgresImageId"

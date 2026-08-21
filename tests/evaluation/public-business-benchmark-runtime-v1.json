@@ -1,0 +1,679 @@
+{
+  "acceptance_boundary": {
+    "is_customer_business_representative_dataset": false,
+    "is_formal_ac_acceptance": false,
+    "is_human_uat": false,
+    "is_public_cross_domain_technical_measurement": true,
+    "may_claim_contract_85_passed": false,
+    "may_claim_invoice_95_passed": false,
+    "may_mark_ac_accepted": false
+  },
+  "chinese_complex_forms": {
+    "annotation_quality": {
+      "documents_with_key_value_links": 50,
+      "entity_count": 3629,
+      "image_height_range": [
+        2480,
+        3508
+      ],
+      "image_width_range": [
+        2480,
+        3508
+      ],
+      "label_counts": {
+        "answer": 1732,
+        "header": 58,
+        "other": 586,
+        "question": 1253
+      }
+    },
+    "current_profile_runtime": {
+      "failure_code_counts": {
+        "OCR_NOT_CONFIGURED": 50
+      },
+      "quality_status": "FAILED_OCR_NOT_CONFIGURED",
+      "sample_count": 50,
+      "valid_output_count": 0
+    },
+    "source": {
+      "annotation_bytes": 1711142,
+      "annotation_sha256": "B11140881255916A16670EA5006295D0185B8376287AA4AA76AE4E1107F61E3D",
+      "dataset_id": "xfund-v1-zh-validation",
+      "document_count": 50,
+      "document_language": "Chinese",
+      "image_extension_counts": {
+        ".jpg": 50
+      },
+      "image_package_bytes": 69217820,
+      "image_package_sha256": "A30E6E5C274EA8236C9B00C46AB96D59829A5BCD08BAEE966FA433028B644456",
+      "license": "CC-BY-NC-SA-4.0",
+      "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+      "primary_url": "https://github.com/doc-analysis/XFUND/releases/tag/v1.0",
+      "publisher": "Microsoft Research / doc-analysis"
+    }
+  },
+  "chinese_government_contracts": {
+    "annotation_quality": {
+      "direct_schema_coverage_count": 9,
+      "directly_annotated_field_codes": [
+        "amount",
+        "contract_no",
+        "currency",
+        "effective_date",
+        "expiry_date",
+        "name",
+        "party_a_name",
+        "party_b_name",
+        "signed_date"
+      ],
+      "expected_direct_field_count": 90,
+      "frozen_field_count": 13,
+      "gold_values_persisted": false,
+      "official_structured_page_count": 10
+    },
+    "cases": [
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 0,
+        "case_id": "91874",
+        "expected_direct_field_count": 9,
+        "expected_values_sha256": "51A3C56055850A0BF5CEBAA99420CC8639A0107CC0AE07A6335D6F6FD49D4582",
+        "html_sha256": "FBC5F6889C264596FBC895794DE307FA24E336D7C02E4A8C832446094E0F9AA8",
+        "matched_direct_field_count": 0,
+        "matched_field_codes": [],
+        "page_count": 42,
+        "page_url": "https://ggzy.haikou.gov.cn/gonggao/91874",
+        "pdf_sha256": "5442978E86A15F67927D62DDA9CC826CC9306F6ECCEE7F9F10D6FB4FA81749BE",
+        "pdf_url_sha256": "C9BBD15323FD1B210FF20D9AA91E821D79539D7BFB041177447EB96503AA41BE",
+        "product_parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "product_parser_status": "failed",
+        "source_type": null
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 0,
+        "case_id": "92193",
+        "expected_direct_field_count": 9,
+        "expected_values_sha256": "EE74B901C89CE504A99D5F98E66A587E4DE98CD415EEF8CC786551AA1B788A44",
+        "html_sha256": "08B7E3793DABC7283358EFF53F81FCB12BD670F88536EC95BD05C1A657FCCB43",
+        "matched_direct_field_count": 0,
+        "matched_field_codes": [],
+        "page_count": 38,
+        "page_url": "https://ggzy.haikou.gov.cn/gonggao/92193",
+        "pdf_sha256": "3DD852D852FA4DC5E23693315EC4D0B4492D62B97CB8B7F059BDF9FFAB1693AC",
+        "pdf_url_sha256": "8290A9AD433B119CA3DEC2CDD5D60E60AE1E2540548F43F7F9B40750C334323D",
+        "product_parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "product_parser_status": "failed",
+        "source_type": null
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 0,
+        "case_id": "92562",
+        "expected_direct_field_count": 9,
+        "expected_values_sha256": "D21A9A426D4DA2958D09A3E1346726776CB3E3B1BFF352BE9A352E31D85E3BCE",
+        "html_sha256": "3B9F90B6464700471A7B3D54FF9FC3997E21752B9BB58403CD586261950FAC87",
+        "matched_direct_field_count": 0,
+        "matched_field_codes": [],
+        "page_count": 6,
+        "page_url": "https://ggzy.haikou.gov.cn/gonggao/92562",
+        "pdf_sha256": "4A4D7EA634E6A6F12E827E8F2B26569A29134F77453034F858629F0E68CDD1E7",
+        "pdf_url_sha256": "AC8BB60D71D46E2B31C3911C3C1D809A4BA5B0E882E9691C89DDD580FADFF",
+        "product_parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "product_parser_status": "failed",
+        "source_type": null
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 0,
+        "case_id": "93311",
+        "expected_direct_field_count": 9,
+        "expected_values_sha256": "F5A00F79D8C394087AF87A8C8CEA65ED927C663F05D895D628335C2245B2AC82",
+        "html_sha256": "6A745055792435592E101508E0A691B2E089354F0245CEEC3A9CB484E029F6E0",
+        "matched_direct_field_count": 0,
+        "matched_field_codes": [],
+        "page_count": 7,
+        "page_url": "https://ggzy.haikou.gov.cn/gonggao/93311",
+        "pdf_sha256": "E4676E066C72E4557AE5E215412660BAC833F66A20D58474A96B51A0DBF116BE",
+        "pdf_url_sha256": "999008547528013CC59A84D2F5E2D52F2056BE77C5AC5AB0C92BC29CBC5A0647",
+        "product_parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "product_parser_status": "failed",
+        "source_type": null
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 0,
+        "case_id": "93389",
+        "expected_direct_field_count": 9,
+        "expected_values_sha256": "E71E9D9ED1C974180A665683965C7349DA437AD2E4572817AD09F74F143E7098",
+        "html_sha256": "064187A66991DDAEBBEF0DBD97FE8EF3C0399EBAC38F107A82A16FE86A0ACDBA",
+        "matched_direct_field_count": 0,
+        "matched_field_codes": [],
+        "page_count": 7,
+        "page_url": "https://ggzy.haikou.gov.cn/gonggao/93389",
+        "pdf_sha256": "8FACC46B652EDF7C73B5A9ECAC456C88D9DD909C194FEA816E0C98EE0AAC07C8",
+        "pdf_url_sha256": "E9768B129908D5A546EF837EA918F5E68505986538D571BA921F4ACDE8003CB5",
+        "product_parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "product_parser_status": "failed",
+        "source_type": null
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 0,
+        "case_id": "93691",
+        "expected_direct_field_count": 9,
+        "expected_values_sha256": "3C821F159C01C41A3C03450CDDEC04A8FB30D1A36F012094544F25EE05D189B2",
+        "html_sha256": "FF83EEB33B176C24DA2D746026FE90109A23FE25E867AEB4E8F0CDD6CA194DEC",
+        "matched_direct_field_count": 0,
+        "matched_field_codes": [],
+        "page_count": 10,
+        "page_url": "https://ggzy.haikou.gov.cn/gonggao/93691",
+        "pdf_sha256": "E27201321109988FFA5BF9A94EDBB7BB6423E9329AB6B234E913F59C04132DB1",
+        "pdf_url_sha256": "03D5E548E0ECF5757400752C16CA038C08B827E5E51E29FBA138C84D26C2A9B9",
+        "product_parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "product_parser_status": "failed",
+        "source_type": null
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 0,
+        "case_id": "93704",
+        "expected_direct_field_count": 9,
+        "expected_values_sha256": "EE783FEB0D81CA2A8612228021EA886C15873FD3133C2C9B7166C8AD1B8E521D",
+        "html_sha256": "CFFA5A55A420F82E99BEBA0807219572995A9B2EBC0F2BDD16F0F478B0D8F3F9",
+        "matched_direct_field_count": 0,
+        "matched_field_codes": [],
+        "page_count": 9,
+        "page_url": "https://ggzy.haikou.gov.cn/gonggao/93704",
+        "pdf_sha256": "C665D9F9C530677192DCA5AA0F6108EE1F66D4ADB912CB6706F9075C14E12FCF",
+        "pdf_url_sha256": "5DD3F2897A78B787DD1235CE81D99705628CDC231FADD6E93E61C4736ACA8E0F",
+        "product_parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "product_parser_status": "failed",
+        "source_type": null
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 0,
+        "case_id": "93884",
+        "expected_direct_field_count": 9,
+        "expected_values_sha256": "05322F5A528FFCA6217D34ADE6B893B8CA7D5D826B29A0B9007EB3605679BCD9",
+        "html_sha256": "C3D86EAE2DA2225D34499162210F9815629A62A94AC329D9F060D3D2A6943088",
+        "matched_direct_field_count": 0,
+        "matched_field_codes": [],
+        "page_count": 51,
+        "page_url": "https://ggzy.haikou.gov.cn/gonggao/93884",
+        "pdf_sha256": "77E22BAC876C5A289D3A79B351F179A12466B6AAA248DBD359BE63BE38C6A5D1",
+        "pdf_url_sha256": "D8B6EC2E9BD98D45A6F2F6EBA4DC08BB60C07D8CE252D654090505777C4BCEED",
+        "product_parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "product_parser_status": "failed",
+        "source_type": null
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 0,
+        "case_id": "94358",
+        "expected_direct_field_count": 9,
+        "expected_values_sha256": "BE7F953F4FFD0E2DC672C13B7E8269ACE8343CBECB52B979E9431DEA3CF9AE88",
+        "html_sha256": "95B7ED04DEDB2477A5B59F291FF4F50A496C36A86A83B7E0C831CDA7238E0E25",
+        "matched_direct_field_count": 0,
+        "matched_field_codes": [],
+        "page_count": 18,
+        "page_url": "https://ggzy.haikou.gov.cn/gonggao/94358",
+        "pdf_sha256": "5F5C482829EB6CAFBC2CB916D17FF4A1B37CF8AA344A903755591C0BFC32A7C0",
+        "pdf_url_sha256": "D3C2676AFA7C9894BCA7C10A77437E510295E6378D8F646B28151689DB45542A",
+        "product_parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "product_parser_status": "failed",
+        "source_type": null
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 0,
+        "case_id": "94568",
+        "expected_direct_field_count": 9,
+        "expected_values_sha256": "A506222D01559880F835B02421958942667205A95209013DBB392567E0E1A2AA",
+        "html_sha256": "626C3CFDCB54DCF8213D64F56FC792CD5B46156B3E99D9A5F6EEB0D7B0FEBF67",
+        "matched_direct_field_count": 0,
+        "matched_field_codes": [],
+        "page_count": 8,
+        "page_url": "https://ggzy.haikou.gov.cn/gonggao/94568",
+        "pdf_sha256": "58183D9A8EEBFDA5320F3F12372832E8970F3751132514D256C4A1D4471672B6",
+        "pdf_url_sha256": "036C5C0D553E286B535552D220DFD184BFC13DF0147CAF91EF551AF83B2F8BB4",
+        "product_parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "product_parser_status": "failed",
+        "source_type": null
+      }
+    ],
+    "current_profile_runtime": {
+      "actual_non_null_frozen_field_count": 0,
+      "direct_field_accuracy": "0.000000",
+      "expected_direct_field_count": 90,
+      "formal_13_field_gate_status": "NOT_COMPUTABLE_INSUFFICIENT_SOURCE_FIELD_COVERAGE",
+      "matched_direct_field_count": 0,
+      "max_page_count": 51,
+      "min_page_count": 6,
+      "parser": "DocumentParser+NotConfiguredOcrEngine",
+      "parser_fail_count": 10,
+      "parser_outcome_counts": {
+        "PDF_OCR_RENDERER_NOT_CONFIGURED": 10
+      },
+      "parser_pass_count": 0,
+      "threshold": "0.850000",
+      "threshold_status": "FAILED",
+      "total_page_count": 196
+    },
+    "selection": {
+      "case_count": 10,
+      "case_ids_sha256": "1EB3670BE897544EC4E587AC207EE342CF1C12F3AD2844827CA0E25B8AB3F69C",
+      "method": "ten_official_structured_announcements_with_original_pdf_attachments"
+    },
+    "source": {
+      "case_count": 10,
+      "dataset_id": "haikou-government-procurement-contracts-v1",
+      "document_language": "Chinese",
+      "explicit_open_data_license": false,
+      "html_total_bytes": 739973,
+      "local_evaluation_only": true,
+      "pdf_total_bytes": 72068511,
+      "primary_url": "https://ggzy.haikou.gov.cn/",
+      "public_disclosure": true,
+      "publisher": "海口市公共资源交易中心",
+      "raw_redistribution_authorized": false
+    }
+  },
+  "classification": "public_open_data_with_untracked_raw_documents",
+  "complex_multi_format": {
+    "annotation_formats_present": [
+      "JSON"
+    ],
+    "chinese_form_image_status": "FAILED_OCR_NOT_CONFIGURED",
+    "contract_pdf_page_range": [
+      6,
+      82
+    ],
+    "contract_pdf_parser_status": "PARTIAL",
+    "digital_english_contract_pdf_status": "PASSED",
+    "document_formats_present": [
+      "PDF",
+      "JPEG"
+    ],
+    "invoice_image_status": "FAILED_OCR_NOT_CONFIGURED",
+    "native_docx_public_case_count": 0,
+    "quality_status": "PARTIAL_PDF_PASS_IMAGE_OCR_DISABLED_DOCX_NOT_COVERED",
+    "scanned_chinese_contract_pdf_status": "FAILED_OCR_NOT_CONFIGURED"
+  },
+  "contract": {
+    "cases": [
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 214,
+        "case_id": "case-01",
+        "category": "Consulting Agreements",
+        "expected_direct_field_count": 4,
+        "expected_values_sha256": "0F300856E1F105D7F444190BA27BC8BE63A99E0F68C5A69AA416AF047220B023",
+        "matched_direct_field_count": 0,
+        "page_count": 8,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "23FF9603930C5F3A1F454CA455C82AF51C9684CC0A86D6A4DE17E92E9DD8253A",
+        "source_pdf_sha256": "DA9A74DE24E274A3E0D915DD43CAC84D733D90181EF4655848AD1FBC67390AEA",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 1501,
+        "case_id": "case-02",
+        "category": "Development",
+        "expected_direct_field_count": 4,
+        "expected_values_sha256": "1719F6671E3FCBFCDC22BA7EE01095EEABA5D612CBCC0D475D9C09B4FDC74C8A",
+        "matched_direct_field_count": 0,
+        "page_count": 48,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "F59475BD1FB7DF262FA12D52A341CC9BDE195821267F58584453053CFD7D846E",
+        "source_pdf_sha256": "538DD56AE45DF2C3BFA7176AF8F76F0C561CA83B996BFD00DB190D44D31C0D9E",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 1497,
+        "case_id": "case-03",
+        "category": "Franchise",
+        "expected_direct_field_count": 4,
+        "expected_values_sha256": "F20F378417AB8A0B8F432B0400CB8387045644731D61E1FD2C8D7860062376C0",
+        "matched_direct_field_count": 0,
+        "page_count": 47,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "8E601FBBC13B2D3C89E8029AB1F59D6C07419D926B3CD984F0D41F41C9AE0C40",
+        "source_pdf_sha256": "FABE82FF8946649D5AD789D0EC3028EFDCAFE1F57E3E503ABD0E3067A246DFA0",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 821,
+        "case_id": "case-04",
+        "category": "IP",
+        "expected_direct_field_count": 4,
+        "expected_values_sha256": "969E2A326A0A321D24142A073663B827A81EEB355270670341C3728CF42F24D6",
+        "matched_direct_field_count": 0,
+        "page_count": 40,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "ECB15D04210D6919BCCC4FDB7F98D69F9ADDE867DC73CE6B27BAF10704B89F65",
+        "source_pdf_sha256": "23756D11A458640E4183B8B52F63DDFB2DEE8E0EEF071365A275E9374C88C4B8",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 1188,
+        "case_id": "case-05",
+        "category": "License_Agreements",
+        "expected_direct_field_count": 4,
+        "expected_values_sha256": "A09DA93A52D647A92AC6B19E5231F58273D5275F82AF00CC13DD6F987692AA69",
+        "matched_direct_field_count": 0,
+        "page_count": 45,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "3282FB0A8450D3FA590EC2ECC47EEF08501BF0A1B9CD8E55117B9261E2A4BB65",
+        "source_pdf_sha256": "48EBF5D163F8412D8CD20BFC9AA39DE5AE0EDE22DFFA0337207B5E1EA30A43A9",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 2215,
+        "case_id": "case-06",
+        "category": "Manufacturing",
+        "expected_direct_field_count": 4,
+        "expected_values_sha256": "17B2614034B3761B43E0404BE2EBD7E9260475617640518782D34D4FE63B84F2",
+        "matched_direct_field_count": 0,
+        "page_count": 82,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "C2B5AA3EBDF577080D4DA903FECB67F1D44BC3E1267F5D3C843CD46B38C4A170",
+        "source_pdf_sha256": "893909BF198D75E1B608756B10EEA3B698B42CC0D5DE30D984F0DA48E797ECBB",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 236,
+        "case_id": "case-07",
+        "category": "Non_Compete_Non_Solicit",
+        "expected_direct_field_count": 3,
+        "expected_values_sha256": "D5A883A4DEFB000695A3DA1CDE06982F2A903D9206B23F10AE192C1DD47D8652",
+        "matched_direct_field_count": 0,
+        "page_count": 13,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "1001B5D0BA75E6EB2EC01288DE25C51CFEBFE970440A3866FA6ADADD4C416110",
+        "source_pdf_sha256": "AEB564E913C8B9FD9C966A00101DB41F4D4D9C9EAE12B08A3F4D3B67CDE8F393",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 190,
+        "case_id": "case-08",
+        "category": "Service",
+        "expected_direct_field_count": 4,
+        "expected_values_sha256": "92C382B174702AD2F92B2E8F8FDE9FE565677C45109F6CC924907A73D9B349EA",
+        "matched_direct_field_count": 0,
+        "page_count": 10,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "B40EB46FBDAC7153B17EE69014FAF94AE180CC9E80F0670D0AA666281773FE4B",
+        "source_pdf_sha256": "0F577FA1F2EA5E063986ACA8875AFD9EAB79BAD38BEE836C23911864F51E375C",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 1145,
+        "case_id": "case-09",
+        "category": "Supply",
+        "expected_direct_field_count": 4,
+        "expected_values_sha256": "1A85488FFF9D3548B183CDD4122747C0EB0CEA299373EFCCC3ABD8357E608DB7",
+        "matched_direct_field_count": 0,
+        "page_count": 43,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "CAE21E06D669276B6401B5114312E43375C17D3A60DB1A438CFA0FE8BB9C63DA",
+        "source_pdf_sha256": "020D229861103C9005F5D42D6FE452CFEA26B19F09767411769ACDE1703167DF",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 767,
+        "case_id": "case-10",
+        "category": "Transportation",
+        "expected_direct_field_count": 4,
+        "expected_values_sha256": "3F72A9DFC7748CDAB0A608B509FFDBE676A2D9615BDA5FCE90B0CECB86A69EAE",
+        "matched_direct_field_count": 0,
+        "page_count": 11,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "8EE8C5135BA0B62EEF06206BEFB71615763E332047E9C7664BD733E338308057",
+        "source_pdf_sha256": "9A043F22F7F177B9EAC551A14FBF41E540D7E94B4404D1B902E8C881024D3776",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 1909,
+        "case_id": "case-11",
+        "category": "Distributor",
+        "expected_direct_field_count": 4,
+        "expected_values_sha256": "8DD67584DD1F13E3EEACCCBAC4777FA0AD89D8FF2657DADEFBD6188E95AFB114",
+        "matched_direct_field_count": 0,
+        "page_count": 68,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "6A15D37A7C2766C55CF70FCE36A24AFD23E2783B4822AAFB6DEF70676124F7CA",
+        "source_pdf_sha256": "851E4E747A64D82C3C4AB64AFE2C7956FD260B815AF7818694D89015F6E0D41E",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_frozen_field_count": 0,
+        "block_count": 5005,
+        "case_id": "case-12",
+        "category": "Outsourcing",
+        "expected_direct_field_count": 4,
+        "expected_values_sha256": "9009D3A57AD0D6D2F5F8DB07FE2789A6D4E0D0A79D74EEEAFF1E70025377F4DD",
+        "matched_direct_field_count": 0,
+        "page_count": 75,
+        "product_parser_failure_code": null,
+        "product_parser_status": "passed",
+        "source_path_sha256": "31A75BDDAE0936F9FC92EEEA97DA0FA3350A5438EC86B0A5905F38463FCBCCB0",
+        "source_pdf_sha256": "7A0A768F0B7EB776E48ABBD8CEAE001C0C90B879983907FC8499C33CD67425F4",
+        "source_type": "parser"
+      }
+    ],
+    "current_profile_runtime": {
+      "actual_non_null_frozen_field_count": 0,
+      "direct_field_accuracy": "0.000000",
+      "direct_schema_coverage_count": 4,
+      "directly_annotated_field_codes": [
+        "effective_date",
+        "expiry_date",
+        "name",
+        "signed_date"
+      ],
+      "expected_direct_field_count": 47,
+      "formal_13_field_gate_status": "NOT_COMPUTABLE_INSUFFICIENT_SOURCE_FIELD_COVERAGE",
+      "frozen_field_count": 13,
+      "matched_direct_field_count": 0,
+      "max_page_count": 82,
+      "min_page_count": 8,
+      "parser": "DocumentParser+NotConfiguredOcrEngine",
+      "parser_fail_count": 0,
+      "parser_outcome_counts": {
+        "PASSED": 12
+      },
+      "parser_pass_count": 12,
+      "threshold": "0.850000",
+      "threshold_status": "FAILED",
+      "total_page_count": 490
+    },
+    "selection": {
+      "case_count": 12,
+      "case_ids_sha256": "FEAE93D616CD38B40A8BDE5C0637A9819222614AF9B127E9BF655EA59EAF8FF3",
+      "category_count": 12,
+      "method": "one_high-core-coverage_document_per_12_contract_categories"
+    },
+    "source": {
+      "answerable_annotation_count": 6702,
+      "dataset_id": "cuad-v1",
+      "document_count": 510,
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "package_bytes": 18309308,
+      "package_git_blob_sha1": "1AE94FF0A9B70B2E3B9B8D215737C8BFAE460DDC",
+      "primary_url": "https://www.atticusprojectai.org/cuad/",
+      "publisher": "The Atticus Project",
+      "qa_annotation_count": 20910,
+      "source_revision": "a3c393f5d103fd0c516374e4fdff676c8176dcb1"
+    }
+  },
+  "contract_source_coverage": {
+    "combined_direct_field_codes": [
+      "amount",
+      "contract_no",
+      "currency",
+      "effective_date",
+      "expiry_date",
+      "name",
+      "party_a_name",
+      "party_b_name",
+      "signed_date"
+    ],
+    "combined_direct_schema_coverage_count": 9,
+    "formal_gate_status": "NOT_COMPUTABLE_INSUFFICIENT_SOURCE_FIELD_COVERAGE",
+    "frozen_field_count": 13
+  },
+  "environment_scope": [
+    "local",
+    "test"
+  ],
+  "invoice": {
+    "annotation_quality": {
+      "direct_field_mapping": {
+        "company": "seller_name",
+        "date": "invoice_date",
+        "invoice_number": "invoice_number",
+        "iva_amount": "tax_amount",
+        "nif_buyer": "buyer_tax_no",
+        "nif_seller": "seller_tax_no",
+        "total": "total_amount"
+      },
+      "direct_schema_coverage_count": 7,
+      "field_nonblank_counts": {
+        "address": 771,
+        "company": 755,
+        "date": 802,
+        "invoice_number": 793,
+        "iva_amount": 703,
+        "nif_buyer": 696,
+        "nif_seller": 763,
+        "total": 812
+      },
+      "frozen_field_count": 13,
+      "image_annotation_binding_count": 813,
+      "invalid_json_count": 0
+    },
+    "current_profile_runtime": {
+      "direct_field_accuracy": "0.000000",
+      "expected_nonblank_direct_field_count": 350,
+      "failure_code_counts": {
+        "OCR_NOT_CONFIGURED": 50
+      },
+      "formal_13_field_gate_status": "NOT_COMPUTABLE_INSUFFICIENT_SOURCE_FIELD_COVERAGE",
+      "matched_direct_field_count": 0,
+      "sample_count": 50,
+      "sample_ids_sha256": "B7CAB3348B64A29CE7B0A8C6C0D396C39BD10952FCBEC8E21D021BFFF8796358",
+      "threshold": "0.950000",
+      "threshold_status": "FAILED",
+      "valid_output_count": 0
+    },
+    "duplicate_ground_truth": {
+      "duplicate_identity_document_count": 117,
+      "duplicate_identity_group_count": 55,
+      "max_duplicate_group_size": 4,
+      "metric_status": "NOT_COMPUTABLE_SOURCE_LACKS_INVOICE_CODE",
+      "product_complete_identity_count": 0,
+      "product_identity_fields": [
+        "invoice_code",
+        "invoice_number",
+        "seller_tax_no"
+      ],
+      "source_complete_distinct_identity_count": 689,
+      "source_identity_fields": [
+        "nif_seller",
+        "invoice_number"
+      ]
+    },
+    "source": {
+      "annotation_package_bytes": 290214,
+      "annotation_package_md5": "941DEEC66609F158CFD7CE5ADD75A17B",
+      "dataset_id": "zenodo-6371710",
+      "document_count": 813,
+      "document_language": "Portuguese",
+      "image_extension_counts": {
+        ".jpg": 813
+      },
+      "image_package_bytes": 410222137,
+      "image_package_md5": "5109286806B96DB32DA7D6206051EE61",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "primary_url": "https://zenodo.org/records/6371710",
+      "publisher": "NOVA Information Management School authors"
+    }
+  },
+  "privacy_and_storage": {
+    "business_identifiers_persisted_in_evidence": false,
+    "raw_annotation_values_persisted_in_evidence": false,
+    "raw_data_git_ignored": true,
+    "raw_data_path": "data/public-benchmark/",
+    "raw_documents_tracked": false,
+    "raw_value_cross_check_candidate_count": 4442,
+    "raw_value_cross_check_generic_metadata_coincidence_count": 2,
+    "raw_value_cross_check_persisted_match_count": 0,
+    "tracked_output_contains_only_counts_hashes_and_status": true
+  },
+  "quality_gate_summary": {
+    "complex_multi_format": "PARTIAL",
+    "contract_85": "FAILED_CURRENT_PROFILE_AND_INSUFFICIENT_13_FIELD_COVERAGE",
+    "duplicate_invoice": "NOT_COMPUTABLE_SOURCE_LACKS_PRODUCT_IDENTITY_TRIPLE",
+    "invoice_95": "FAILED_CURRENT_PROFILE_AND_INSUFFICIENT_13_FIELD_COVERAGE",
+    "overall_status": "MEASURED_FAILED",
+    "risk_rules": "NOT_COMPUTABLE_NO_MATCHING_INDEPENDENT_LABELS"
+  },
+  "risk_rule_ground_truth": {
+    "builtin_rule_count": 15,
+    "cuad_legal_clause_labels_are_not_builtin_financial_rule_labels": true,
+    "independent_matching_label_count": 0,
+    "invoice_source_has_fields_but_no_independent_rule_dispositions": true,
+    "metric_status": "NOT_COMPUTABLE_NO_INDEPENDENT_MATCHING_GROUND_TRUTH"
+  },
+  "schema_version": "public-business-benchmark-runtime-v1",
+  "selection_authority": {
+    "approval_ref": null,
+    "approval_ref_provided": false,
+    "human_review_claimed": false,
+    "owner_instruction_scope": "agent_selects_public_sources_for_local_technical_measurement",
+    "owner_instruction_sha256": "F49A3B7877EB6290454114832BA89A563C081541A6185A9E36A0A67B8B1A2CE2"
+  },
+  "source_binding": [
+    {
+      "bytes": 47542,
+      "path": "scripts/verify_public_business_benchmark.py",
+      "sha256": "E7371E516FB9173A0E089F4AB3D18A218330FD353CC5B5F7937964B4F7ECE274"
+    },
+    {
+      "bytes": 15710,
+      "path": "backend/app/services/document_parser.py",
+      "sha256": "0D55919802C811F592799D045CD39E18705065040DF3B4FC0C8E894900A98E4D"
+    },
+    {
+      "bytes": 7704,
+      "path": "backend/app/services/contract_extractor.py",
+      "sha256": "22731F922C369BEF6130434F45A846C7011F8DB20064702A16C688D17F1224B7"
+    }
+  ],
+  "source_qualification_status": "PASSED"
+}

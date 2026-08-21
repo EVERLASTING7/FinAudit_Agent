@@ -28,8 +28,10 @@ if ($postgresImageIds.Count -ne 1) {
 
 $evidencePath = Join-Path $projectRoot 'tests\evaluation\local-invoice-duplicate-browser-v1.json'
 $evidence = Get-Content -Raw -LiteralPath $evidencePath | ConvertFrom-Json
+$evidence.browser.surface = 'google_chrome_cdp'
 $sourcePaths = [ordered]@{
     runner = 'backend\tests\manual_financial_read_browser.py'
+    browser_runner = 'scripts\run-browser-gate.cjs'
     shared_wrapper = 'scripts\verify-report-browser-gate.ps1'
     entry_wrapper = 'scripts\verify-invoice-duplicate-browser-gate.ps1'
     frontend_view = 'frontend\src\views\InvoiceDetailView.vue'

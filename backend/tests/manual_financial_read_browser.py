@@ -42,7 +42,7 @@ from app.models.audit import AuditReport, AuditTask, AuditTaskExecution, AuditTa
 from app.models.auth import Organization, Role, User, UserRole
 from app.models.corrections import UserCorrection
 from app.models.document_processing import DocumentBlock, DocumentParseVersion
-from app.models.documents import FilePrimaryBusinessObject, FileRecord
+from app.models.documents import FilePrimaryBusinessObject, FileRecord, KnowledgeBase
 from app.models.financial import (
     Contract,
     ContractInvoice,
@@ -51,7 +51,12 @@ from app.models.financial import (
     SupplementaryAgreementChange,
     Supplier,
 )
-from app.models.knowledge import DocumentBlockCorrection, DocumentMarkdownVersion
+from app.models.knowledge import (
+    DocumentBlockCorrection,
+    DocumentMarkdownVersion,
+    PolicyApprovalRecord,
+    PolicyDocument,
+)
 from app.models.operations import OperationLog
 from app.models.reliability import (
     JOB_LEASE_POLICY_HASH,
@@ -91,6 +96,7 @@ from app.services.invoice_primary_contract_query import (
     InvoicePrimaryContractQueryService,
 )
 from app.services.invoice_query import InvoiceQueryService
+from app.services.policy_management import PolicyManagementService
 from app.services.report_job_executor import ReportJobExecutor
 from app.services.report_management import ReportManagementService
 from app.services.supplementary_agreement_management import (
@@ -140,13 +146,20 @@ _FINANCIAL_LOOP_GATE_TOKEN = "RUN_DISPOSABLE_FINANCIAL_LOOP_BROWSER_V1"
 _SUPPLEMENTARY_GATE_TOKEN = "RUN_DISPOSABLE_SUPPLEMENTARY_AGREEMENT_BROWSER_V1"
 _INVOICE_DUPLICATE_GATE_TOKEN = "RUN_DISPOSABLE_INVOICE_DUPLICATE_BROWSER_V1"
 _DOCUMENT_CORRECTION_GATE_TOKEN = "RUN_DISPOSABLE_DOCUMENT_CORRECTION_BROWSER_V1"
+_POLICY_REVOCATION_GATE_TOKEN = "RUN_DISPOSABLE_POLICY_REVOCATION_BROWSER_V1"
 _AUTH_KID = "browser-gate-auth-v1"
 _SHUTDOWN_TOKEN = "STOP_DISPOSABLE_BROWSER_GATE_V1"
+_REPORT_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_REPORT_BROWSER_V1"
 _FILE_CAPABILITIES_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_FILE_CAPABILITIES_BROWSER_V1"
 _FINANCIAL_LOOP_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_FINANCIAL_LOOP_BROWSER_V1"
 _SUPPLEMENTARY_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_SUPPLEMENTARY_AGREEMENT_BROWSER_V1"
 _INVOICE_DUPLICATE_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_INVOICE_DUPLICATE_BROWSER_V1"
 _DOCUMENT_CORRECTION_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_DOCUMENT_CORRECTION_BROWSER_V1"
+_POLICY_REVOCATION_COMPLETE_TOKEN = "COMPLETE_DISPOSABLE_POLICY_REVOCATION_BROWSER_V1"
+_ACCESSIBILITY_GATE_TOKEN = "RUN_DISPOSABLE_ACCESSIBILITY_BROWSER_V1"
+_ACCESSIBILITY_SUPPLIER_ID = UUID("7e000000-0000-4000-8000-000000000001")
+_ACCESSIBILITY_KNOWLEDGE_BASE_ID = UUID("7e000000-0000-4000-8000-000000000002")
+_ACCESSIBILITY_FILE_JOB_ID = UUID("7e000000-0000-4000-8000-000000000003")
 _SUPPLEMENTARY_FILE_ID = UUID("7c000000-0000-4000-8000-000000000001")
 _SUPPLEMENTARY_BINDING_ID = UUID("7c000000-0000-4000-8000-000000000002")
 _SUPPLEMENTARY_CONTRACT_FILE_ID = UUID("7c000000-0000-4000-8000-000000000003")
@@ -159,6 +172,15 @@ _SUPPLEMENTARY_REJECT_CHANGE_ID = UUID("7c000000-0000-4000-8000-000000000006")
 _SUPPLEMENTARY_REJECT_REASON = "浏览器复核后拒绝补充协议"
 _DOCUMENT_CORRECTION_TEXT = "浏览器纠错后的补充协议证据文本"
 _DOCUMENT_CORRECTION_REASON = "浏览器人工复核纠错"
+_POLICY_REVOCATION_KB_ID = UUID("7d000000-0000-4000-8000-000000000001")
+_POLICY_REVOCATION_FILE_ID = UUID("7d000000-0000-4000-8000-000000000002")
+_POLICY_REVOCATION_BINDING_ID = UUID("7d000000-0000-4000-8000-000000000003")
+_POLICY_REVOCATION_POLICY_ID = UUID("7d000000-0000-4000-8000-000000000004")
+_POLICY_REVOCATION_REQUEST_REASON = "浏览器审计复核提交撤销确认"
+_POLICY_REVOCATION_EXECUTION_REASON = "浏览器系统管理员执行独立撤销"
+_POLICY_REVOCATION_SUBMITTER_ID = UUID("7b000000-0000-4000-8000-000000000009")
+_POLICY_REVOCATION_SUBMITTER_ROLE_ID = UUID("7b000000-0000-4000-8000-000000000010")
+_POLICY_REVOCATION_REQUESTER_ID = UUID("7b000000-0000-4000-8000-000000000003")
 _SUPPLEMENTARY_CONTRACT_ACTOR_ID = UUID("7b000000-0000-4000-8000-000000000005")
 _ROLE_MATRIX_PASSWORD = "Synthetic-Role-Matrix-2026!"
 _ROLE_MATRIX_USERS = (
@@ -389,6 +411,94 @@ def _prepare_report_financial_facts(engine: Engine) -> None:
         organization.tax_number = invoice.buyer_tax_no
 
 
+def _seed_accessibility_facts(factory: sessionmaker[Session]) -> None:
+    with factory.begin() as session:
+        now = AuthRepository(session).database_now()
+        session.add_all(
+            [
+                Supplier(
+                    id=_ACCESSIBILITY_SUPPLIER_ID,
+                    organization_id=ORGANIZATION_ID,
+                    standard_name="Synthetic accessibility supplier",
+                    unified_social_credit_code="SYNTHACCESSIBILITY01",
+                    tax_number="SYNTHACCESSIBILITY01",
+                    source_type="manual",
+                    source_contract_id=None,
+                    source_invoice_id=None,
+                    confirmation_status="confirmed",
+                    status="active",
+                    confirmed_by=USER_ID,
+                    confirmed_at=now,
+                    created_by=USER_ID,
+                    updated_by=USER_ID,
+                ),
+                KnowledgeBase(
+                    id=_ACCESSIBILITY_KNOWLEDGE_BASE_ID,
+                    organization_id=ORGANIZATION_ID,
+                    code="ACCESSIBILITY-BROWSER-001",
+                    name="可访问性浏览器验收知识库",
+                    description="只用于可丢弃本地路由与屏幕阅读器验证。",
+                    status="active",
+                    default_top_k=5,
+                    default_score_threshold=None,
+                    created_by=USER_ID,
+                    updated_by=USER_ID,
+                ),
+                AsyncJob(
+                    id=_ACCESSIBILITY_FILE_JOB_ID,
+                    organization_id=ORGANIZATION_ID,
+                    job_type="file_process",
+                    resource_type="file",
+                    resource_id=FILE_ID,
+                    status="queued",
+                    stage=None,
+                    attempt_no=0,
+                    max_attempts=1,
+                    current_attempt_start_step_code="scan",
+                    next_retry_at=None,
+                    worker_id=None,
+                    started_at=None,
+                    finished_at=None,
+                    error_code=None,
+                    error_message=None,
+                    input_hash="1" * 64,
+                    input_json={"file_id": str(FILE_ID), "processing_scope": "full"},
+                    input_schema_version=1,
+                    idempotency_record_id=None,
+                    handler_registry_version="accessibility-v1",
+                    handler_registry_hash="2" * 64,
+                    retry_policy_version=JOB_RETRY_POLICY_VERSION,
+                    retry_policy_hash=JOB_RETRY_POLICY_HASH,
+                    lease_policy_version=JOB_LEASE_POLICY_VERSION,
+                    lease_policy_hash=JOB_LEASE_POLICY_HASH,
+                    lease_owner=None,
+                    lease_expires_at=None,
+                    heartbeat_at=None,
+                    trace_id=uuid4(),
+                    created_by=USER_ID,
+                ),
+            ]
+        )
+
+
+def _clear_accessibility_facts(engine: Engine) -> None:
+    with engine.begin() as connection:
+        for table_name in ("knowledge_bases", "suppliers"):
+            connection.exec_driver_sql(f"ALTER TABLE {table_name} DISABLE TRIGGER USER")
+        try:
+            connection.exec_driver_sql(
+                "DELETE FROM knowledge_bases WHERE id = %s",
+                (_ACCESSIBILITY_KNOWLEDGE_BASE_ID,),
+            )
+            connection.exec_driver_sql(
+                "DELETE FROM suppliers WHERE id = %s",
+                (_ACCESSIBILITY_SUPPLIER_ID,),
+            )
+        finally:
+            for table_name in ("suppliers", "knowledge_bases"):
+                connection.exec_driver_sql(f"ALTER TABLE {table_name} ENABLE TRIGGER USER")
+
+
 def _grant_financial_loop_permissions(factory: sessionmaker[Session]) -> None:
     """Allow the synthetic finance user to perform the contract-admin lane in this gate."""
 
@@ -423,7 +533,10 @@ def _add_stored_browser_file(
     original_name: str,
     intended_business_type: str,
     sha256: str,
+    size_bytes: int = 128,
+    target_knowledge_base_id: UUID | None = None,
 ) -> None:
+    object_key = f"organizations/{ORGANIZATION_ID.hex}/files/{file_id.hex}/source"
     file_record = FileRecord(
         id=file_id,
         organization_id=ORGANIZATION_ID,
@@ -431,15 +544,15 @@ def _add_stored_browser_file(
         extension=".pdf",
         mime_type="application/pdf",
         detected_mime_type="application/pdf",
-        size_bytes=128,
+        size_bytes=size_bytes,
         sha256=sha256,
         minio_bucket="quarantine",
-        minio_object_key=f"{ORGANIZATION_ID}/{file_id}/quarantine",
+        minio_object_key=object_key,
         original_minio_bucket=None,
         original_minio_object_key=None,
         status="uploaded",
         intended_business_type=intended_business_type,
-        target_knowledge_base_id=None,
+        target_knowledge_base_id=target_knowledge_base_id,
         auto_process_requested=True,
         security_scan_status="pending",
         rejection_code=None,
@@ -458,7 +571,7 @@ def _add_stored_browser_file(
     file_record.status = "stored"
     file_record.security_scan_status = "clean"
     file_record.original_minio_bucket = "originals"
-    file_record.original_minio_object_key = f"{ORGANIZATION_ID}/{file_id}/original"
+    file_record.original_minio_object_key = object_key
     now = AuthRepository(session).database_now()
     file_record.stored_at = now
     file_record.row_version += 1
@@ -468,7 +581,9 @@ def _add_stored_browser_file(
         "file_id": str(file_id),
         "intended_business_type": intended_business_type,
         "processing_scope": "full",
-        "target_knowledge_base_id": None,
+        "target_knowledge_base_id": (
+            None if target_knowledge_base_id is None else str(target_knowledge_base_id)
+        ),
     }
     handler = load_file_handler("file_process")
     handler.validate_input(input_json)
@@ -514,6 +629,7 @@ def _prepare_supplementary_browser_facts(
     factory: sessionmaker[Session],
     *,
     activate_parse: bool = False,
+    document_payload: bytes | None = None,
 ) -> UUID:
     """Prepare confirm/conflict/reject agreements and one scoped evidence block."""
 
@@ -591,7 +707,12 @@ def _prepare_supplementary_browser_facts(
             session,
             file_id=_SUPPLEMENTARY_FILE_ID,
             original_name="supplementary-browser.pdf",
-            sha256="f" * 64,
+            sha256=(
+                "f" * 64
+                if document_payload is None
+                else hashlib.sha256(document_payload).hexdigest()
+            ),
+            size_bytes=128 if document_payload is None else len(document_payload),
             intended_business_type="supplementary_agreement",
         )
         session.add(
@@ -656,6 +777,60 @@ def _prepare_supplementary_browser_facts(
         return evidence_block_id
 
 
+def _store_document_correction_browser_original(
+    factory: sessionmaker[Session],
+    settings: Settings,
+    payload: bytes,
+) -> str:
+    digest = hashlib.sha256(payload).hexdigest()
+    quarantine = MinioQuarantineAdapter(settings)
+    runtime = MinioFileRuntimeAdapter(settings)
+    locator: QuarantineObject | None = None
+    original_key: str | None = None
+    try:
+        locator = quarantine.put_quarantine(
+            organization_id=ORGANIZATION_ID,
+            file_id=_SUPPLEMENTARY_FILE_ID,
+            sha256=digest,
+            data=io.BytesIO(payload),
+            length=len(payload),
+            content_type="application/pdf",
+        )
+        stored = runtime.promote_clean(
+            source_bucket=locator.bucket_name,
+            source_key=locator.object_key,
+            expected_size=len(payload),
+            expected_sha256=digest,
+        )
+        original_key = stored.object_key
+        with factory() as session:
+            file_record = session.get(FileRecord, _SUPPLEMENTARY_FILE_ID)
+            if (
+                file_record is None
+                or file_record.size_bytes != len(payload)
+                or file_record.sha256 != digest
+                or file_record.minio_bucket != locator.bucket_name
+                or file_record.minio_object_key != locator.object_key
+                or file_record.original_minio_bucket != stored.bucket_name
+                or file_record.original_minio_object_key != stored.object_key
+            ):
+                raise RuntimeError("BROWSER_GATE_DOCUMENT_CORRECTION_FILE_MISMATCH")
+        runtime.delete_quarantine_after_commit(locator.object_key)
+        return stored.object_key
+    except Exception:
+        if original_key is not None:
+            try:
+                runtime.delete_original_compensation(original_key)
+            except Exception:
+                pass
+        if locator is not None:
+            try:
+                quarantine.delete_quarantine(locator)
+            except Exception:
+                pass
+        raise RuntimeError("BROWSER_GATE_DOCUMENT_CORRECTION_ORIGINAL_SETUP_FAILED") from None
+
+
 def _seed_role_matrix_users(factory: sessionmaker[Session]) -> None:
     with factory.begin() as session:
         now = AuthRepository(session).database_now()
@@ -688,6 +863,154 @@ def _seed_role_matrix_users(factory: sessionmaker[Session]) -> None:
                     assignment_reason="system_bootstrap",
                 )
             )
+
+
+def _prepare_policy_revocation_browser_facts(factory: sessionmaker[Session]) -> None:
+    with factory.begin() as session:
+        now = AuthRepository(session).database_now()
+        audit_role = session.scalar(select(Role).where(Role.code == "audit_reviewer"))
+        if audit_role is None:
+            raise RuntimeError("BROWSER_GATE_POLICY_REVOCATION_ROLE_MISSING")
+        session.add(
+            User(
+                id=_POLICY_REVOCATION_SUBMITTER_ID,
+                organization_id=ORGANIZATION_ID,
+                username="browser.audit.submitter.matrix",
+                display_name="Synthetic audit submitter matrix user",
+                password_hash=hash_password(_ROLE_MATRIX_PASSWORD),
+                status="active",
+                password_changed_at=now,
+            )
+        )
+        session.add(
+            UserRole(
+                id=_POLICY_REVOCATION_SUBMITTER_ROLE_ID,
+                user_id=_POLICY_REVOCATION_SUBMITTER_ID,
+                role_id=audit_role.id,
+                assigned_by=None,
+                assignment_source="bootstrap",
+                assignment_reason="system_bootstrap",
+            )
+        )
+        session.add(
+            KnowledgeBase(
+                id=_POLICY_REVOCATION_KB_ID,
+                organization_id=ORGANIZATION_ID,
+                code="policy-revocation-browser-kb",
+                name="制度撤销浏览器知识库",
+                description="可丢弃浏览器门禁事实",
+                status="active",
+                default_top_k=5,
+                default_score_threshold=None,
+                row_version=1,
+                created_by=_POLICY_REVOCATION_SUBMITTER_ID,
+                updated_by=_POLICY_REVOCATION_SUBMITTER_ID,
+                deleted_at=None,
+                deleted_by=None,
+                delete_reason=None,
+            )
+        )
+        session.flush()
+        _add_stored_browser_file(
+            session,
+            file_id=_POLICY_REVOCATION_FILE_ID,
+            original_name="policy-revocation-browser.pdf",
+            intended_business_type="policy",
+            sha256="2" * 64,
+            target_knowledge_base_id=_POLICY_REVOCATION_KB_ID,
+        )
+        session.add(
+            PolicyDocument(
+                id=_POLICY_REVOCATION_POLICY_ID,
+                organization_id=ORGANIZATION_ID,
+                knowledge_base_id=_POLICY_REVOCATION_KB_ID,
+                source_file_id=_POLICY_REVOCATION_FILE_ID,
+                policy_code="REVOCABLE-BROWSER-001",
+                name="浏览器待撤销制度",
+                version="1.0",
+                issuing_department="财务部",
+                effective_from=date(2026, 1, 1),
+                effective_to=None,
+                scope_json={},
+                access_scope="internal",
+                allowed_role_codes=[],
+                status="published",
+                submitted_by=_POLICY_REVOCATION_SUBMITTER_ID,
+                submitted_at=now,
+                business_approved_by=_POLICY_REVOCATION_REQUESTER_ID,
+                business_approved_at=now,
+                technical_published_by=ADMIN_USER_ID,
+                technical_published_at=now,
+                superseded_by_policy_id=None,
+                revoked_at=None,
+                revoked_by=None,
+                revoke_reason=None,
+                row_version=4,
+                created_at=now,
+                created_by=_POLICY_REVOCATION_SUBMITTER_ID,
+                updated_at=now,
+                updated_by=ADMIN_USER_ID,
+                deleted_at=None,
+                deleted_by=None,
+                delete_reason=None,
+            )
+        )
+        session.flush()
+        session.add(
+            FilePrimaryBusinessObject(
+                id=_POLICY_REVOCATION_BINDING_ID,
+                file_id=_POLICY_REVOCATION_FILE_ID,
+                business_type="policy",
+                contract_id=None,
+                invoice_id=None,
+                supplementary_agreement_id=None,
+                policy_document_id=_POLICY_REVOCATION_POLICY_ID,
+                bound_by=ADMIN_USER_ID,
+            )
+        )
+        session.add_all(
+            (
+                PolicyApprovalRecord(
+                    id=uuid4(),
+                    policy_document_id=_POLICY_REVOCATION_POLICY_ID,
+                    action="submit",
+                    from_status="draft",
+                    to_status="submitted",
+                    actor_id=_POLICY_REVOCATION_SUBMITTER_ID,
+                    actor_role_code="audit_reviewer",
+                    related_record_id=None,
+                    reason="浏览器门禁准备提交",
+                    created_at=now,
+                    trace_id=uuid4(),
+                ),
+                PolicyApprovalRecord(
+                    id=uuid4(),
+                    policy_document_id=_POLICY_REVOCATION_POLICY_ID,
+                    action="approve",
+                    from_status="submitted",
+                    to_status="business_approved",
+                    actor_id=_POLICY_REVOCATION_REQUESTER_ID,
+                    actor_role_code="audit_reviewer",
+                    related_record_id=None,
+                    reason="浏览器门禁准备批准",
+                    created_at=now,
+                    trace_id=uuid4(),
+                ),
+                PolicyApprovalRecord(
+                    id=uuid4(),
+                    policy_document_id=_POLICY_REVOCATION_POLICY_ID,
+                    action="publish",
+                    from_status="business_approved",
+                    to_status="published",
+                    actor_id=ADMIN_USER_ID,
+                    actor_role_code="system_admin",
+                    related_record_id=None,
+                    reason="浏览器门禁准备发布",
+                    created_at=now,
+                    trace_id=uuid4(),
+                ),
+            )
+        )
 
 
 def _seed_ready_report(
@@ -821,6 +1144,75 @@ def _clear_report_facts(engine: Engine) -> None:
         finally:
             for table_name in reversed(table_names):
                 connection.exec_driver_sql(f"ALTER TABLE {table_name} ENABLE TRIGGER USER")
+
+
+def _report_browser_manifest(
+    factory: sessionmaker[Session],
+    report_id: UUID,
+    http_results: tuple[dict[str, object], ...],
+) -> dict[str, object]:
+    with factory() as session:
+        report = session.get(AuditReport, report_id)
+        if report is None:
+            raise RuntimeError("BROWSER_GATE_REPORT_MISSING")
+        return {
+            "report": {
+                "id": str(report.id),
+                "audit_task_id": str(report.audit_task_id),
+                "execution_id": str(report.execution_id),
+                "report_version": report.report_version,
+                "status": report.status,
+                "pdf_sha256": report.pdf_sha256,
+                "pdf_size_bytes": report.pdf_size_bytes,
+                "pdf_mime_type": report.pdf_mime_type,
+                "xlsx_sha256": report.xlsx_sha256,
+                "xlsx_size_bytes": report.xlsx_size_bytes,
+                "xlsx_mime_type": report.xlsx_mime_type,
+            },
+            "http_results": list(http_results),
+        }
+
+
+def _assert_report_browser_complete(manifest: dict[str, object]) -> None:
+    report = manifest.get("report")
+    http_results = manifest.get("http_results")
+    if (
+        type(report) is not dict
+        or type(http_results) is not list
+        or any(type(item) is not dict for item in http_results)
+    ):
+        raise RuntimeError("BROWSER_GATE_REPORT_MANIFEST_INVALID")
+    report = cast(dict[str, object], report)
+    report_id = report.get("id")
+    report_version = report.get("report_version")
+    if (
+        type(report_id) is not str
+        or type(report_version) is not int
+        or report_version <= 0
+        or report.get("status") != "ready"
+        or type(report.get("pdf_sha256")) is not str
+        or type(report.get("pdf_size_bytes")) is not int
+        or cast(int, report.get("pdf_size_bytes")) <= 0
+        or report.get("pdf_mime_type") != "application/pdf"
+        or type(report.get("xlsx_sha256")) is not str
+        or type(report.get("xlsx_size_bytes")) is not int
+        or cast(int, report.get("xlsx_size_bytes")) <= 0
+        or report.get("xlsx_mime_type")
+        != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ):
+        raise RuntimeError("BROWSER_GATE_REPORT_FACTS_INVALID")
+    observed = {
+        (item.get("method"), item.get("path"), item.get("status"))
+        for item in http_results
+        if type(item) is dict
+    }
+    required = {
+        ("GET", f"/api/v1/audit-reports/{report_id}", 200),
+        ("GET", f"/api/v1/audit-reports/{report_id}/preview", 200),
+        ("GET", f"/api/v1/audit-reports/{report_id}/download", 200),
+    }
+    if not required.issubset(observed):
+        raise RuntimeError("BROWSER_GATE_REPORT_HTTP_RESULTS_INVALID")
 
 
 def _file_gate_manifest(
@@ -2157,6 +2549,142 @@ def _assert_document_correction_complete(manifest: dict[str, object]) -> None:
         raise RuntimeError("BROWSER_GATE_DOCUMENT_CORRECTION_HTTP_INCOMPLETE")
 
 
+def _policy_revocation_manifest(
+    factory: sessionmaker[Session],
+    http_results: tuple[dict[str, object], ...],
+) -> dict[str, object]:
+    with factory() as session:
+        policy = session.get(PolicyDocument, _POLICY_REVOCATION_POLICY_ID)
+        records = tuple(
+            session.scalars(
+                select(PolicyApprovalRecord).where(
+                    PolicyApprovalRecord.policy_document_id == _POLICY_REVOCATION_POLICY_ID
+                )
+            ).all()
+        )
+        action_codes = tuple(
+            session.scalars(
+                select(OperationLog.action_code)
+                .where(OperationLog.resource_id == _POLICY_REVOCATION_POLICY_ID)
+                .order_by(OperationLog.created_at, OperationLog.id)
+            ).all()
+        )
+    if policy is None:
+        raise RuntimeError("BROWSER_GATE_POLICY_REVOCATION_SUBJECT_MISSING")
+    requests = tuple(item for item in records if item.action == "revoke_request")
+    executions = tuple(item for item in records if item.action == "revoke")
+    request_record = requests[0] if len(requests) == 1 else None
+    execution_record = executions[0] if len(executions) == 1 else None
+    pending_count = sum(
+        1
+        for item in requests
+        if not any(
+            execution.action == "revoke" and execution.related_record_id == item.id
+            for execution in records
+        )
+    )
+    return {
+        "policy": {
+            "id": str(policy.id),
+            "status": policy.status,
+            "row_version": policy.row_version,
+            "revoked_by": None if policy.revoked_by is None else str(policy.revoked_by),
+            "revoked_at_present": policy.revoked_at is not None,
+            "revoke_reason": policy.revoke_reason,
+        },
+        "approval_record_count": len(records),
+        "approval_actions": sorted(item.action for item in records),
+        "request": (
+            None
+            if request_record is None
+            else {
+                "id": str(request_record.id),
+                "actor_id": str(request_record.actor_id),
+                "actor_role_code": request_record.actor_role_code,
+                "reason": request_record.reason,
+            }
+        ),
+        "execution": (
+            None
+            if execution_record is None
+            else {
+                "actor_id": str(execution_record.actor_id),
+                "actor_role_code": execution_record.actor_role_code,
+                "reason": execution_record.reason,
+                "related_record_id": (
+                    None
+                    if execution_record.related_record_id is None
+                    else str(execution_record.related_record_id)
+                ),
+            }
+        ),
+        "pending_count": pending_count,
+        "action_codes": list(action_codes),
+        "http_results": list(http_results),
+    }
+
+
+def _assert_policy_revocation_complete(manifest: dict[str, object]) -> None:
+    policy = manifest.get("policy")
+    request_record = manifest.get("request")
+    execution_record = manifest.get("execution")
+    action_codes = manifest.get("action_codes")
+    http_results = manifest.get("http_results")
+    if (
+        type(policy) is not dict
+        or type(request_record) is not dict
+        or type(execution_record) is not dict
+        or type(action_codes) is not list
+        or type(http_results) is not list
+        or any(type(item) is not dict for item in http_results)
+    ):
+        raise RuntimeError("BROWSER_GATE_POLICY_REVOCATION_MANIFEST_INVALID")
+    request_id = request_record.get("id")
+    if (
+        policy.get("id") != str(_POLICY_REVOCATION_POLICY_ID)
+        or policy.get("status") != "revoked"
+        or policy.get("row_version") != 5
+        or policy.get("revoked_by") != str(ADMIN_USER_ID)
+        or policy.get("revoked_at_present") is not True
+        or policy.get("revoke_reason") != _POLICY_REVOCATION_EXECUTION_REASON
+        or manifest.get("approval_record_count") != 5
+        or manifest.get("approval_actions")
+        != ["approve", "publish", "revoke", "revoke_request", "submit"]
+        or type(request_id) is not str
+        or request_record.get("actor_id") != str(_POLICY_REVOCATION_REQUESTER_ID)
+        or request_record.get("actor_role_code") != "audit_reviewer"
+        or request_record.get("reason") != _POLICY_REVOCATION_REQUEST_REASON
+        or execution_record.get("actor_id") != str(ADMIN_USER_ID)
+        or execution_record.get("actor_role_code") != "system_admin"
+        or execution_record.get("reason") != _POLICY_REVOCATION_EXECUTION_REASON
+        or execution_record.get("related_record_id") != request_id
+        or request_record.get("actor_id") == execution_record.get("actor_id")
+        or manifest.get("pending_count") != 0
+        or action_codes != ["policy.revocation_requested", "policy.revoked"]
+    ):
+        raise RuntimeError("BROWSER_GATE_POLICY_REVOCATION_FACTS_INVALID")
+    observed = {
+        (item.get("method"), item.get("path"), item.get("status"))
+        for item in http_results
+        if type(item) is dict
+    }
+    expected = {
+        ("GET", "/api/v1/policy-documents/revocation-requests", 200),
+        (
+            "POST",
+            f"/api/v1/policy-documents/{_POLICY_REVOCATION_POLICY_ID}/revocation-requests",
+            201,
+        ),
+        (
+            "POST",
+            f"/api/v1/policy-documents/{_POLICY_REVOCATION_POLICY_ID}/revoke",
+            200,
+        ),
+    }
+    if not expected.issubset(observed):
+        raise RuntimeError("BROWSER_GATE_POLICY_REVOCATION_HTTP_INCOMPLETE")
+
+
 def _write_auth_key_files(
     private_key_file: Path,
     public_keyring_file: Path,
@@ -2206,14 +2734,22 @@ def build_browser_application() -> FastAPI:
         _SUPPLEMENTARY_GATE_TOKEN,
         _INVOICE_DUPLICATE_GATE_TOKEN,
         _DOCUMENT_CORRECTION_GATE_TOKEN,
+        _POLICY_REVOCATION_GATE_TOKEN,
     }:
         raise RuntimeError("BROWSER_GATE_NOT_AUTHORIZED")
     report_gate = gate_token == _REPORT_GATE_TOKEN
+    accessibility_gate_value = os.environ.get("FINAUDIT_ACCESSIBILITY_GATE")
+    if accessibility_gate_value is not None and (
+        not report_gate or accessibility_gate_value != _ACCESSIBILITY_GATE_TOKEN
+    ):
+        raise RuntimeError("BROWSER_GATE_ACCESSIBILITY_NOT_AUTHORIZED")
+    accessibility_gate = accessibility_gate_value == _ACCESSIBILITY_GATE_TOKEN
     file_upload_gate = gate_token == _FILE_UPLOAD_GATE_TOKEN
     financial_loop_gate = gate_token == _FINANCIAL_LOOP_GATE_TOKEN
     supplementary_gate = gate_token == _SUPPLEMENTARY_GATE_TOKEN
     invoice_duplicate_gate = gate_token == _INVOICE_DUPLICATE_GATE_TOKEN
     document_correction_gate = gate_token == _DOCUMENT_CORRECTION_GATE_TOKEN
+    policy_revocation_gate = gate_token == _POLICY_REVOCATION_GATE_TOKEN
     worker_gate = file_upload_gate or financial_loop_gate or document_correction_gate
 
     raw_port = os.environ.get("FINAUDIT_BROWSER_PORT", "")
@@ -2274,6 +2810,8 @@ def build_browser_application() -> FastAPI:
         application.state.browser_gate_private_key_file = private_key_file
         application.state.browser_gate_public_keyring_file = public_keyring_file
         application.state.browser_gate_temporary_directory = temporary_directory
+        application.state.browser_gate_report_accepted = False
+        application.state.browser_gate_report_http_results = []
         application.state.browser_gate_file_capabilities_accepted = False
         application.state.browser_gate_financial_loop_accepted = False
         application.state.browser_gate_supplementary_accepted = False
@@ -2282,6 +2820,36 @@ def build_browser_application() -> FastAPI:
         application.state.browser_gate_invoice_duplicate_http_results = []
         application.state.browser_gate_document_correction_accepted = False
         application.state.browser_gate_document_correction_http_results = []
+        application.state.browser_gate_policy_revocation_accepted = False
+        application.state.browser_gate_policy_revocation_http_results = []
+        if report_gate:
+
+            @application.middleware("http")
+            async def record_report_reads(  # type: ignore[no-untyped-def]
+                request: Request,
+                call_next,
+            ):
+                response = await call_next(request)
+                report_id = getattr(application.state, "browser_gate_report_id", None)
+                if isinstance(report_id, UUID):
+                    report_prefix = f"/api/v1/audit-reports/{report_id}"
+                    if request.method == "GET" and request.url.path in {
+                        report_prefix,
+                        f"{report_prefix}/preview",
+                        f"{report_prefix}/download",
+                    }:
+                        results = application.state.browser_gate_report_http_results
+                        if not isinstance(results, list):
+                            raise RuntimeError("BROWSER_GATE_REPORT_HTTP_RESULTS_INVALID")
+                        results.append(
+                            {
+                                "method": request.method,
+                                "path": request.url.path,
+                                "status": response.status_code,
+                            }
+                        )
+                return response
+
         if supplementary_gate:
             supplementary_path_prefix = f"/api/v1/contracts/{CONTRACT_ID}/supplementary-agreements/"
 
@@ -2369,6 +2937,32 @@ def build_browser_application() -> FastAPI:
                     )
                 return response
 
+        if policy_revocation_gate:
+            policy_paths = {
+                "/api/v1/policy-documents/revocation-requests",
+                f"/api/v1/policy-documents/{_POLICY_REVOCATION_POLICY_ID}/revocation-requests",
+                f"/api/v1/policy-documents/{_POLICY_REVOCATION_POLICY_ID}/revoke",
+            }
+
+            @application.middleware("http")
+            async def record_policy_revocation_requests(  # type: ignore[no-untyped-def]
+                request: Request,
+                call_next,
+            ):
+                response = await call_next(request)
+                if request.url.path in policy_paths and request.method in {"GET", "POST"}:
+                    results = application.state.browser_gate_policy_revocation_http_results
+                    if not isinstance(results, list):
+                        raise RuntimeError("BROWSER_GATE_POLICY_REVOCATION_HTTP_RESULTS_INVALID")
+                    results.append(
+                        {
+                            "method": request.method,
+                            "path": request.url.path,
+                            "status": response.status_code,
+                        }
+                    )
+                return response
+
         original_lifespan = application.router.lifespan_context
 
         @asynccontextmanager
@@ -2378,6 +2972,7 @@ def build_browser_application() -> FastAPI:
             report_storage: MinioReportStorageAdapter | None = None
             report_locators: tuple[ReportObjectLocator, ReportObjectLocator] | None = None
             file_factory: sessionmaker[Session] | None = None
+            document_correction_original_key: str | None = None
             try:
                 _write_auth_key_files(private_key_file, public_keyring_file)
                 seed_engine = create_application_engine(settings)
@@ -2396,9 +2991,15 @@ def build_browser_application() -> FastAPI:
                     print("BROWSER_GATE_INVOICE_DUPLICATE_RUNTIME=READY", flush=True)
                 if supplementary_gate or document_correction_gate:
                     _seed_role_matrix_users(factory)
+                    document_payload = (
+                        _file_capability_pdf("Document correction browser source")
+                        if document_correction_gate
+                        else None
+                    )
                     evidence_block_id = _prepare_supplementary_browser_facts(
                         factory,
                         activate_parse=document_correction_gate,
+                        document_payload=document_payload,
                     )
                     if supplementary_gate:
                         app.state.browser_gate_supplementary_factory = factory
@@ -2418,6 +3019,13 @@ def build_browser_application() -> FastAPI:
                         app.state.browser_gate_document_correction_evidence_block_id = (
                             evidence_block_id
                         )
+                        document_correction_original_key = (
+                            _store_document_correction_browser_original(
+                                factory,
+                                settings,
+                                cast(bytes, document_payload),
+                            )
+                        )
                         print(
                             f"BROWSER_GATE_DOCUMENT_CORRECTION_FILE_ID={_SUPPLEMENTARY_FILE_ID}",
                             flush=True,
@@ -2426,6 +3034,18 @@ def build_browser_application() -> FastAPI:
                             f"BROWSER_GATE_DOCUMENT_CORRECTION_BLOCK_ID={evidence_block_id}",
                             flush=True,
                         )
+                if policy_revocation_gate:
+                    _seed_role_matrix_users(factory)
+                    _prepare_policy_revocation_browser_facts(factory)
+                    app.state.browser_gate_policy_revocation_factory = factory
+                    print(
+                        f"BROWSER_GATE_POLICY_REVOCATION_KB_ID={_POLICY_REVOCATION_KB_ID}",
+                        flush=True,
+                    )
+                    print(
+                        f"BROWSER_GATE_POLICY_REVOCATION_POLICY_ID={_POLICY_REVOCATION_POLICY_ID}",
+                        flush=True,
+                    )
                 if report_gate:
                     _prepare_report_financial_facts(seed_engine)
                     report_id, report_storage, report_locators = _seed_ready_report(
@@ -2433,7 +3053,21 @@ def build_browser_application() -> FastAPI:
                         settings,
                     )
                     app.state.browser_gate_report_id = report_id
+                    app.state.browser_gate_report_factory = factory
                     print(f"BROWSER_GATE_REPORT_ID={report_id}", flush=True)
+                    print(f"BROWSER_GATE_FILE_ID={FILE_ID}", flush=True)
+                    print(f"BROWSER_GATE_CONTRACT_ID={CONTRACT_ID}", flush=True)
+                    print(f"BROWSER_GATE_INVOICE_ID={INVOICE_ID}", flush=True)
+                    if accessibility_gate:
+                        _seed_accessibility_facts(factory)
+                        print(
+                            f"BROWSER_GATE_SUPPLIER_ID={_ACCESSIBILITY_SUPPLIER_ID}",
+                            flush=True,
+                        )
+                        print(
+                            f"BROWSER_GATE_KNOWLEDGE_BASE_ID={_ACCESSIBILITY_KNOWLEDGE_BASE_ID}",
+                            flush=True,
+                        )
                 if financial_loop_gate:
                     _prepare_report_financial_facts(seed_engine)
                     _grant_financial_loop_permissions(factory)
@@ -2459,6 +3093,7 @@ def build_browser_application() -> FastAPI:
                         "file_intake_service",
                         "file_query_service",
                         "supplier_management_service",
+                        "policy_management_service",
                     )
                 ):
                     raise RuntimeError("BROWSER_GATE_BOOTSTRAP_STATE_PREPOPULATED")
@@ -2492,6 +3127,10 @@ def build_browser_application() -> FastAPI:
                         expected_services.append(
                             ("document_correction_service", DocumentCorrectionService)
                         )
+                    if policy_revocation_gate:
+                        expected_services.append(
+                            ("policy_management_service", PolicyManagementService)
+                        )
                     if report_gate or financial_loop_gate:
                         expected_services.append(
                             ("report_management_service", ReportManagementService)
@@ -2514,6 +3153,10 @@ def build_browser_application() -> FastAPI:
                     ):
                         raise RuntimeError("BROWSER_GATE_BOOTSTRAP_WIRING_INVALID")
                     with ExitStack() as runtime_stack:
+                        if report_gate:
+                            print("BROWSER_GATE_REPORT_RUNTIME=READY", flush=True)
+                        if policy_revocation_gate:
+                            print("BROWSER_GATE_POLICY_REVOCATION_RUNTIME=READY", flush=True)
                         if worker_gate:
                             scanner = _SyntheticClamdServer(
                                 ("127.0.0.1", settings.scanner_port),
@@ -2604,11 +3247,17 @@ def build_browser_application() -> FastAPI:
                                 if report_storage is not None and report_locators is not None:
                                     for locator in report_locators:
                                         report_storage.delete_compensation(locator)
+                                if document_correction_original_key is not None:
+                                    MinioFileRuntimeAdapter(settings).delete_original_compensation(
+                                        document_correction_original_key
+                                    )
                                 if report_gate:
                                     _clear_report_facts(seed_engine)
+                                if accessibility_gate:
+                                    _clear_accessibility_facts(seed_engine)
                                 if supplementary_gate:
                                     _clear_supplementary_browser_facts(seed_engine)
-                                if not worker_gate:
+                                if not worker_gate and not policy_revocation_gate:
                                     _clear_owned_test_facts(seed_engine)
                         finally:
                             seed_engine.dispose()
@@ -2624,11 +3273,23 @@ def build_browser_application() -> FastAPI:
         )
 
         @application.get("/__finaudit_test__/report-manifest", include_in_schema=False)
-        async def report_manifest() -> dict[str, str]:
+        async def report_manifest() -> dict[str, object]:
             report_id = getattr(application.state, "browser_gate_report_id", None)
-            if not report_gate or not isinstance(report_id, UUID):
+            factory = getattr(application.state, "browser_gate_report_factory", None)
+            http_results = getattr(application.state, "browser_gate_report_http_results", None)
+            if (
+                not report_gate
+                or not isinstance(report_id, UUID)
+                or not isinstance(factory, sessionmaker)
+                or not isinstance(http_results, list)
+                or not all(type(item) is dict for item in http_results)
+            ):
                 raise HTTPException(status_code=404, detail="Not Found")
-            return {"report_id": str(report_id)}
+            return _report_browser_manifest(
+                factory,
+                report_id,
+                tuple(cast(dict[str, object], item) for item in http_results),
+            )
 
         @application.get("/__finaudit_test__/file-manifest", include_in_schema=False)
         async def file_manifest() -> dict[str, object]:
@@ -2740,6 +3401,30 @@ def build_browser_application() -> FastAPI:
                 tuple(cast(dict[str, object], item) for item in http_results),
             )
 
+        @application.get("/__finaudit_test__/policy-revocation-manifest", include_in_schema=False)
+        async def policy_revocation_manifest() -> dict[str, object]:
+            factory = getattr(
+                application.state,
+                "browser_gate_policy_revocation_factory",
+                None,
+            )
+            http_results = getattr(
+                application.state,
+                "browser_gate_policy_revocation_http_results",
+                None,
+            )
+            if (
+                not policy_revocation_gate
+                or not isinstance(factory, sessionmaker)
+                or not isinstance(http_results, list)
+                or not all(type(item) is dict for item in http_results)
+            ):
+                raise HTTPException(status_code=404, detail="Not Found")
+            return _policy_revocation_manifest(
+                factory,
+                tuple(cast(dict[str, object], item) for item in http_results),
+            )
+
         @application.post("/__finaudit_test__/shutdown", include_in_schema=False)
         async def shutdown_gate(request: Request) -> dict[str, str]:
             if request.headers.get("X-FinAudit-Browser-Gate") != _SHUTDOWN_TOKEN:
@@ -2749,6 +3434,42 @@ def build_browser_application() -> FastAPI:
                 raise HTTPException(status_code=503, detail="Not Ready")
             server.should_exit = True
             return {"status": "stopping"}
+
+        @application.post(
+            "/__finaudit_test__/report-complete",
+            include_in_schema=False,
+        )
+        async def complete_report(request: Request) -> dict[str, str]:
+            report_id = getattr(application.state, "browser_gate_report_id", None)
+            factory = getattr(application.state, "browser_gate_report_factory", None)
+            http_results = getattr(application.state, "browser_gate_report_http_results", None)
+            server = getattr(application.state, "browser_gate_server", None)
+            if (
+                not report_gate
+                or request.headers.get("X-FinAudit-Browser-Gate") != _REPORT_COMPLETE_TOKEN
+            ):
+                raise HTTPException(status_code=404, detail="Not Found")
+            if (
+                not isinstance(report_id, UUID)
+                or not isinstance(factory, sessionmaker)
+                or not isinstance(http_results, list)
+                or not all(type(item) is dict for item in http_results)
+                or not isinstance(server, uvicorn.Server)
+            ):
+                raise HTTPException(status_code=503, detail="Not Ready")
+            try:
+                _assert_report_browser_complete(
+                    _report_browser_manifest(
+                        factory,
+                        report_id,
+                        tuple(cast(dict[str, object], item) for item in http_results),
+                    )
+                )
+            except RuntimeError as error:
+                raise HTTPException(status_code=409, detail=str(error)) from None
+            application.state.browser_gate_report_accepted = True
+            server.should_exit = True
+            return {"status": "accepted"}
 
         @application.post(
             "/__finaudit_test__/file-capabilities-complete",
@@ -2944,6 +3665,48 @@ def build_browser_application() -> FastAPI:
             server.should_exit = True
             return {"status": "accepted"}
 
+        @application.post(
+            "/__finaudit_test__/policy-revocation-complete",
+            include_in_schema=False,
+        )
+        async def complete_policy_revocation(request: Request) -> dict[str, str]:
+            factory = getattr(
+                application.state,
+                "browser_gate_policy_revocation_factory",
+                None,
+            )
+            http_results = getattr(
+                application.state,
+                "browser_gate_policy_revocation_http_results",
+                None,
+            )
+            server = getattr(application.state, "browser_gate_server", None)
+            if (
+                not policy_revocation_gate
+                or request.headers.get("X-FinAudit-Browser-Gate")
+                != _POLICY_REVOCATION_COMPLETE_TOKEN
+            ):
+                raise HTTPException(status_code=404, detail="Not Found")
+            if (
+                not isinstance(factory, sessionmaker)
+                or not isinstance(http_results, list)
+                or not all(type(item) is dict for item in http_results)
+                or not isinstance(server, uvicorn.Server)
+            ):
+                raise HTTPException(status_code=503, detail="Not Ready")
+            try:
+                _assert_policy_revocation_complete(
+                    _policy_revocation_manifest(
+                        factory,
+                        tuple(cast(dict[str, object], item) for item in http_results),
+                    )
+                )
+            except RuntimeError as error:
+                raise HTTPException(status_code=409, detail=str(error)) from None
+            application.state.browser_gate_policy_revocation_accepted = True
+            server.should_exit = True
+            return {"status": "accepted"}
+
         @application.get("/{spa_path:path}", include_in_schema=False)
         async def serve_spa(spa_path: str) -> FileResponse:
             if spa_path == "api" or spa_path.startswith("api/"):
@@ -2980,6 +3743,11 @@ def run_browser_gate() -> None:
         application.state.browser_gate_server = server
         server.run()
         if (
+            os.environ.get("FINAUDIT_BROWSER_GATE") == _REPORT_GATE_TOKEN
+            and application.state.browser_gate_report_accepted is not True
+        ):
+            raise RuntimeError("BROWSER_GATE_REPORT_NOT_ACCEPTED")
+        if (
             os.environ.get("FINAUDIT_BROWSER_GATE") == _FINANCIAL_LOOP_GATE_TOKEN
             and application.state.browser_gate_financial_loop_accepted is not True
         ):
@@ -3004,6 +3772,11 @@ def run_browser_gate() -> None:
             and application.state.browser_gate_document_correction_accepted is not True
         ):
             raise RuntimeError("BROWSER_GATE_DOCUMENT_CORRECTION_NOT_ACCEPTED")
+        if (
+            os.environ.get("FINAUDIT_BROWSER_GATE") == _POLICY_REVOCATION_GATE_TOKEN
+            and application.state.browser_gate_policy_revocation_accepted is not True
+        ):
+            raise RuntimeError("BROWSER_GATE_POLICY_REVOCATION_NOT_ACCEPTED")
     finally:
         _cleanup_gate_key_files(application)
 

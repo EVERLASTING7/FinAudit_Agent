@@ -12,7 +12,7 @@
     "pair_heading_visible": true,
     "shared_identity_visible": true,
     "source_id_visible": true,
-    "surface": "codex_in_app_browser",
+    "surface": "google_chrome_cdp",
     "write_action_enabled": false
   },
   "cleanup": {
@@ -39,27 +39,30 @@
     "list_status": 200,
     "pair_status": 200
   },
-  "recorded_on": "2026-08-20",
+  "recorded_on": "2026-08-21",
   "runtime_identity": {
     "candidate_invoice_id": "7a000000-0000-4000-8000-00000000000a",
-    "http_port": 4711,
+    "http_port": 4173,
     "postgresql_image_id": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
     "source_invoice_id": "7a000000-0000-4000-8000-000000000005"
   },
   "schema_version": "local-invoice-duplicate-browser-v1",
   "source_binding": {
-    "entry_wrapper_bytes": 2563,
+    "browser_runner_bytes": 53528,
+    "browser_runner_path": "scripts/run-browser-gate.cjs",
+    "browser_runner_sha256": "bd9b0c3c4363a7cdcf719a874e534858d6c5dc80d1d479e9dedc4854db4e8846",
+    "entry_wrapper_bytes": 2663,
     "entry_wrapper_path": "scripts/verify-invoice-duplicate-browser-gate.ps1",
-    "entry_wrapper_sha256": "f2d653209e21569fbd5908f5c30e0ec46a6dd192b7b5e41bbcc8a6f6aa46e42b",
+    "entry_wrapper_sha256": "7584748e3753e03ef38235cab9ea16bf8fa726ace4cee33721008a5419a671a9",
     "frontend_view_bytes": 27753,
     "frontend_view_path": "frontend/src/views/InvoiceDetailView.vue",
     "frontend_view_sha256": "fc0ef1b3dbb8480f0b7654fd9ae04329ec2f3ae142d5a9dbad669e87ad7fde6c",
-    "runner_bytes": 124977,
+    "runner_bytes": 158936,
     "runner_path": "backend/tests/manual_financial_read_browser.py",
-    "runner_sha256": "293ea481fec5a8a23dc7f63fd552afc4f2973bdd4bbc5edeb3f2d21ab85b5b8a",
-    "shared_wrapper_bytes": 18757,
+    "runner_sha256": "9cb76e55ff5fce97f95fa1a43cad61ea29139b6157c143f5c7b3a60e035225c8",
+    "shared_wrapper_bytes": 23268,
     "shared_wrapper_path": "scripts/verify-report-browser-gate.ps1",
-    "shared_wrapper_sha256": "ecc50c2d6f58740d4dc75ab7daa1717924c13ad70139181bdcf9bb85ae820170"
+    "shared_wrapper_sha256": "1c2dff6ce99b7dc5530e500e28f670c44d1e294ddf23c83587bd60fddf9c19ca"
   },
   "workflow": [
     "login",

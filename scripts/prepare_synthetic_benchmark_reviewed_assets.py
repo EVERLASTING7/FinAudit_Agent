@@ -21,7 +21,13 @@ OUTPUT_PATH = (
     PROJECT_ROOT
     / "tests"
     / "evaluation"
-    / "synthetic-benchmark-owner-delegated-review-v1.json"
+    / "synthetic-benchmark-owner-delegated-review-v3.json"
+)
+PREDECESSOR_PATH = (
+    PROJECT_ROOT
+    / "tests"
+    / "evaluation"
+    / "synthetic-benchmark-owner-delegated-review-v2.json"
 )
 
 _NO_ANSWER_REVISIONS = {
@@ -62,8 +68,8 @@ _NO_ANSWER_REVISIONS = {
         "电子发票文件命名",
     ),
     "SBCV1-N-INVOICE-02": (
-        "按2026-06-30有效制度，纸质发票原件应在开票后几天内寄达？",
-        "纸质发票寄达期限",
+        "按2026-06-30有效制度，发票影像归档文件需要保留多少年？",
+        "发票影像归档保留年限",
     ),
     "SBCV1-N-INVOICE-03": (
         "按2026-06-30有效制度，每月发票报销是否设有统一截止日？",
@@ -82,8 +88,8 @@ _NO_ANSWER_REVISIONS = {
         "电子签章服务商白名单",
     ),
     "SBCV1-N-APPROVAL-01": (
-        "按2026-06-30有效制度，代理审批授权最长可以持续多少天？",
-        "代理审批最长天数",
+        "按2026-06-30有效制度，付款审批通知是否规定统一的邮件标题格式？",
+        "付款审批通知邮件标题",
     ),
     "SBCV1-N-APPROVAL-02": (
         "按2026-06-30有效制度，普通付款审批是否规定办理时限？",
@@ -203,20 +209,42 @@ def build_artifact() -> dict[str, object]:
     reviewed_by_id = {str(case["case_id"]): case for case in reviewed_cases}
     mvp_cases = [reviewed_by_id[case_id] for case_id in mvp_ids]
     return {
-        "schema_version": "synthetic-benchmark-owner-delegated-review-v1",
+        "schema_version": "synthetic-benchmark-owner-delegated-review-v3",
         "classification": "synthetic_non_sensitive",
         "environment_scope": ["local", "test"],
         "review_authority": {
-            "authority_ref": "BOSS-LOCAL-TEST-DELEGATION-20260817",
-            "authority_scope": "resolve local/test blockers and run bounded technical evaluation",
+            "authority_ref": "BOSS-P1-KB-QUALITY-V2-DIAGNOSIS-20260820",
+            "authority_scope": "fix the retained approval no-answer collision; runtime requires new authorization",
             "human_review_claimed": False,
-            "review_method": "owner_delegated_agent_semantic_review",
+            "review_method": "retained_source_case_diagnosis_with_offline_collision_audit",
         },
         "source_binding": {
             "candidate_path": CANDIDATE_PATH.relative_to(PROJECT_ROOT).as_posix(),
             "candidate_sha256": _sha256(CANDIDATE_PATH.read_bytes()),
             "corpus_path": CORPUS_PATH.relative_to(PROJECT_ROOT).as_posix(),
             "corpus_sha256": _sha256(CORPUS_PATH.read_bytes()),
+            "predecessor_path": PREDECESSOR_PATH.relative_to(PROJECT_ROOT).as_posix(),
+            "predecessor_sha256": _sha256(PREDECESSOR_PATH.read_bytes()),
+        },
+        "revision": {
+            "failed_source_case_id": "SBCV1-N-APPROVAL-01",
+            "runtime_evidence_path": "tests/evaluation/synthetic-benchmark-runtime-evidence-v4.json",
+            "runtime_evidence_sha256": "61DE05137F7487EF6884FE849BF550D819E79E509F86D10D027F9AEACF4B4D20",
+            "reason": "真实 v2 运行确认最大期限问题与允许制度的明确到期条款形成语义碰撞。",
+            "original_query_sha256": "362AA300001C4FC01E8C42E9E5B24B882733F32C4F5E5D050A2DCAAC3C583275",
+            "replacement_query_sha256": _query_sha256(
+                _NO_ANSWER_REVISIONS["SBCV1-N-APPROVAL-01"][0]
+            ),
+            "prior_v2_invoice_revision_preserved": True,
+            "offline_audit": {
+                "model_id": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+                "local_files_only": True,
+                "provider_calls": 0,
+                "original_max_similarity": "0.547008",
+                "replacement_max_similarity": "0.453996",
+                "answer_score_threshold": "0.650000",
+                "not_provider_score_proof": True,
+            },
         },
         "review_summary": {
             "formal_case_count": 100,
@@ -249,13 +277,14 @@ def build_artifact() -> dict[str, object]:
             "cases_sha256": _sha256(_canonical_bytes(mvp_cases)),
         },
         "runtime_authorization": {
+            "authorization_state": "requires_new_explicit_authorization",
             "create_disposable_approved_datasets": True,
             "run_mvp_uat": True,
             "run_formal_release": True,
             "activate_disposable_index": True,
-            "provider_request_cap": 152,
+            "provider_request_cap": 10,
             "input_token_cap": 50000,
-            "cost_cap_cny": "1.000000",
+            "cost_cap_cny": "0.100000",
             "no_fx": True,
             "single_run": True,
             "automatic_scope_expansion": False,

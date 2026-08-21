@@ -86,6 +86,7 @@ def test_invoice_duplicate_browser_mode_is_protected_and_reproducible() -> None:
     wrapper = (_PROJECT_ROOT / "scripts/verify-invoice-duplicate-browser-gate.ps1").read_text(
         encoding="utf-8"
     )
+    runner = (_PROJECT_ROOT / "scripts/run-browser-gate.cjs").read_text(encoding="utf-8")
 
     assert "RUN_DISPOSABLE_INVOICE_DUPLICATE_BROWSER_V1" in application
     assert "COMPLETE_DISPOSABLE_INVOICE_DUPLICATE_BROWSER_V1" in application
@@ -94,6 +95,7 @@ def test_invoice_duplicate_browser_mode_is_protected_and_reproducible() -> None:
     assert "'InvoiceDuplicate'" in shared_wrapper
     assert "INVOICE_DUPLICATE_BROWSER_GATE=PASS" in shared_wrapper
     assert "-Mode InvoiceDuplicate" in wrapper
+    assert "invoiceDuplicateFlow" in runner
 
 
 def test_invoice_duplicate_browser_evidence_is_bounded_and_source_bound() -> None:
@@ -117,7 +119,7 @@ def test_invoice_duplicate_browser_evidence_is_bounded_and_source_bound() -> Non
         "pair_heading_visible": True,
         "shared_identity_visible": True,
         "source_id_visible": True,
-        "surface": "codex_in_app_browser",
+        "surface": "google_chrome_cdp",
         "write_action_enabled": False,
     }
     assert evidence["http_evidence"] == {
@@ -134,7 +136,13 @@ def test_invoice_duplicate_browser_evidence_is_bounded_and_source_bound() -> Non
     assert evidence["cleanup"]["managed_container_count_after_restart"] == 0
     assert evidence["cleanup"]["managed_network_count_after_restart"] == 0
     assert evidence["cleanup"]["managed_volume_count_after_restart"] == 0
-    for key in ("runner", "shared_wrapper", "entry_wrapper", "frontend_view"):
+    for key in (
+        "runner",
+        "browser_runner",
+        "shared_wrapper",
+        "entry_wrapper",
+        "frontend_view",
+    ):
         path = _PROJECT_ROOT / evidence["source_binding"][f"{key}_path"]
         payload = path.read_bytes()
         assert len(payload) == evidence["source_binding"][f"{key}_bytes"]

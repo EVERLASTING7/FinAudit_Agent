@@ -120,6 +120,7 @@ def test_document_correction_browser_mode_is_protected_and_reproducible() -> Non
     wrapper = (_PROJECT_ROOT / "scripts/verify-document-correction-browser-gate.ps1").read_text(
         encoding="utf-8"
     )
+    runner = (_PROJECT_ROOT / "scripts/run-browser-gate.cjs").read_text(encoding="utf-8")
 
     assert "RUN_DISPOSABLE_DOCUMENT_CORRECTION_BROWSER_V1" in application
     assert "COMPLETE_DISPOSABLE_DOCUMENT_CORRECTION_BROWSER_V1" in application
@@ -127,4 +128,8 @@ def test_document_correction_browser_mode_is_protected_and_reproducible() -> Non
     assert "BROWSER_GATE_DOCUMENT_CORRECTION_NOT_ACCEPTED" in application
     assert "'DocumentCorrection'" in shared_wrapper
     assert "DOCUMENT_CORRECTION_BROWSER_GATE=PASS" in shared_wrapper
+    assert "$automatedBrowserMode" in shared_wrapper
     assert "-Mode DocumentCorrection" in wrapper
+    assert "documentCorrectionFlow" in runner
+    assert "BROWSER_DOCUMENT_REFRESH_RECOVERY=PASS" in runner
+    assert "BROWSER_CONSOLE_ERRORS=0" in runner

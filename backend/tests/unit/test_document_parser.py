@@ -150,6 +150,34 @@ def test_text_pdf_produces_pages_and_blocks_without_ocr() -> None:
     )
 
 
+def test_pdf_uses_default_text_when_layout_extraction_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str | None] = []
+
+    def extract_text(**kwargs: object) -> str:
+        mode = kwargs.get("extraction_mode")
+        assert mode is None or type(mode) is str
+        calls.append(mode)
+        return "" if mode == "layout" else "Recovered contract body"
+
+    page = SimpleNamespace(
+        mediabox=SimpleNamespace(width=300, height=300),
+        extract_text=extract_text,
+    )
+    reader = SimpleNamespace(is_encrypted=False, pages=(page,))
+    monkeypatch.setattr(document_parser_module, "PdfReader", lambda *_args, **_kwargs: reader)
+
+    parsed = DocumentParser(ocr_engine=NotConfiguredOcrEngine(), pdf_renderer=None).parse(
+        b"%PDF-synthetic",
+        mime_type="application/pdf",
+    )
+
+    assert parsed.source_type == "parser"
+    assert parsed.pages[0].text == "Recovered contract body"
+    assert calls == ["layout", None]
+
+
 @pytest.mark.parametrize("dimension", [float("nan"), float("inf"), 0, -1])
 def test_pdf_rejects_non_finite_or_non_positive_page_dimensions(
     monkeypatch: pytest.MonkeyPatch,

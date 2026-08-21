@@ -1,0 +1,4867 @@
+{
+  "boundaries": {
+    "database_access_during_generation": false,
+    "is_business_representative_dataset": false,
+    "is_formal_ac_acceptance": false,
+    "is_human_uat": false,
+    "may_mark_ac_accepted": false,
+    "provider_calls_during_generation": 0
+  },
+  "classification": "synthetic_non_sensitive",
+  "environment_scope": [
+    "local",
+    "test"
+  ],
+  "formal_candidate_100": {
+    "approval_state": "owner_delegated_local_test_approved",
+    "case_count": 100,
+    "case_ids": [
+      "SBCV1-A-REIMB-V1-11-1",
+      "SBCV1-A-REIMB-V1-11-2",
+      "SBCV1-A-REIMB-V1-12-1",
+      "SBCV1-A-REIMB-V1-13-1",
+      "SBCV1-A-REIMB-V1-13-2",
+      "SBCV1-A-REIMB-V2-11-1",
+      "SBCV1-A-REIMB-V2-11-2",
+      "SBCV1-A-REIMB-V2-12-1",
+      "SBCV1-A-REIMB-V2-13-1",
+      "SBCV1-A-REIMB-V2-13-2",
+      "SBCV1-N-REIMB-01",
+      "SBCV1-N-REIMB-02",
+      "SBCV1-N-REIMB-03",
+      "SBCV1-N-REIMB-04",
+      "SBCV1-U-REIMB-01",
+      "SBCV1-U-REIMB-02",
+      "SBCV1-U-REIMB-03",
+      "SBCV1-A-VENDOR-V1-21-1",
+      "SBCV1-A-VENDOR-V1-21-2",
+      "SBCV1-A-VENDOR-V1-22-1",
+      "SBCV1-A-VENDOR-V1-23-1",
+      "SBCV1-A-VENDOR-V1-23-2",
+      "SBCV1-A-VENDOR-V2-21-1",
+      "SBCV1-A-VENDOR-V2-21-2",
+      "SBCV1-A-VENDOR-V2-22-1",
+      "SBCV1-A-VENDOR-V2-23-1",
+      "SBCV1-A-VENDOR-V2-23-2",
+      "SBCV1-N-VENDOR-01",
+      "SBCV1-N-VENDOR-02",
+      "SBCV1-N-VENDOR-03",
+      "SBCV1-N-VENDOR-04",
+      "SBCV1-U-VENDOR-01",
+      "SBCV1-U-VENDOR-02",
+      "SBCV1-U-VENDOR-03",
+      "SBCV1-A-INVOICE-V1-31-1",
+      "SBCV1-A-INVOICE-V1-31-2",
+      "SBCV1-A-INVOICE-V1-32-1",
+      "SBCV1-A-INVOICE-V1-33-1",
+      "SBCV1-A-INVOICE-V1-33-2",
+      "SBCV1-A-INVOICE-V2-31-1",
+      "SBCV1-A-INVOICE-V2-31-2",
+      "SBCV1-A-INVOICE-V2-32-1",
+      "SBCV1-A-INVOICE-V2-33-1",
+      "SBCV1-A-INVOICE-V2-33-2",
+      "SBCV1-N-INVOICE-01",
+      "SBCV1-N-INVOICE-02",
+      "SBCV1-N-INVOICE-03",
+      "SBCV1-U-INVOICE-01",
+      "SBCV1-U-INVOICE-02",
+      "SBCV1-U-INVOICE-03",
+      "SBCV1-U-INVOICE-04",
+      "SBCV1-A-CONTRACT-V1-41-1",
+      "SBCV1-A-CONTRACT-V1-41-2",
+      "SBCV1-A-CONTRACT-V1-42-1",
+      "SBCV1-A-CONTRACT-V1-43-1",
+      "SBCV1-A-CONTRACT-V1-43-2",
+      "SBCV1-A-CONTRACT-V2-41-1",
+      "SBCV1-A-CONTRACT-V2-41-2",
+      "SBCV1-A-CONTRACT-V2-42-1",
+      "SBCV1-A-CONTRACT-V2-43-1",
+      "SBCV1-A-CONTRACT-V2-43-2",
+      "SBCV1-N-CONTRACT-01",
+      "SBCV1-N-CONTRACT-02",
+      "SBCV1-N-CONTRACT-03",
+      "SBCV1-U-CONTRACT-01",
+      "SBCV1-U-CONTRACT-02",
+      "SBCV1-U-CONTRACT-03",
+      "SBCV1-U-CONTRACT-04",
+      "SBCV1-A-APPROVAL-V1-51-1",
+      "SBCV1-A-APPROVAL-V1-51-2",
+      "SBCV1-A-APPROVAL-V1-52-1",
+      "SBCV1-A-APPROVAL-V1-53-1",
+      "SBCV1-A-APPROVAL-V1-53-2",
+      "SBCV1-A-APPROVAL-V2-51-1",
+      "SBCV1-A-APPROVAL-V2-51-2",
+      "SBCV1-A-APPROVAL-V2-52-1",
+      "SBCV1-A-APPROVAL-V2-53-1",
+      "SBCV1-A-APPROVAL-V2-53-2",
+      "SBCV1-N-APPROVAL-01",
+      "SBCV1-N-APPROVAL-02",
+      "SBCV1-N-APPROVAL-03",
+      "SBCV1-U-APPROVAL-01",
+      "SBCV1-U-APPROVAL-02",
+      "SBCV1-U-APPROVAL-03",
+      "SBCV1-A-AUDIT-V1-61-1",
+      "SBCV1-A-AUDIT-V1-61-2",
+      "SBCV1-A-AUDIT-V1-62-1",
+      "SBCV1-A-AUDIT-V1-63-1",
+      "SBCV1-A-AUDIT-V1-63-2",
+      "SBCV1-A-AUDIT-V2-61-1",
+      "SBCV1-A-AUDIT-V2-61-2",
+      "SBCV1-A-AUDIT-V2-62-1",
+      "SBCV1-A-AUDIT-V2-63-1",
+      "SBCV1-A-AUDIT-V2-63-2",
+      "SBCV1-N-AUDIT-01",
+      "SBCV1-N-AUDIT-02",
+      "SBCV1-N-AUDIT-03",
+      "SBCV1-U-AUDIT-01",
+      "SBCV1-U-AUDIT-02",
+      "SBCV1-U-AUDIT-03"
+    ],
+    "case_ids_sha256": "A76DC13C3ABDC40F5FEC2E2734EB7B92A05D28870B5E63DAD673E5F3C19CB9D5",
+    "cases": [
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-REIMB-V1-11-1",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [
+          "SPCV1-REIMB-V1#1.1"
+        ],
+        "expected_evidence_sha256": [
+          "DA18C2BFFEAAA07D5FC4B2F856E5A04B0A86666AD9C4B086600A00E06A181907"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V2#1.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-REIMB-V1-11",
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V1",
+        "query_sha256": "FB16341C2FBD5369676E23CCDDEC2EA1EEB48E4787D248439BA6F641836647BA",
+        "query_text": "按2025-06-30有效制度，关于普通费用报销的提交期限的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-REIMB-V1-11-2",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [
+          "SPCV1-REIMB-V1#1.1"
+        ],
+        "expected_evidence_sha256": [
+          "DA18C2BFFEAAA07D5FC4B2F856E5A04B0A86666AD9C4B086600A00E06A181907"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V2#1.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-REIMB-V1-11",
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V1",
+        "query_sha256": "18929BFD6BBF8C2CA31BE4DB20C20538F2A9D11358994734CF2E95C8512702A0",
+        "query_text": "以2025-06-30为基准，普通费用报销的提交期限应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-REIMB-V1-12-1",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [
+          "SPCV1-REIMB-V1#1.2"
+        ],
+        "expected_evidence_sha256": [
+          "8B2EB6A1A139771F3349F2DD74CB0E297D3CF1D31BFA528721994C8AB2870ECA"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V2#1.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-REIMB-V1-12",
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V1",
+        "query_sha256": "A70250023301CAB65FB432D11B0B9C56D38DBA1F9730D36B40276D5F585D4DF1",
+        "query_text": "按2025-06-30有效制度，关于单笔超过人民币3000元的费用报销的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-REIMB-V1-13-1",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [
+          "SPCV1-REIMB-V1#1.3"
+        ],
+        "expected_evidence_sha256": [
+          "6D16B0FA2E2D449A0FFA345C8C47DF56982AC2A7AFD08A7091F3B39D2EEC5165"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V2#1.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-REIMB-V1-13",
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V1",
+        "query_sha256": "B89184459E34CF6770FB298ABD8AF5FC0DA8ED95B7EB405A932339AA6BB01FA7",
+        "query_text": "按2025-06-30有效制度，关于差旅交通凭证的核对的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-REIMB-V1-13-2",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [
+          "SPCV1-REIMB-V1#1.3"
+        ],
+        "expected_evidence_sha256": [
+          "6D16B0FA2E2D449A0FFA345C8C47DF56982AC2A7AFD08A7091F3B39D2EEC5165"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V2#1.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-REIMB-V1-13",
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V1",
+        "query_sha256": "E03EAE6F30F42ADE8082A16247B7086D20BEE6473AA361224469C416108FB860",
+        "query_text": "以2025-06-30为基准，差旅交通凭证的核对应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-REIMB-V2-11-1",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [
+          "SPCV1-REIMB-V2#1.1"
+        ],
+        "expected_evidence_sha256": [
+          "33F22AFED50548D128C9CBFAFAFA5AD1ADC1DCB9C3C86CD2BA2359996B007920"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V1#1.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-REIMB-V2-11",
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V2",
+        "query_sha256": "C15ADE61460EFEE5A70996B54B2F614FDFB8B9C3B847A6989F3744ED2D195E89",
+        "query_text": "按2026-06-30有效制度，关于普通费用报销的提交期限的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-REIMB-V2-11-2",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [
+          "SPCV1-REIMB-V2#1.1"
+        ],
+        "expected_evidence_sha256": [
+          "33F22AFED50548D128C9CBFAFAFA5AD1ADC1DCB9C3C86CD2BA2359996B007920"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V1#1.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-REIMB-V2-11",
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V2",
+        "query_sha256": "183CBFE821F8369630B967D329285AC253953258EBDDF41CAB4593C55DA865D6",
+        "query_text": "以2026-06-30为基准，普通费用报销的提交期限应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-REIMB-V2-12-1",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [
+          "SPCV1-REIMB-V2#1.2"
+        ],
+        "expected_evidence_sha256": [
+          "446DCEBA13C082AEDC33FD223F46ED974CA4DE46F43B59BBD7E9D044AB2C0C6E"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V1#1.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-REIMB-V2-12",
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V2",
+        "query_sha256": "9A8C9547C2F26F2C6354BBF36C7BC129E0DF07AC28426AD76746AE70AAD464C0",
+        "query_text": "按2026-06-30有效制度，关于单笔超过人民币2500元的费用报销的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-REIMB-V2-13-1",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [
+          "SPCV1-REIMB-V2#1.3"
+        ],
+        "expected_evidence_sha256": [
+          "D00C39CB38FE7ADD73982C5156819F13C1347286E519F638DF64BA77E681DFF7"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V1#1.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-REIMB-V2-13",
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V2",
+        "query_sha256": "920B3CFE085352B74721F4B33AE85D6D8CAC6234676A7228BE6C948F10CDAC9F",
+        "query_text": "按2026-06-30有效制度，关于电子票据重复风险的处理的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-REIMB-V2-13-2",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [
+          "SPCV1-REIMB-V2#1.3"
+        ],
+        "expected_evidence_sha256": [
+          "D00C39CB38FE7ADD73982C5156819F13C1347286E519F638DF64BA77E681DFF7"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V1#1.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-REIMB-V2-13",
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V2",
+        "query_sha256": "2739F36543B934700CC30B7EAB3C8EBAC10060A667EA448EA2843F89A1A6339C",
+        "query_text": "以2026-06-30为基准，电子票据重复风险的处理应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "酒店品牌或星级上限",
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-REIMB-01",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V2#1.1",
+          "SPCV1-REIMB-V2#1.2",
+          "SPCV1-REIMB-V2#1.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V2",
+        "query_sha256": "2A5DA4FD6718C4C7E2D375556F25EC9C98112D8438BE008D123BA100FADEC87D",
+        "query_text": "按2026-06-30有效制度，差旅住宿是否设有酒店品牌或星级上限？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "餐费补助每日定额",
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-REIMB-02",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V2#1.1",
+          "SPCV1-REIMB-V2#1.2",
+          "SPCV1-REIMB-V2#1.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V2",
+        "query_sha256": "AE68A1FCC3B3519DF665D420DB2B0AD75DF35578270FB49A9B1F12AE4BA995F1",
+        "query_text": "按2026-06-30有效制度，出差期间的餐费补助是否规定每日定额？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "自驾里程报销标准",
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-REIMB-03",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V2#1.1",
+          "SPCV1-REIMB-V2#1.2",
+          "SPCV1-REIMB-V2#1.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V2",
+        "query_sha256": "AE2F03EBE26D104CF597864B607839F5E251E9E866764299803054AD81A58C56",
+        "query_text": "按2026-06-30有效制度，自驾出差是否规定每公里报销标准？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "境外差旅汇率日期",
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-REIMB-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-REIMB-04",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V2#1.1",
+          "SPCV1-REIMB-V2#1.2",
+          "SPCV1-REIMB-V2#1.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V2",
+        "query_sha256": "8CEAC29DE3C02D15EE7AA2BA609E3962126FBA3D3335CB63643E59FDCD57D50C",
+        "query_text": "按2026-06-30有效制度，境外差旅报销应采用哪一天的汇率？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "reports.read"
+        ],
+        "actor_role_labels": [
+          "read_only"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-REIMB-01",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V1#1.1"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V1",
+        "query_sha256": "2A5C24B8C7B3950CF991CDF238280945D5FFDAC0D31C2B7836511B01CC583636",
+        "query_text": "请说明2025-06-30时普通费用报销的提交期限适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "jobs.recover",
+          "knowledge.publish",
+          "operations.read",
+          "system.configure",
+          "temporary_roles.decide",
+          "temporary_roles.request",
+          "users.manage"
+        ],
+        "actor_role_labels": [
+          "system_admin"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-REIMB-02",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V1#1.3"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V1",
+        "query_sha256": "E900873A16515298FE4263F6DC515FE6F5DFC142FFF89CCB195FD74062E47087",
+        "query_text": "请说明2025-06-30时差旅交通凭证的核对适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "reports.read"
+        ],
+        "actor_role_labels": [
+          "read_only"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-U-REIMB-03",
+        "domain": "reimbursement",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-REIMB-V2#1.2"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-REIMB",
+        "policy_version_ref": "SPCV1-REIMB-V2",
+        "query_sha256": "452BE53124E1EF4801D6DFF12E69662F4FE8F1B9DC295CE3611A686386971E14",
+        "query_text": "请说明2026-06-30时单笔超过人民币2500元的费用报销适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-VENDOR-V1-21-1",
+        "domain": "vendor",
+        "expected_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.1"
+        ],
+        "expected_evidence_sha256": [
+          "E579286A08327FBF577489687EE2BADF6DD33D23E0CD67AF76A1DD2DE7F970FA"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-VENDOR-V1-21",
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V1",
+        "query_sha256": "FA6CDB6EC7B49044FF754200238C5C6899E3B0A1AC5B9FEF558E227CDFE94FD5",
+        "query_text": "按2025-06-30有效制度，关于新供应商准入资料的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-VENDOR-V1-21-2",
+        "domain": "vendor",
+        "expected_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.1"
+        ],
+        "expected_evidence_sha256": [
+          "E579286A08327FBF577489687EE2BADF6DD33D23E0CD67AF76A1DD2DE7F970FA"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-VENDOR-V1-21",
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V1",
+        "query_sha256": "387F3249CDA0BE1058BC778EDCAED8D79B7F1BE8CF077C830F3E133053CDC0A0",
+        "query_text": "以2025-06-30为基准，新供应商准入资料应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-VENDOR-V1-22-1",
+        "domain": "vendor",
+        "expected_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.2"
+        ],
+        "expected_evidence_sha256": [
+          "AD90D4951F5D8B7FD421268306DC3BC553D2E8D4A5F177E1C5946CCF6B43CBDB"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-VENDOR-V1-22",
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V1",
+        "query_sha256": "F1BC8A7C188BEF4D865E52FCFAA9EF204B8DD2C4F11BF7A9D45506018B905433",
+        "query_text": "按2025-06-30有效制度，关于供应商收款账户变更的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-VENDOR-V1-23-1",
+        "domain": "vendor",
+        "expected_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.3"
+        ],
+        "expected_evidence_sha256": [
+          "5DF6C58B40CE417ED0956A00E1BFD80C07A682F9917360CBD77F5BCEA1A4D9D2"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-VENDOR-V1-23",
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V1",
+        "query_sha256": "8ABB484466BA2B1BBE1DAAF796B558CFFCF7BE59CCFFCBBC66872007B94068E8",
+        "query_text": "按2025-06-30有效制度，关于长期无交易供应商的处理的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-VENDOR-V1-23-2",
+        "domain": "vendor",
+        "expected_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.3"
+        ],
+        "expected_evidence_sha256": [
+          "5DF6C58B40CE417ED0956A00E1BFD80C07A682F9917360CBD77F5BCEA1A4D9D2"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-VENDOR-V1-23",
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V1",
+        "query_sha256": "98B6D9CBE7F3A25E036AED565644C4D095CEAEE2263984CBAA655B40BB3CE597",
+        "query_text": "以2025-06-30为基准，长期无交易供应商的处理应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-VENDOR-V2-21-1",
+        "domain": "vendor",
+        "expected_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.1"
+        ],
+        "expected_evidence_sha256": [
+          "7F1E10D4326C1FFC8218B79067246E55BA3476996CB096BCC794D035418AE7F7"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-VENDOR-V2-21",
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V2",
+        "query_sha256": "93D92051461D5231FB9C55D1C42D13AA00C355C53C32C41B1E3F0F13EB3448FC",
+        "query_text": "按2026-06-30有效制度，关于新供应商准入资料的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-VENDOR-V2-21-2",
+        "domain": "vendor",
+        "expected_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.1"
+        ],
+        "expected_evidence_sha256": [
+          "7F1E10D4326C1FFC8218B79067246E55BA3476996CB096BCC794D035418AE7F7"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-VENDOR-V2-21",
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V2",
+        "query_sha256": "5647CC4148741EE3564D4F99C119F7D92F05D0BE4227CD0112EA758DACBA89F1",
+        "query_text": "以2026-06-30为基准，新供应商准入资料应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-VENDOR-V2-22-1",
+        "domain": "vendor",
+        "expected_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.2"
+        ],
+        "expected_evidence_sha256": [
+          "5B4D2C5BF5CD2CDA82B12B7722E9F2F7B97EB86818A6E945681534A52868A4BC"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-VENDOR-V2-22",
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V2",
+        "query_sha256": "899D1AD063C0A4EBB8B7CD728C3A7EB48DBB42B9FAA5CFA222FB7B8F3402C6EE",
+        "query_text": "按2026-06-30有效制度，关于供应商收款账户变更的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-VENDOR-V2-23-1",
+        "domain": "vendor",
+        "expected_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.3"
+        ],
+        "expected_evidence_sha256": [
+          "931AF4A51CE3C1CACE6D4CD43EAF9945B3581DF02AC222CE91DB011A5CBC7046"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-VENDOR-V2-23",
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V2",
+        "query_sha256": "7C39F474384E9441157F5B88F54594060903E6E37A17B333E97A67CF215B905C",
+        "query_text": "按2026-06-30有效制度，关于长期无交易供应商的处理的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-VENDOR-V2-23-2",
+        "domain": "vendor",
+        "expected_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.3"
+        ],
+        "expected_evidence_sha256": [
+          "931AF4A51CE3C1CACE6D4CD43EAF9945B3581DF02AC222CE91DB011A5CBC7046"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-VENDOR-V2-23",
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V2",
+        "query_sha256": "ED954935400E39FAF3A6C94FA4BE42D38828577041DB779F12B80F36B9AF9A5F",
+        "query_text": "以2026-06-30为基准，长期无交易供应商的处理应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "最低注册资本",
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-VENDOR-01",
+        "domain": "vendor",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.1",
+          "SPCV1-VENDOR-V2#2.2",
+          "SPCV1-VENDOR-V2#2.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V2",
+        "query_sha256": "22868993D46552B7A9E0609BEFC13E2CC90A34FB7204D6C9E356910039F48259",
+        "query_text": "按2026-06-30有效制度，新供应商准入是否设有最低注册资本要求？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "现场核验频率",
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-VENDOR-02",
+        "domain": "vendor",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.1",
+          "SPCV1-VENDOR-V2#2.2",
+          "SPCV1-VENDOR-V2#2.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V2",
+        "query_sha256": "BDCECD2A2F28D7A0BAAC29280393AEBDE4C89C95C54EAC70E00A5ABC490812E4",
+        "query_text": "按2026-06-30有效制度，供应商现场核验应按什么频率复查？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "环境管理体系认证",
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-VENDOR-03",
+        "domain": "vendor",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.1",
+          "SPCV1-VENDOR-V2#2.2",
+          "SPCV1-VENDOR-V2#2.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V2",
+        "query_sha256": "09EF8C3FDE68699EEEB00A87D3F47AF0C27F5C0D273B5581361B792336E814C7",
+        "query_text": "按2026-06-30有效制度，供应商是否必须提供环境管理体系认证？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "黑名单申诉期限",
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-VENDOR-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-VENDOR-04",
+        "domain": "vendor",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.1",
+          "SPCV1-VENDOR-V2#2.2",
+          "SPCV1-VENDOR-V2#2.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V2",
+        "query_sha256": "1CC2496966A6CF52308FB307221D85A2B5972D6FD4A4F5AB5F4DDFC7C92ADD3A",
+        "query_text": "按2026-06-30有效制度，供应商申请移出黑名单的期限是多少？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "jobs.recover",
+          "knowledge.publish",
+          "operations.read",
+          "system.configure",
+          "temporary_roles.decide",
+          "temporary_roles.request",
+          "users.manage"
+        ],
+        "actor_role_labels": [
+          "system_admin"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-VENDOR-01",
+        "domain": "vendor",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.1"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V1",
+        "query_sha256": "17630C90682BCE3D4592CDA51F8E1CA6A8A2E91A316572E381B785E9B9866D97",
+        "query_text": "请说明2025-06-30时新供应商准入资料适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "reports.read"
+        ],
+        "actor_role_labels": [
+          "read_only"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-VENDOR-02",
+        "domain": "vendor",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V1#2.3"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V1",
+        "query_sha256": "2BDA24EB1549881BB14F86DF548CEABEC158837936174A5FD81812E232CAC2AB",
+        "query_text": "请说明2025-06-30时长期无交易供应商的处理适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "jobs.recover",
+          "knowledge.publish",
+          "operations.read",
+          "system.configure",
+          "temporary_roles.decide",
+          "temporary_roles.request",
+          "users.manage"
+        ],
+        "actor_role_labels": [
+          "system_admin"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-U-VENDOR-03",
+        "domain": "vendor",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-VENDOR-V2#2.2"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-VENDOR",
+        "policy_version_ref": "SPCV1-VENDOR-V2",
+        "query_sha256": "AE9BC12F70AB835C9C26425771C160C8AB90EC6834A487E4394A8E0C2E059E7E",
+        "query_text": "请说明2026-06-30时供应商收款账户变更适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-INVOICE-V1-31-1",
+        "domain": "invoice",
+        "expected_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.1"
+        ],
+        "expected_evidence_sha256": [
+          "7F74763C7ADCC1EDA94EF35FF5BAA63E8280BA40ACBB31A5781C559DC727BE0E"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-INVOICE-V1-31",
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V1",
+        "query_sha256": "401622388205F00C7082DBD66B2047FE879B967C1037A31E057C5C4D9B2DD571",
+        "query_text": "按2025-06-30有效制度，关于发票关键字段核对的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-INVOICE-V1-31-2",
+        "domain": "invoice",
+        "expected_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.1"
+        ],
+        "expected_evidence_sha256": [
+          "7F74763C7ADCC1EDA94EF35FF5BAA63E8280BA40ACBB31A5781C559DC727BE0E"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-INVOICE-V1-31",
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V1",
+        "query_sha256": "329C22329526A2B26121495E224FC29B800763C531C5DB3C7BC2E682A5C49B05",
+        "query_text": "以2025-06-30为基准，发票关键字段核对应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-INVOICE-V1-32-1",
+        "domain": "invoice",
+        "expected_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.2"
+        ],
+        "expected_evidence_sha256": [
+          "575F780E8F585B3943F6F1B8A443F482DC57A76D9915B42843F14B34BA3D2FAE"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-INVOICE-V1-32",
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V1",
+        "query_sha256": "B629C436E25FA55A42104D4D87F91D1537C3D6619DEAC0F7D2A924F6B4963653",
+        "query_text": "按2025-06-30有效制度，关于疑似重复发票的处理的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-INVOICE-V1-33-1",
+        "domain": "invoice",
+        "expected_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.3"
+        ],
+        "expected_evidence_sha256": [
+          "DF266EBFBC7DBAC3EB1830CF53633D90E98EC50AE784F80126B8A5F285D3DFF5"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-INVOICE-V1-33",
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V1",
+        "query_sha256": "40E2699B21F54868C2C3F28B1A8DA6E651B199CAFA451148C47781137F63000D",
+        "query_text": "按2025-06-30有效制度，关于作废或红冲发票的使用的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-INVOICE-V1-33-2",
+        "domain": "invoice",
+        "expected_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.3"
+        ],
+        "expected_evidence_sha256": [
+          "DF266EBFBC7DBAC3EB1830CF53633D90E98EC50AE784F80126B8A5F285D3DFF5"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-INVOICE-V1-33",
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V1",
+        "query_sha256": "E77F30A4E92512365FCE999C01DC8DC677157EE6889A3BA97E9959ADB1706D17",
+        "query_text": "以2025-06-30为基准，作废或红冲发票的使用应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-INVOICE-V2-31-1",
+        "domain": "invoice",
+        "expected_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.1"
+        ],
+        "expected_evidence_sha256": [
+          "D298E1E440E85974B75BFFF11B9BB3AF6BFAB58B52034441C1975217CF93228E"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-INVOICE-V2-31",
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V2",
+        "query_sha256": "4E8A31E012F44CDC13D0FADB4F52A6627DC305BE82E622D53E04145AB28D624D",
+        "query_text": "按2026-06-30有效制度，关于发票金额与明细核对的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-INVOICE-V2-31-2",
+        "domain": "invoice",
+        "expected_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.1"
+        ],
+        "expected_evidence_sha256": [
+          "D298E1E440E85974B75BFFF11B9BB3AF6BFAB58B52034441C1975217CF93228E"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-INVOICE-V2-31",
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V2",
+        "query_sha256": "2D70692E81F008D95541ECA3107F27B581B5D3248D63192F99CDD58DB3D0C944",
+        "query_text": "以2026-06-30为基准，发票金额与明细核对应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-INVOICE-V2-32-1",
+        "domain": "invoice",
+        "expected_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.2"
+        ],
+        "expected_evidence_sha256": [
+          "6ADDCC48978082DE887115CFA0F311093BB9B67E5B5B370B28AB0552E0D98473"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-INVOICE-V2-32",
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V2",
+        "query_sha256": "F18223DC7CD85ABA969EB40EBB949495B61C362FC887E3213712398B4DABE1D2",
+        "query_text": "按2026-06-30有效制度，关于疑似重复发票的处理的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-INVOICE-V2-33-1",
+        "domain": "invoice",
+        "expected_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.3"
+        ],
+        "expected_evidence_sha256": [
+          "58B5DB56FE30FD365A9581B496B727C63A6558E1132D583CE06EA4EF2677B839"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-INVOICE-V2-33",
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V2",
+        "query_sha256": "01F2814AD9E72CEB28E039887B498E280A1AD0D910FEA7D3F542E5C7D9DD7765",
+        "query_text": "按2026-06-30有效制度，关于发票币种缺少证据时的处理的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-INVOICE-V2-33-2",
+        "domain": "invoice",
+        "expected_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.3"
+        ],
+        "expected_evidence_sha256": [
+          "58B5DB56FE30FD365A9581B496B727C63A6558E1132D583CE06EA4EF2677B839"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-INVOICE-V2-33",
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V2",
+        "query_sha256": "EC1902FA2AF4D013CCAFFFCB87299CE60C7E404B2C1122320548B982EE6B9ADA",
+        "query_text": "以2026-06-30为基准，发票币种缺少证据时的处理应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "电子发票文件命名",
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-INVOICE-01",
+        "domain": "invoice",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.1",
+          "SPCV1-INVOICE-V2#3.2",
+          "SPCV1-INVOICE-V2#3.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V2",
+        "query_sha256": "55C414786B2E24A1F8A0FCAEE225C3C88AB07E8A7394CD35393803D79417E236",
+        "query_text": "按2026-06-30有效制度，电子发票上传时是否有固定文件命名规则？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "发票影像归档保留年限",
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-INVOICE-02",
+        "domain": "invoice",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.1",
+          "SPCV1-INVOICE-V2#3.2",
+          "SPCV1-INVOICE-V2#3.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V2",
+        "query_sha256": "268C5501320D1163F07C7B56E0B685228D0BBBBEB144A0CE17D8A96342FBE717",
+        "query_text": "按2026-06-30有效制度，发票影像归档文件需要保留多少年？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "月度报销截止日",
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-INVOICE-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-INVOICE-03",
+        "domain": "invoice",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.1",
+          "SPCV1-INVOICE-V2#3.2",
+          "SPCV1-INVOICE-V2#3.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V2",
+        "query_sha256": "45F56B004D35F6A8A5DB93B758EB16E300734C6894260A44B0159F8DD40100F6",
+        "query_text": "按2026-06-30有效制度，每月发票报销是否设有统一截止日？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "reports.read"
+        ],
+        "actor_role_labels": [
+          "read_only"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-INVOICE-01",
+        "domain": "invoice",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.1"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V1",
+        "query_sha256": "B5EEED3C41C4C81C34265E0C64949DEA053EDA9A73C03320BFA4EDE6B30E9859",
+        "query_text": "请说明2025-06-30时发票关键字段核对适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "jobs.recover",
+          "knowledge.publish",
+          "operations.read",
+          "system.configure",
+          "temporary_roles.decide",
+          "temporary_roles.request",
+          "users.manage"
+        ],
+        "actor_role_labels": [
+          "system_admin"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-INVOICE-02",
+        "domain": "invoice",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V1#3.3"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V1",
+        "query_sha256": "11F49A5C97C627D739C5C8F37D3D2E8AE7508CB103C52EAA412381AD9C64BF66",
+        "query_text": "请说明2025-06-30时作废或红冲发票的使用适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "reports.read"
+        ],
+        "actor_role_labels": [
+          "read_only"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-U-INVOICE-03",
+        "domain": "invoice",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.2"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V2",
+        "query_sha256": "4EED6728A296BEEBBD0486869147E8B9A9187E0CC0CA93BE08BBCE6F05E9BD6B",
+        "query_text": "请说明2026-06-30时疑似重复发票的处理适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "jobs.recover",
+          "knowledge.publish",
+          "operations.read",
+          "system.configure",
+          "temporary_roles.decide",
+          "temporary_roles.request",
+          "users.manage"
+        ],
+        "actor_role_labels": [
+          "system_admin"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-U-INVOICE-04",
+        "domain": "invoice",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-INVOICE-V2#3.3"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-INVOICE",
+        "policy_version_ref": "SPCV1-INVOICE-V2",
+        "query_sha256": "21F5363A2C4FE94CBEC8F5471B33D6CA81AB9C99A165C7E65852B84D53A7B529",
+        "query_text": "请说明2026-06-30时发票币种缺少证据时的处理适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-CONTRACT-V1-41-1",
+        "domain": "contract",
+        "expected_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.1"
+        ],
+        "expected_evidence_sha256": [
+          "306B44B27FBB56437094A2B00A3236043EA99D3A2AD647D77E443992F687AE28"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-CONTRACT-V1-41",
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V1",
+        "query_sha256": "EBB564637E3F32454381FAE4839898F3187160412E470EA74DF04179606BE2D6",
+        "query_text": "按2025-06-30有效制度，关于合同付款前置条件的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-CONTRACT-V1-41-2",
+        "domain": "contract",
+        "expected_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.1"
+        ],
+        "expected_evidence_sha256": [
+          "306B44B27FBB56437094A2B00A3236043EA99D3A2AD647D77E443992F687AE28"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-CONTRACT-V1-41",
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V1",
+        "query_sha256": "0DA40E2F47CC12B65677DDEBF13BB3972616DC0B71C2BBCB103D3414D8BB271B",
+        "query_text": "以2025-06-30为基准，合同付款前置条件应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-CONTRACT-V1-42-1",
+        "domain": "contract",
+        "expected_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.2"
+        ],
+        "expected_evidence_sha256": [
+          "B41B70C9B966E0EB6593571EA492D726F2CAEA5A33A426BC29178466211150C5"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-CONTRACT-V1-42",
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V1",
+        "query_sha256": "235319B5E5835BC7E2C8F73CF26620F288EF28B653CC1B30C2742F6E5B49F7B3",
+        "query_text": "按2025-06-30有效制度，关于补充协议对合同字段的影响的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-CONTRACT-V1-43-1",
+        "domain": "contract",
+        "expected_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.3"
+        ],
+        "expected_evidence_sha256": [
+          "A5CCC12BD6C038F37AAEA5A44C84F9B2AAC9C21B8ED7B9D11FE64FF135732AB9"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-CONTRACT-V1-43",
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V1",
+        "query_sha256": "A7DB7344A71BA41A33D3A2F0127E78194E5E71111102D99DC5D6B855DD2A0ADB",
+        "query_text": "按2025-06-30有效制度，关于累计发票金额超过合同上限的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-CONTRACT-V1-43-2",
+        "domain": "contract",
+        "expected_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.3"
+        ],
+        "expected_evidence_sha256": [
+          "A5CCC12BD6C038F37AAEA5A44C84F9B2AAC9C21B8ED7B9D11FE64FF135732AB9"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-CONTRACT-V1-43",
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V1",
+        "query_sha256": "E471ECE2B0BD66D15629F48961331F886FDBEC9C32801815772608DDD1459839",
+        "query_text": "以2025-06-30为基准，累计发票金额超过合同上限应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-CONTRACT-V2-41-1",
+        "domain": "contract",
+        "expected_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.1"
+        ],
+        "expected_evidence_sha256": [
+          "EF51C37A29E2E943514116F587363E5B1456122623806DB046597C396E1A3E19"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-CONTRACT-V2-41",
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V2",
+        "query_sha256": "0DD41B82D56B2FFD2B505E4FDAD60559DD78B335EF4B7899B65E76F279A13DB9",
+        "query_text": "按2026-06-30有效制度，关于基准日合同版本的选择的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-CONTRACT-V2-41-2",
+        "domain": "contract",
+        "expected_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.1"
+        ],
+        "expected_evidence_sha256": [
+          "EF51C37A29E2E943514116F587363E5B1456122623806DB046597C396E1A3E19"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-CONTRACT-V2-41",
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V2",
+        "query_sha256": "009BF0F148CCE37F5ACED09D8A3D62891C888FB09CEFD7AEE935FDED7394CDAE",
+        "query_text": "以2026-06-30为基准，基准日合同版本的选择应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-CONTRACT-V2-42-1",
+        "domain": "contract",
+        "expected_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.2"
+        ],
+        "expected_evidence_sha256": [
+          "2AFF84ADD2CA5C76A233F32A7A9785DD69BD0D1A9DE3B3389A6D078AF88B47BF"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-CONTRACT-V2-42",
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V2",
+        "query_sha256": "306BAC8BF6975499EABBD152BAC853A7D456CBDCC139B2A429BE6769D1FBC131",
+        "query_text": "按2026-06-30有效制度，关于同日补充协议修改同一字段的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-CONTRACT-V2-43-1",
+        "domain": "contract",
+        "expected_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.3"
+        ],
+        "expected_evidence_sha256": [
+          "08D9094DF6CB310EF4F1FCCCD2F8941F1109E7C214D212D551799FA7278CA081"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-CONTRACT-V2-43",
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V2",
+        "query_sha256": "2353B9AC2EA1FBD21117DA7F8EB5BD7EADDA120FC78E584F13B9427FA5F94CA1",
+        "query_text": "按2026-06-30有效制度，关于发票主合同关系的唯一性的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-CONTRACT-V2-43-2",
+        "domain": "contract",
+        "expected_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.3"
+        ],
+        "expected_evidence_sha256": [
+          "08D9094DF6CB310EF4F1FCCCD2F8941F1109E7C214D212D551799FA7278CA081"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-CONTRACT-V2-43",
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V2",
+        "query_sha256": "5A31F7470C4AA2EBABFCCC0AE591B352DFCBCC076224CA836F92689DECEC0D04",
+        "query_text": "以2026-06-30为基准，发票主合同关系的唯一性应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "合同原件份数",
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-CONTRACT-01",
+        "domain": "contract",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.1",
+          "SPCV1-CONTRACT-V2#4.2",
+          "SPCV1-CONTRACT-V2#4.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V2",
+        "query_sha256": "A048CCB57BD107961B5F9852D28F6927E7EA2D5519DE4F938777EC0BC268C169",
+        "query_text": "按2026-06-30有效制度，一份合同应当保留多少份盖章原件？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "模板偏离条款上限",
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-CONTRACT-02",
+        "domain": "contract",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.1",
+          "SPCV1-CONTRACT-V2#4.2",
+          "SPCV1-CONTRACT-V2#4.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V2",
+        "query_sha256": "99B12BB608902203E944AFB1B7A5062692B54DEBD62C695F990152215EC8325A",
+        "query_text": "按2026-06-30有效制度，偏离标准合同模板是否设有条款数量上限？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "电子签章服务商白名单",
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-CONTRACT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-CONTRACT-03",
+        "domain": "contract",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.1",
+          "SPCV1-CONTRACT-V2#4.2",
+          "SPCV1-CONTRACT-V2#4.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V2",
+        "query_sha256": "0FE1093B4B33359CA5418813B8A24045F83A2486E1DBA17CE11FEB7325F9A19A",
+        "query_text": "按2026-06-30有效制度，电子签章证书是否限定服务商白名单？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "jobs.recover",
+          "knowledge.publish",
+          "operations.read",
+          "system.configure",
+          "temporary_roles.decide",
+          "temporary_roles.request",
+          "users.manage"
+        ],
+        "actor_role_labels": [
+          "system_admin"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-CONTRACT-01",
+        "domain": "contract",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.1"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V1",
+        "query_sha256": "8DF54BC97834A61EE233356BDFD624F6BE02ED15E34C9914BC5508DE5BFD0C8B",
+        "query_text": "请说明2025-06-30时合同付款前置条件适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "reports.read"
+        ],
+        "actor_role_labels": [
+          "read_only"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-CONTRACT-02",
+        "domain": "contract",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V1#4.3"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V1",
+        "query_sha256": "71662E0B531B15F8AC1DC34ADCF130F0F6DDA8BA7CE48B736CCD29D195BFE75E",
+        "query_text": "请说明2025-06-30时累计发票金额超过合同上限适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "jobs.recover",
+          "knowledge.publish",
+          "operations.read",
+          "system.configure",
+          "temporary_roles.decide",
+          "temporary_roles.request",
+          "users.manage"
+        ],
+        "actor_role_labels": [
+          "system_admin"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-U-CONTRACT-03",
+        "domain": "contract",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.2"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V2",
+        "query_sha256": "A5B713253DABB139B029937EF74B8FBEB9129F8ED4F420B507DC8DAFA29F6DDB",
+        "query_text": "请说明2026-06-30时同日补充协议修改同一字段适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "reports.read"
+        ],
+        "actor_role_labels": [
+          "read_only"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-U-CONTRACT-04",
+        "domain": "contract",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-CONTRACT-V2#4.3"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-CONTRACT",
+        "policy_version_ref": "SPCV1-CONTRACT-V2",
+        "query_sha256": "FD82971461948E0D6FD5CB05B29ABB31E90A38BE1CB3DE1C2481B1767FBF57F1",
+        "query_text": "请说明2026-06-30时发票主合同关系的唯一性适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-APPROVAL-V1-51-1",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.1"
+        ],
+        "expected_evidence_sha256": [
+          "7B570EDFC100E697E2CF5287E9240432F7396AF59AF04A86A2A775BD1E54873C"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-APPROVAL-V1-51",
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V1",
+        "query_sha256": "3F6275A74ABDC621F3A0C7A2E61BB8C6C179A59DE0B8565162094B0A1840CBC2",
+        "query_text": "按2025-06-30有效制度，关于普通付款和高风险付款的复核分工的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-APPROVAL-V1-51-2",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.1"
+        ],
+        "expected_evidence_sha256": [
+          "7B570EDFC100E697E2CF5287E9240432F7396AF59AF04A86A2A775BD1E54873C"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-APPROVAL-V1-51",
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V1",
+        "query_sha256": "EA89A4BE297C2D3F7A95B00B613FDD6E124C08BF5E84FD88CD224C20E9C00A31",
+        "query_text": "以2025-06-30为基准，普通付款和高风险付款的复核分工应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-APPROVAL-V1-52-1",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.2"
+        ],
+        "expected_evidence_sha256": [
+          "113A348F5D99F42635CFC01FE4A8A919F2B3F20FF938815B3C49818F82425D2C"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-APPROVAL-V1-52",
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V1",
+        "query_sha256": "D5472B3DD1DE50A78992AEEF1D3F8F757A1C4F8DDF377AC4CA6084E282239E23",
+        "query_text": "按2025-06-30有效制度，关于制度提交人与审批人的职责分离的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-APPROVAL-V1-53-1",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.3"
+        ],
+        "expected_evidence_sha256": [
+          "015708FDDE8619985780D37EE52C9BB8AB9D02791F1E9BE704F630E78E140226"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-APPROVAL-V1-53",
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V1",
+        "query_sha256": "B3B47341EFE8CAA03B0D9C80F938B4CE3F33CE242A56330DD8A769985DF18A57",
+        "query_text": "按2025-06-30有效制度，关于系统管理员参与业务审批的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-APPROVAL-V1-53-2",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.3"
+        ],
+        "expected_evidence_sha256": [
+          "015708FDDE8619985780D37EE52C9BB8AB9D02791F1E9BE704F630E78E140226"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-APPROVAL-V1-53",
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V1",
+        "query_sha256": "322A39FFFD952F21301A910643AB88D122DAB099044DB47806956A8F29ED1CEE",
+        "query_text": "以2025-06-30为基准，系统管理员参与业务审批应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-APPROVAL-V2-51-1",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.1"
+        ],
+        "expected_evidence_sha256": [
+          "B36D28D4D435CF8C2D463B60EC3EB630E4325A06EE088CBECEC1E54E2C248A2B"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-APPROVAL-V2-51",
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V2",
+        "query_sha256": "CCF4EF36C80FEDCEC10E053549CEB52E7555A9236D86313DB002DAD4C60EBE17",
+        "query_text": "按2026-06-30有效制度，关于高风险任务的完成条件的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-APPROVAL-V2-51-2",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.1"
+        ],
+        "expected_evidence_sha256": [
+          "B36D28D4D435CF8C2D463B60EC3EB630E4325A06EE088CBECEC1E54E2C248A2B"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-APPROVAL-V2-51",
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V2",
+        "query_sha256": "CD9E50D305EB4E48CA1F7FCEAAD84C11624712F19F6CE78011727AE241F91423",
+        "query_text": "以2026-06-30为基准，高风险任务的完成条件应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-APPROVAL-V2-52-1",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.2"
+        ],
+        "expected_evidence_sha256": [
+          "153603B4AD3615C01B881FFDA1AFBDFB453064DF0670605CD32E82729C2307E3"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-APPROVAL-V2-52",
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V2",
+        "query_sha256": "1DF6FFAFC14064EA0822E9DAAE1316D38EF4A3C0411A1E764020604D71ED15B6",
+        "query_text": "按2026-06-30有效制度，关于临时提升权限的控制的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-APPROVAL-V2-53-1",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.3"
+        ],
+        "expected_evidence_sha256": [
+          "C2648E284880C03F33DC6CC420735548739EBC0135681A60C4991CC602843A3B"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-APPROVAL-V2-53",
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V2",
+        "query_sha256": "FECC0CD87FD370AF4E1FDD85CFAD500827F6D1CC7BE0693DCDFE00BC6CC63D85",
+        "query_text": "按2026-06-30有效制度，关于只读角色的操作边界的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-APPROVAL-V2-53-2",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.3"
+        ],
+        "expected_evidence_sha256": [
+          "C2648E284880C03F33DC6CC420735548739EBC0135681A60C4991CC602843A3B"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-APPROVAL-V2-53",
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V2",
+        "query_sha256": "4C2A3CB66EF1FB867F01386D53A123D44039D1E4499AC76898FAA2E2A827BEDB",
+        "query_text": "以2026-06-30为基准，只读角色的操作边界应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "付款审批通知邮件标题",
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-APPROVAL-01",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.1",
+          "SPCV1-APPROVAL-V2#5.2",
+          "SPCV1-APPROVAL-V2#5.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V2",
+        "query_sha256": "DCB8D03EC84C942A7CC32E7D803B7D0D3785D56C872C4569DF2C9749DC9F0BFB",
+        "query_text": "按2026-06-30有效制度，付款审批通知是否规定统一的邮件标题格式？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "普通付款审批时限",
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-APPROVAL-02",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.1",
+          "SPCV1-APPROVAL-V2#5.2",
+          "SPCV1-APPROVAL-V2#5.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V2",
+        "query_sha256": "2F566594253920C54667321390F4451CBE1727B73844DBDDE218CE9B206D10C3",
+        "query_text": "按2026-06-30有效制度，普通付款审批是否规定办理时限？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "紧急付款补审期限",
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-APPROVAL-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-APPROVAL-03",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.1",
+          "SPCV1-APPROVAL-V2#5.2",
+          "SPCV1-APPROVAL-V2#5.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V2",
+        "query_sha256": "9AFEFE099FA3B1442EF0753FCDDC6C726E498FEB5D897FC0BA282223EADA512C",
+        "query_text": "按2026-06-30有效制度，紧急付款应在多久内补办审批？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "reports.read"
+        ],
+        "actor_role_labels": [
+          "read_only"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-APPROVAL-01",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.1"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V1",
+        "query_sha256": "DD1B952A60E3ED1883BCEAA4C3D2BDF1731CB9A5C6BB22B137569229EA30F8FD",
+        "query_text": "请说明2025-06-30时普通付款和高风险付款的复核分工适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "jobs.recover",
+          "knowledge.publish",
+          "operations.read",
+          "system.configure",
+          "temporary_roles.decide",
+          "temporary_roles.request",
+          "users.manage"
+        ],
+        "actor_role_labels": [
+          "system_admin"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-APPROVAL-02",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V1#5.3"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V1",
+        "query_sha256": "1C64309DC652F4C47B53C980E62C7831B070ADBE19656131A3EE885E10E365E4",
+        "query_text": "请说明2025-06-30时系统管理员参与业务审批适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "reports.read"
+        ],
+        "actor_role_labels": [
+          "read_only"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-U-APPROVAL-03",
+        "domain": "approval_authority",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-APPROVAL-V2#5.2"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-APPROVAL",
+        "policy_version_ref": "SPCV1-APPROVAL-V2",
+        "query_sha256": "485332A94B2DD1877970A27109F98AB47632C9FACEA4E566682112819BF18003",
+        "query_text": "请说明2026-06-30时临时提升权限的控制适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-AUDIT-V1-61-1",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.1"
+        ],
+        "expected_evidence_sha256": [
+          "353654B46BA4916D9D6E913FF1C37229B732B24C266CFF39F2FD3767AA977859"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-AUDIT-V1-61",
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V1",
+        "query_sha256": "7CE7AC64BD1719E5CD34935DFF1ED7E4ADD95FB8A705767C4888652AA146C1E6",
+        "query_text": "按2025-06-30有效制度，关于业务状态变化的日志字段的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-AUDIT-V1-61-2",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.1"
+        ],
+        "expected_evidence_sha256": [
+          "353654B46BA4916D9D6E913FF1C37229B732B24C266CFF39F2FD3767AA977859"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-AUDIT-V1-61",
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V1",
+        "query_sha256": "FCBE105442AD0D3CF0591B6280F6493716A711E74A051E158780B5E6B8FEC6D0",
+        "query_text": "以2025-06-30为基准，业务状态变化的日志字段应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-AUDIT-V1-62-1",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.2"
+        ],
+        "expected_evidence_sha256": [
+          "52AAA0A36334E22BD6B5389A46E980363F216471688C8FA04DA4D56FC1A93CB6"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-AUDIT-V1-62",
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V1",
+        "query_sha256": "DF858580FBD4B80F48A47456904F0EB7CA47CA2C976D6E9CD1DEB64E21CA72CC",
+        "query_text": "按2025-06-30有效制度，关于已写入操作日志的修改或删除的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-AUDIT-V1-63-1",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.3"
+        ],
+        "expected_evidence_sha256": [
+          "69CC091AAA680810F64AC007F3790D50514CC02D8C349BEA5FC7DDFCE5671DCF"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-AUDIT-V1-63",
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V1",
+        "query_sha256": "5353E3B568F62748093D5CBB0121CC3B50468DD2EC0F834935D9A4926ABC10B5",
+        "query_text": "按2025-06-30有效制度，关于模型调用需要保留的审计字段的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V1"
+        ],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-A-AUDIT-V1-63-2",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.3"
+        ],
+        "expected_evidence_sha256": [
+          "69CC091AAA680810F64AC007F3790D50514CC02D8C349BEA5FC7DDFCE5671DCF"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-AUDIT-V1-63",
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V1",
+        "query_sha256": "6207A3304E32BA32A65F2197C7053DD6833BF007F8EDBB0FC3E66943EF68A165",
+        "query_text": "以2025-06-30为基准，模型调用需要保留的审计字段应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-AUDIT-V2-61-1",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.1"
+        ],
+        "expected_evidence_sha256": [
+          "3049652546E8FB5F3E66DA4D5F1D621AAA70842EBF3C3C04177A5B305AB761C6"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-AUDIT-V2-61",
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V2",
+        "query_sha256": "D77539C312C786EA781955266B39C23D46849676FB37382414B7316039FEFBD0",
+        "query_text": "按2026-06-30有效制度，关于关键业务写入与审计失败的处理的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-AUDIT-V2-61-2",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.1"
+        ],
+        "expected_evidence_sha256": [
+          "3049652546E8FB5F3E66DA4D5F1D621AAA70842EBF3C3C04177A5B305AB761C6"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.1"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-AUDIT-V2-61",
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V2",
+        "query_sha256": "E067BBE3EF10A73E552A735C51C85762E2DC4BBFA0B0F38F5EC24B4A58B0862F",
+        "query_text": "以2026-06-30为基准，关键业务写入与审计失败的处理应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-AUDIT-V2-62-1",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.2"
+        ],
+        "expected_evidence_sha256": [
+          "E3373545C5C92A124A0F6912747070E35D2B532370F6B2B80BAD6A26CF30B868"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.2"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-AUDIT-V2-62",
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V2",
+        "query_sha256": "A4477923318E08854919AB15C1DE3D03CF6E95EF42BB2A44F3758715396EB7C0",
+        "query_text": "按2026-06-30有效制度，关于不同币种模型费用的汇总的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-AUDIT-V2-63-1",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.3"
+        ],
+        "expected_evidence_sha256": [
+          "9B866B6BD406C0220B41BFC16D9C6E7C6FD90696F9D9B94D6BD98C2E069E7E4F"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-AUDIT-V2-63",
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V2",
+        "query_sha256": "9CAD93E3500FFAE3E0CB3766368574CE30D392EF7706A3DBF8ED4357E85FD48E",
+        "query_text": "按2026-06-30有效制度，关于模型迟到完成结果的采用的要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-A-AUDIT-V2-63-2",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.3"
+        ],
+        "expected_evidence_sha256": [
+          "9B866B6BD406C0220B41BFC16D9C6E7C6FD90696F9D9B94D6BD98C2E069E7E4F"
+        ],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.3"
+        ],
+        "label": "answerable",
+        "paraphrase_group_id": "SBCV1-P-AUDIT-V2-63",
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V2",
+        "query_sha256": "A4BF86F68E31D94D601949BAF8B2AF12E01C6F29CFDD4C367ECCEF54C61D6F66",
+        "query_text": "以2026-06-30为基准，模型迟到完成结果的采用应当如何处理？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "effective_date",
+          "policy_version",
+          "synonym_rewrite"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "日志在线保存年限",
+        "actor_effective_permissions": [
+          "audits.complete",
+          "audits.create",
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "invoices.manage",
+          "knowledge.use",
+          "links.manage_primary",
+          "reports.export",
+          "reports.read",
+          "risks.review_non_high",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "finance_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-AUDIT-01",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.1",
+          "SPCV1-AUDIT-V2#6.2",
+          "SPCV1-AUDIT-V2#6.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V2",
+        "query_sha256": "CF3EABCBF518A4E446DA929393B743F864624C7ADA5FC7D292244D1495287C39",
+        "query_text": "按2026-06-30有效制度，操作日志在线保存年限是多少？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "审计证据导出审批",
+        "actor_effective_permissions": [
+          "audits.read",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.approve",
+          "knowledge.submit",
+          "knowledge.use",
+          "reports.read",
+          "risks.review_high"
+        ],
+        "actor_role_labels": [
+          "audit_reviewer"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-AUDIT-02",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.1",
+          "SPCV1-AUDIT-V2#6.2",
+          "SPCV1-AUDIT-V2#6.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V2",
+        "query_sha256": "010C647C5B52BF0BFB1F6B440A96D372618C1F26FFD48C74FF0970A99A484DCE",
+        "query_text": "按2026-06-30有效制度，导出审计证据是否需要单独审批？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": "操作日志抽查频率",
+        "actor_effective_permissions": [
+          "audits.read",
+          "contracts.manage",
+          "files.manage",
+          "files.read",
+          "files.upload",
+          "financial.read",
+          "knowledge.use",
+          "links.suggest",
+          "reports.read",
+          "suppliers.correct"
+        ],
+        "actor_role_labels": [
+          "contract_admin"
+        ],
+        "allowed_policy_refs": [
+          "SPCV1-AUDIT-V2"
+        ],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-N-AUDIT-03",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.1",
+          "SPCV1-AUDIT-V2#6.2",
+          "SPCV1-AUDIT-V2#6.3"
+        ],
+        "label": "no_answer",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V2",
+        "query_sha256": "ABEF465B3854AD180181DAB7171A2185173C57A183DF3A823D44225C12A00BD9",
+        "query_text": "按2026-06-30有效制度，应按什么频率抽查操作日志？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "revised_for_business_naturalness",
+        "scenario_tags": [
+          "no_answer",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "jobs.recover",
+          "knowledge.publish",
+          "operations.read",
+          "system.configure",
+          "temporary_roles.decide",
+          "temporary_roles.request",
+          "users.manage"
+        ],
+        "actor_role_labels": [
+          "system_admin"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-AUDIT-01",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.1"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V1",
+        "query_sha256": "FC3E5E6E73708B0358864D291271CE225F5797ECBE4763B5428D519DB90A17A7",
+        "query_text": "请说明2025-06-30时业务状态变化的日志字段适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "audits.read",
+          "reports.read"
+        ],
+        "actor_role_labels": [
+          "read_only"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2025-06-30",
+        "case_id": "SBCV1-U-AUDIT-02",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V1#6.3"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V1",
+        "query_sha256": "3AECE4BD214EE3434E30596892B9BFFA779E194824FFEF5A08668255275A02C0",
+        "query_text": "请说明2025-06-30时模型调用需要保留的审计字段适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      },
+      {
+        "absence_probe": null,
+        "actor_effective_permissions": [
+          "jobs.recover",
+          "knowledge.publish",
+          "operations.read",
+          "system.configure",
+          "temporary_roles.decide",
+          "temporary_roles.request",
+          "users.manage"
+        ],
+        "actor_role_labels": [
+          "system_admin"
+        ],
+        "allowed_policy_refs": [],
+        "benchmark_date": "2026-06-30",
+        "case_id": "SBCV1-U-AUDIT-03",
+        "domain": "audit_trail",
+        "expected_evidence_refs": [],
+        "expected_evidence_sha256": [],
+        "forbidden_evidence_refs": [
+          "SPCV1-AUDIT-V2#6.2"
+        ],
+        "label": "unauthorized",
+        "paraphrase_group_id": null,
+        "policy_family_ref": "SPCV1-AUDIT",
+        "policy_version_ref": "SPCV1-AUDIT-V2",
+        "query_sha256": "9C25D9CFC6290252895009B5DEF9C70AEE30F4E91F83EB7B3DC34D345C635A0A",
+        "query_text": "请说明2026-06-30时不同币种模型费用的汇总适用的内部要求是什么？",
+        "required_permission": "knowledge.use",
+        "review_disposition": "accepted_as_is",
+        "scenario_tags": [
+          "unauthorized",
+          "cross_permission",
+          "effective_date",
+          "policy_version"
+        ],
+        "top_k": 5
+      }
+    ],
+    "cases_sha256": "6FDC0B0914B01698C11CC0DDF422AC5F1AE12494CE37CF0265C2A0EF6D14344C"
+  },
+  "human_review_queue_decisions": [
+    {
+      "case_id": "SBCV1-A-REIMB-V1-11-2",
+      "decision": "accepted_as_is",
+      "original_review_area": "version_and_paraphrase_semantics",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    },
+    {
+      "case_id": "SBCV1-N-REIMB-01",
+      "decision": "revised_and_accepted",
+      "original_review_area": "plausible_absence",
+      "reason": "已替换为制度可能被真实业务人员提出、但当前允许制度未覆盖的问题。"
+    },
+    {
+      "case_id": "SBCV1-U-REIMB-01",
+      "decision": "accepted_as_is",
+      "original_review_area": "cross_permission_boundary",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    },
+    {
+      "case_id": "SBCV1-A-VENDOR-V1-21-2",
+      "decision": "accepted_as_is",
+      "original_review_area": "version_and_paraphrase_semantics",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    },
+    {
+      "case_id": "SBCV1-N-VENDOR-01",
+      "decision": "revised_and_accepted",
+      "original_review_area": "plausible_absence",
+      "reason": "已替换为制度可能被真实业务人员提出、但当前允许制度未覆盖的问题。"
+    },
+    {
+      "case_id": "SBCV1-U-VENDOR-01",
+      "decision": "accepted_as_is",
+      "original_review_area": "cross_permission_boundary",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    },
+    {
+      "case_id": "SBCV1-A-INVOICE-V1-31-2",
+      "decision": "accepted_as_is",
+      "original_review_area": "version_and_paraphrase_semantics",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    },
+    {
+      "case_id": "SBCV1-N-INVOICE-01",
+      "decision": "revised_and_accepted",
+      "original_review_area": "plausible_absence",
+      "reason": "已替换为制度可能被真实业务人员提出、但当前允许制度未覆盖的问题。"
+    },
+    {
+      "case_id": "SBCV1-U-INVOICE-01",
+      "decision": "accepted_as_is",
+      "original_review_area": "cross_permission_boundary",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    },
+    {
+      "case_id": "SBCV1-A-CONTRACT-V1-41-2",
+      "decision": "accepted_as_is",
+      "original_review_area": "version_and_paraphrase_semantics",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    },
+    {
+      "case_id": "SBCV1-N-CONTRACT-01",
+      "decision": "revised_and_accepted",
+      "original_review_area": "plausible_absence",
+      "reason": "已替换为制度可能被真实业务人员提出、但当前允许制度未覆盖的问题。"
+    },
+    {
+      "case_id": "SBCV1-U-CONTRACT-01",
+      "decision": "accepted_as_is",
+      "original_review_area": "cross_permission_boundary",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    },
+    {
+      "case_id": "SBCV1-A-APPROVAL-V1-51-2",
+      "decision": "accepted_as_is",
+      "original_review_area": "version_and_paraphrase_semantics",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    },
+    {
+      "case_id": "SBCV1-N-APPROVAL-01",
+      "decision": "revised_and_accepted",
+      "original_review_area": "plausible_absence",
+      "reason": "已替换为制度可能被真实业务人员提出、但当前允许制度未覆盖的问题。"
+    },
+    {
+      "case_id": "SBCV1-U-APPROVAL-01",
+      "decision": "accepted_as_is",
+      "original_review_area": "cross_permission_boundary",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    },
+    {
+      "case_id": "SBCV1-A-AUDIT-V1-61-2",
+      "decision": "accepted_as_is",
+      "original_review_area": "version_and_paraphrase_semantics",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    },
+    {
+      "case_id": "SBCV1-N-AUDIT-01",
+      "decision": "revised_and_accepted",
+      "original_review_area": "plausible_absence",
+      "reason": "已替换为制度可能被真实业务人员提出、但当前允许制度未覆盖的问题。"
+    },
+    {
+      "case_id": "SBCV1-U-AUDIT-01",
+      "decision": "accepted_as_is",
+      "original_review_area": "cross_permission_boundary",
+      "reason": "基准日、制度版本、证据映射与当前 knowledge.use 权限事实一致。"
+    }
+  ],
+  "mvp_uat_subset_50": {
+    "approval_state": "owner_delegated_local_test_approved",
+    "case_count": 50,
+    "case_ids": [
+      "SBCV1-A-REIMB-V1-11-1",
+      "SBCV1-A-REIMB-V1-11-2",
+      "SBCV1-A-REIMB-V1-12-1",
+      "SBCV1-A-REIMB-V2-11-1",
+      "SBCV1-A-REIMB-V2-12-1",
+      "SBCV1-N-REIMB-01",
+      "SBCV1-N-REIMB-02",
+      "SBCV1-U-REIMB-01",
+      "SBCV1-A-VENDOR-V1-21-1",
+      "SBCV1-A-VENDOR-V1-22-1",
+      "SBCV1-A-VENDOR-V2-21-1",
+      "SBCV1-A-VENDOR-V2-22-1",
+      "SBCV1-A-VENDOR-V2-23-2",
+      "SBCV1-N-VENDOR-01",
+      "SBCV1-N-VENDOR-02",
+      "SBCV1-U-VENDOR-01",
+      "SBCV1-A-INVOICE-V1-31-1",
+      "SBCV1-A-INVOICE-V1-31-2",
+      "SBCV1-A-INVOICE-V1-32-1",
+      "SBCV1-A-INVOICE-V2-31-1",
+      "SBCV1-A-INVOICE-V2-32-1",
+      "SBCV1-N-INVOICE-01",
+      "SBCV1-N-INVOICE-02",
+      "SBCV1-U-INVOICE-01",
+      "SBCV1-U-INVOICE-02",
+      "SBCV1-A-CONTRACT-V1-41-1",
+      "SBCV1-A-CONTRACT-V1-42-1",
+      "SBCV1-A-CONTRACT-V2-41-1",
+      "SBCV1-A-CONTRACT-V2-42-1",
+      "SBCV1-A-CONTRACT-V2-43-2",
+      "SBCV1-N-CONTRACT-01",
+      "SBCV1-N-CONTRACT-02",
+      "SBCV1-U-CONTRACT-01",
+      "SBCV1-U-CONTRACT-02",
+      "SBCV1-A-APPROVAL-V1-51-1",
+      "SBCV1-A-APPROVAL-V1-51-2",
+      "SBCV1-A-APPROVAL-V1-52-1",
+      "SBCV1-A-APPROVAL-V2-51-1",
+      "SBCV1-A-APPROVAL-V2-52-1",
+      "SBCV1-N-APPROVAL-01",
+      "SBCV1-U-APPROVAL-01",
+      "SBCV1-U-APPROVAL-02",
+      "SBCV1-A-AUDIT-V1-61-1",
+      "SBCV1-A-AUDIT-V1-62-1",
+      "SBCV1-A-AUDIT-V2-61-1",
+      "SBCV1-A-AUDIT-V2-62-1",
+      "SBCV1-A-AUDIT-V2-63-2",
+      "SBCV1-N-AUDIT-01",
+      "SBCV1-U-AUDIT-01",
+      "SBCV1-U-AUDIT-02"
+    ],
+    "case_ids_sha256": "2C2A9B138CAECAC6C7E807C28B037E8EE2B6ED7FF440D44954D98D2852F10921",
+    "cases_sha256": "1AD23FB089C807874052D0D8618B76FF32C157B043CBA269561EFDF0B33D6B4E"
+  },
+  "review_authority": {
+    "authority_ref": "BOSS-P1-KB-QUALITY-V2-DIAGNOSIS-20260820",
+    "authority_scope": "fix the retained approval no-answer collision; runtime requires new authorization",
+    "human_review_claimed": false,
+    "review_method": "retained_source_case_diagnosis_with_offline_collision_audit"
+  },
+  "review_summary": {
+    "accepted_as_is_queue_count": 12,
+    "all_no_answer_naturalness_reviewed_count": 20,
+    "formal_case_count": 100,
+    "mvp_uat_case_count": 50,
+    "pending_count": 0,
+    "queued_decision_count": 18,
+    "revised_and_accepted_queue_count": 6
+  },
+  "revision": {
+    "failed_source_case_id": "SBCV1-N-APPROVAL-01",
+    "offline_audit": {
+      "answer_score_threshold": "0.650000",
+      "local_files_only": true,
+      "model_id": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+      "not_provider_score_proof": true,
+      "original_max_similarity": "0.547008",
+      "provider_calls": 0,
+      "replacement_max_similarity": "0.453996"
+    },
+    "original_query_sha256": "362AA300001C4FC01E8C42E9E5B24B882733F32C4F5E5D050A2DCAAC3C583275",
+    "prior_v2_invoice_revision_preserved": true,
+    "reason": "真实 v2 运行确认最大期限问题与允许制度的明确到期条款形成语义碰撞。",
+    "replacement_query_sha256": "DCB8D03EC84C942A7CC32E7D803B7D0D3785D56C872C4569DF2C9749DC9F0BFB",
+    "runtime_evidence_path": "tests/evaluation/synthetic-benchmark-runtime-evidence-v4.json",
+    "runtime_evidence_sha256": "61DE05137F7487EF6884FE849BF550D819E79E509F86D10D027F9AEACF4B4D20"
+  },
+  "runtime_authorization": {
+    "activate_disposable_index": true,
+    "authorization_state": "requires_new_explicit_authorization",
+    "automatic_scope_expansion": false,
+    "cost_cap_cny": "0.100000",
+    "create_disposable_approved_datasets": true,
+    "input_token_cap": 50000,
+    "no_fx": true,
+    "production": false,
+    "provider_request_cap": 10,
+    "run_formal_release": true,
+    "run_mvp_uat": true,
+    "single_run": true
+  },
+  "schema_version": "synthetic-benchmark-owner-delegated-review-v3",
+  "source_binding": {
+    "candidate_path": "tests/evaluation/synthetic-benchmark-candidate-v1.json",
+    "candidate_sha256": "A5A9C179B6F344C5CDA8B50089AC85254E87BDB62694D6B9360A6F5D46327C03",
+    "corpus_path": "tests/evaluation/synthetic-policy-corpus-v1.json",
+    "corpus_sha256": "2CE2BE5118ADAC7D185D239AFD4713D3F637BDF9D12D314D7690732A8DFAD9E3",
+    "predecessor_path": "tests/evaluation/synthetic-benchmark-owner-delegated-review-v2.json",
+    "predecessor_sha256": "1AA98DCC0A35B62F991119065A88B443AF3B71645DC65389BCA3B100F0766384"
+  }
+}

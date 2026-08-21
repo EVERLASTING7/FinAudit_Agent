@@ -28,7 +28,7 @@ def _run(*, confirmed: bool) -> subprocess.CompletedProcess[str]:
     environment.pop("FINAUDIT_REUSE_REPOSITORY_BAILIAN_KEY", None)
     if confirmed:
         environment["FINAUDIT_LIVE_BAILIAN_SYNTHETIC_BENCHMARK"] = (
-            "ALLOW_ONE_BOUNDED_BAILIAN_SYNTHETIC_BENCHMARK_V2_BATCHED_100"
+            "RUN_BAILIAN_V3_AUTHORIZED_20260820"
         )
     else:
         environment.pop("FINAUDIT_LIVE_BAILIAN_SYNTHETIC_BENCHMARK", None)
@@ -52,7 +52,7 @@ def test_live_synthetic_benchmark_requires_explicit_paid_run_confirmation() -> N
     assert result.stderr == ""
 
 
-def test_live_synthetic_benchmark_requires_key_after_confirmation() -> None:
+def test_authorized_benchmark_still_requires_explicit_repository_key_reuse() -> None:
     result = _run(confirmed=True)
     assert result.returncode == 1
     assert json.loads(result.stdout) == {
@@ -72,6 +72,9 @@ def test_live_synthetic_benchmark_failure_emits_only_safe_telemetry(
         subject._SAFE_FAILURE_TELEMETRY.update(
             actual_cost_microunits=4321,
             actual_input_tokens=8765,
+            authorization_receipt_sha256=subject._AUTHORIZATION_SHA256,
+            automatic_provider_retry_count=0,
+            cost_cap_microunits=10_000_000,
             cost_currency="CNY",
             evaluation_failed_case_ids=("MVP-UAT-050-CASE-017",),
             evaluation_failure_code="RETRIEVAL_QUALITY_GATE_FAILED",
@@ -79,7 +82,10 @@ def test_live_synthetic_benchmark_failure_emits_only_safe_telemetry(
             evaluation_status="failed",
             evaluation_tier="mvp-uat-050",
             input_token_upper_bound=16576,
+            input_token_cap=50_000,
+            provider_request_cap=10,
             provider_request_count=5,
+            retest_authorized_within_remaining_cumulative_caps=True,
         )
         raise subject.LiveSyntheticBenchmarkError("MVP-UAT-050_EVALUATION_FAILED")
 
@@ -91,7 +97,10 @@ def test_live_synthetic_benchmark_failure_emits_only_safe_telemetry(
     assert result == {
         "actual_cost_microunits": 4321,
         "actual_input_tokens": 8765,
+        "authorization_receipt_sha256": subject._AUTHORIZATION_SHA256,
+        "automatic_provider_retry_count": 0,
         "code": "MVP-UAT-050_EVALUATION_FAILED",
+        "cost_cap_microunits": 10_000_000,
         "cost_currency": "CNY",
         "evaluation_failed_case_ids": ["MVP-UAT-050-CASE-017"],
         "evaluation_failure_code": "RETRIEVAL_QUALITY_GATE_FAILED",
@@ -99,7 +108,10 @@ def test_live_synthetic_benchmark_failure_emits_only_safe_telemetry(
         "evaluation_status": "failed",
         "evaluation_tier": "mvp-uat-050",
         "input_token_upper_bound": 16576,
+        "input_token_cap": 50_000,
+        "provider_request_cap": 10,
         "provider_request_count": 5,
+        "retest_authorized_within_remaining_cumulative_caps": True,
         "status": "failed",
     }
     serialized = json.dumps(result, sort_keys=True)
@@ -121,14 +133,22 @@ def test_live_synthetic_benchmark_freezes_the_batched_request_plan() -> None:
         subject._EVALUATION_EMBEDDING_BATCH_SIZE,
     )
 
-    assert review["runtime_authorization"]["provider_request_cap"] == 152
+    assert review["schema_version"] == "synthetic-benchmark-owner-delegated-review-v3"
+    assert review["runtime_authorization"]["authorization_state"] == (
+        "requires_new_explicit_authorization"
+    )
+    assert review["runtime_authorization"]["provider_request_cap"] == 10
     assert corpus["schema_version"] == "synthetic-policy-corpus-v1"
     assert tuple(map(len, mvp_calls)) == (20, 20, 10)
     assert tuple(map(len, formal_calls)) == (20, 20, 20, 20, 20)
     assert 2 + len(mvp_calls) + len(formal_calls) == subject._EXPECTED_PROVIDER_REQUESTS == 10
-    assert subject._MAX_PROVIDER_REQUESTS == 100
+    assert subject._MAX_PROVIDER_REQUESTS == 10
     assert subject._MAX_INPUT_TOKENS == 50_000
     assert subject._MAX_COST_MICROCNY == 10_000_000
+    assert subject._AUTHORIZATION_GRANTED is True
+    assert subject._AUTHORIZATION_SHA256 == (
+        "120618F65F519700E10EC0FB9CAFC94B44B03EE757FAE0A78D732126A2720B72"
+    )
     source = SCRIPT.read_text(encoding="utf-8")
     assert "len(logs) != _EXPECTED_PROVIDER_REQUESTS" in source
     assert "len(logs) != _MAX_PROVIDER_REQUESTS" not in source

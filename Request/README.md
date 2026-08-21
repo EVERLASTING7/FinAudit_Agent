@@ -79,7 +79,7 @@ CR 只记录“为什么改变”和批准结论。批准后必须合并进活�
 
 ### 4.2 当前交付快照
 
-截至 2026-08-17，核心 Backend 链路已实现到 Alembic head `20260817_024`：57/57 张核心表、用户与 Break-glass、文件/财务/供应商、Celery 恢复、Markdown/Chunk/Qdrant/检索评测/RAG、审核/报告、工作台、依赖健康、OPS-005 和内部 metrics 均已有机器事实。`021` 封锁检索状态旁路，`022` 闭合未确认发票空币种，`023` 增加风险解释与报告草稿持久事实，`024` 增加向后兼容的 Event v2 USD/CNY 费用事实。主要 P0 Frontend 页面已接同源真实 API。
+截至 2026-08-21，核心 Backend 链路已实现到 Alembic head `20260818_027`：ORM/catalog 与当前 PostgreSQL 集成门禁均为 58/58 张物理表，用户与 Break-glass、文件/财务/供应商、Celery 恢复、Markdown/Chunk/Qdrant/检索评测/RAG、审核/报告、工作台、依赖健康、OPS-005 和内部 metrics 均已有机器事实。`025` 增加文档纠错与资源安全事实，`026` 增加制度两阶段撤销，`027` 增加隔离 Scanner Registry Profile；主要 P0 Frontend 页面已接同源真实 API。历史 `021～024` 的迁移语义保持不变。
 
 当前验证分层记录包括 Backend/Frontend 离线门禁、隔离 PostgreSQL、真实 Redis/Celery/Qdrant/MinIO/ClamAV、财务浏览器闭环、故障恢复和 local 安全/性能。`minimax-m3-local-v1` 又把真实 Chat Adapter、Gateway、结构修复、预算/网络策略、持久 EventSink 和共享事务采用接到合同/发票、RAG、风险解释与报告草稿；最新受限真实 smoke 覆盖五条生成链并核对全部 Provider attempt 的持久审计。`minimax-m3-bailian-qwen37-local-v2` 已把真实 Embedding Adapter、Event v2/CNY 预留与权威实际费用、OPS-005 和事务采用接入 Backend/Worker；唯一一次受限付费 smoke 以 2 条短合成输入验证 `43` input tokens、2×1024 维输出和 `22` CNY microunits 持久审计。代表性合同/发票与 50/100 条业务检索集、99% 合法率、正式 DAST、浏览器直接 CA 信任、production OCR/Scanner/TLS/Secret Manager、正式容量/恢复/监控告警、AC/UAT 和 production 均保持 `NOT_RUN` 或 `BLOCKED`。
 

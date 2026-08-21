@@ -138,6 +138,118 @@ def test_second_batched_run_keeps_runtime_id_and_mapping_boundary_explicit() -> 
         assert forbidden not in serialized.lower()
 
 
+def test_v2_review_run_retains_stable_failed_source_case_and_strict_caps() -> None:
+    evidence = _object("synthetic-benchmark-runtime-evidence-v4.json")
+    assert evidence["schema_version"] == "synthetic-benchmark-runtime-evidence-v4"
+    binding = _mapping(evidence["dataset_binding"])
+    assert binding["review_sha256"] == _sha256("synthetic-benchmark-owner-delegated-review-v2.json")
+    assert binding["corpus_sha256"] == _sha256("synthetic-policy-corpus-v1.json")
+
+    authorization = _mapping(evidence["authorization"])
+    assert authorization["provider_request_cap"] == 10
+    assert authorization["input_token_cap"] == 50000
+    assert authorization["cost_cap_microunits"] == 100000
+    assert authorization["retry_cap"] == 0
+
+    diagnosis = _mapping(evidence["diagnosis"])
+    assert diagnosis["failed_source_case_id"] == "SBCV1-N-APPROVAL-01"
+    assert diagnosis["source_case_id_mapping_status"] == "retained"
+    assert diagnosis["prior_offline_candidate_confirmed"] is False
+
+    run = _mapping(evidence["run"])
+    assert run["status"] == "failed_and_stopped"
+    assert run["runner_code"] == "MVP-UAT-050_EVALUATION_FAILED"
+    assert run["provider_request_count"] == 5
+    assert run["actual_input_tokens"] == 4969
+    assert run["actual_cost_microunits"] == 2485
+    assert run["retry_performed"] is False
+    assert run["formal_release_100_status"] == "not_run_due_mvp_uat_failure"
+    assert run["index_activation_status"] == "not_run"
+    assert run["qdrant_collection_deleted"] is True
+    assert run["cleanup_remaining_container_count"] == 0
+    metrics = _mapping(run["mvp_uat_50_metrics"])
+    assert metrics["case_pass_count"] == 49
+    assert metrics["authorization_leak_count"] == 0
+    assert metrics["no_answer_false_positive_rate"] == 0.1
+
+    serialized = json.dumps(evidence, sort_keys=True)
+    for forbidden in ("api_key", "secret", "query_text", "document_content", "vector_values"):
+        assert forbidden not in serialized.lower()
+
+
+def test_v3_authorized_benchmark_passes_50_then_100_and_activates() -> None:
+    evidence = _object("synthetic-benchmark-runtime-evidence-v5.json")
+    assert evidence["schema_version"] == "synthetic-benchmark-runtime-evidence-v5"
+
+    binding = _mapping(evidence["dataset_binding"])
+    assert binding["review_sha256"] == _sha256("synthetic-benchmark-owner-delegated-review-v3.json")
+    assert binding["corpus_sha256"] == _sha256("synthetic-policy-corpus-v1.json")
+    assert binding["authorization_receipt_sha256"] == _sha256(
+        "synthetic-benchmark-v3-run-authorization-v1.json"
+    )
+    revision = _mapping(evidence["revision_binding"])
+    assert (
+        revision["runner_sha256"]
+        == hashlib.sha256(
+            (PROJECT_ROOT / "scripts" / "run_live_bailian_synthetic_benchmark.py").read_bytes()
+        )
+        .hexdigest()
+        .upper()
+    )
+    assert (
+        revision["wrapper_sha256"]
+        == hashlib.sha256((PROJECT_ROOT / "scripts" / "run-authorized-bailian-v3.ps1").read_bytes())
+        .hexdigest()
+        .upper()
+    )
+
+    authorization = _mapping(evidence["authorization"])
+    assert authorization["provider_request_cap"] == 10
+    assert authorization["input_token_cap"] == 50000
+    assert authorization["cost_cap_microunits"] == 10_000_000
+    assert authorization["automatic_provider_retry_count"] == 0
+    assert authorization["retest_count"] == 0
+    assert authorization["run_sequence"] == [
+        "mvp_uat_50",
+        "formal_release_100",
+        "activate_index",
+    ]
+
+    run = _mapping(evidence["run"])
+    assert run["status"] == "passed"
+    assert run["provider_request_count"] == 10
+    assert run["actual_input_tokens"] == 8874
+    assert run["actual_cost_microunits"] == 4439
+    assert run["index_status_before_cleanup"] == "active"
+    assert run["index_member_count"] == 36
+    assert _mapping(run["mvp_uat_50_metrics"])["case_pass_count"] == 50
+    assert _mapping(run["formal_release_100_metrics"])["case_pass_count"] == 100
+    assert _mapping(run["mvp_uat_50_metrics"])["no_answer_false_positive_rate"] == 0.0
+    assert _mapping(run["formal_release_100_metrics"])["authorization_leak_count"] == 0
+    assert _mapping(run["database_terminal_state"]) == {
+        "approved_dataset_count": 2,
+        "evaluation_result_count": 150,
+        "passed_evaluation_run_count": 2,
+        "successful_embedding_call_log_count": 10,
+    }
+
+    teardown = _mapping(evidence["teardown"])
+    assert teardown == {
+        "managed_environment_residual_count": 0,
+        "qdrant_collection_deleted": True,
+        "remaining_container_count": 0,
+        "remaining_network_count": 0,
+    }
+    boundary = _mapping(evidence["acceptance_boundary"])
+    assert boundary["local_test_technical_gate_passed"] is True
+    assert boundary["business_representative"] is False
+    assert boundary["is_formal_ac_acceptance"] is False
+
+    serialized = json.dumps(evidence, sort_keys=True)
+    for forbidden in ("api_key", "query_text", "document_content", "vector_values"):
+        assert forbidden not in serialized.lower()
+
+
 def test_chrome_keyboard_evidence_keeps_unrun_accessibility_boundaries() -> None:
     evidence = _object("browser-keyboard-chrome-local-v1.json")
     assert evidence["schema_version"] == "browser-keyboard-chrome-local-v1"

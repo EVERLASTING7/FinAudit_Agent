@@ -1,0 +1,124 @@
+{
+  "boundaries": {
+    "business_representative_quality": false,
+    "production": false,
+    "real_data_migration": false,
+    "scope": "disposable local/test browser closure"
+  },
+  "browser": {
+    "engine": "Google Chrome",
+    "headless": true,
+    "product_version": "151.0.7922.140",
+    "transport": "Chrome DevTools Protocol",
+    "ws_runtime": "frontend/node_modules/ws"
+  },
+  "cleanup": {
+    "accepted_run_stale_temp_directory_delta": 0,
+    "document_gate_container_count": 0,
+    "document_gate_network_count": 0,
+    "document_gate_port_listener_count": 0,
+    "historical_failed_run_stale_auth_directory_count": 12,
+    "historical_stale_directory_removal": "blocked_by_host_filesystem_policy",
+    "local_minio_data_volume": "preserved_by_existing_launcher_contract",
+    "local_minio_stop": "passed",
+    "policy_gate_container_count": 0,
+    "policy_gate_network_count": 0,
+    "policy_gate_port_listener_count": 0
+  },
+  "document_correction_gate": {
+    "authorized_roles": [
+      "contract_admin",
+      "system_admin"
+    ],
+    "console_error_count": 0,
+    "console_warning_count": 0,
+    "database_terminal": "source superseded; candidate active; job succeeded; one correction and activation audit",
+    "failure_paths": [
+      "read_only direct route denied",
+      "untrimmed reason blocked before request"
+    ],
+    "refresh_recovery": "active corrected text reloaded from PostgreSQL after full page reload",
+    "status": "passed",
+    "wrapper_result": "DOCUMENT_CORRECTION_BROWSER_GATE=PASS"
+  },
+  "images": {
+    "postgresql": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+    "redis": "sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99"
+  },
+  "node_version": "v20.19.0",
+  "offline_quality": {
+    "backend_passed": 3136,
+    "backend_skipped": 147,
+    "backend_warning_count": 1,
+    "frontend_module_count": 151,
+    "frontend_test_count": 539,
+    "frontend_test_file_count": 28,
+    "mypy_source_count": 283,
+    "ruff_file_count": 522,
+    "status": "passed"
+  },
+  "policy_revocation_gate": {
+    "authorized_roles": [
+      "audit_reviewer",
+      "system_admin"
+    ],
+    "console_error_count": 0,
+    "console_warning_count": 0,
+    "database_terminal": "published to revoked; row_version 5; request and related execution actors separated; pending count 0",
+    "failure_paths": [
+      "knowledge reader has no revocation controls",
+      "blank request and execution reasons blocked before request"
+    ],
+    "refresh_recovery": "pending request restored after audit refresh; revoked state and empty pending list restored after admin refresh",
+    "status": "passed",
+    "wrapper_result": "POLICY_REVOCATION_BROWSER_GATE=PASS"
+  },
+  "run_date": "2026-08-21",
+  "schema_version": "local-p1-browser-closure-v1",
+  "source_binding": [
+    {
+      "bytes": 53528,
+      "file": "scripts/run-browser-gate.cjs",
+      "sha256": "BD9B0C3C4363A7CDCF719A874E534858D6C5DC80D1D479E9DEDC4854DB4E8846"
+    },
+    {
+      "bytes": 23268,
+      "file": "scripts/verify-report-browser-gate.ps1",
+      "sha256": "1C2DFF6CE99B7DC5530E500E28F670C44D1E294DDF23C83587BD60FDDF9C19CA"
+    },
+    {
+      "bytes": 502,
+      "file": "scripts/verify-document-correction-browser-gate.ps1",
+      "sha256": "A3DD2D5C29786E537940AF9B3D76DDC4EDE6DEE5624D7335DBA8BF50ADD07AFB"
+    },
+    {
+      "bytes": 366,
+      "file": "scripts/verify-policy-revocation-browser-gate.ps1",
+      "sha256": "F08DA8CB0C8B2B61EF3E29BE49A6197C9CB7564EF2A4E12466046ED3D680649A"
+    },
+    {
+      "bytes": 158936,
+      "file": "backend/tests/manual_financial_read_browser.py",
+      "sha256": "9CB76E55FF5FCE97F95FA1A43CAD61EA29139B6157C143F5C7B3A60E035225C8"
+    },
+    {
+      "bytes": 26293,
+      "file": "frontend/src/views/FileDetailView.vue",
+      "sha256": "5FF24601128C97F71B0070B9AB8174BC23167022FF9C16F84419E00AD23C5FAB"
+    },
+    {
+      "bytes": 37238,
+      "file": "frontend/src/views/KnowledgeBaseDetailView.vue",
+      "sha256": "0D1BBB0B301CB58FA505C01549919AC93498C3D589F66BABF2EC931A10C3E99E"
+    },
+    {
+      "bytes": 11375,
+      "file": "frontend/src/components/DocumentCorrectionPanel.vue",
+      "sha256": "03F3EB3DEFF2E9FA541D55075C046C814662B870E916C2D0D45B4B41E5A4F886"
+    }
+  ],
+  "worktree_binding": {
+    "base_commit": "1b7fb0b7e2863d680d1b65bb5d44cc2297bab2b3",
+    "mode": "exact source bytes and SHA-256 because evidence includes uncommitted local changes"
+  }
+}

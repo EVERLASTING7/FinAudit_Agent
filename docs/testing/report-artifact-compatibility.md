@@ -1,6 +1,6 @@
 # 正式报告制品兼容性门禁
 
-状态：2026-08-17 Microsoft Excel/Poppler 本地兼容性切片已通过；LibreOffice 已安装但 Calc 运行挂起，production 与正式 AC 仍为 `NOT_RUN`
+状态：2026-08-21 Microsoft Excel、LibreOffice Calc 与 Poppler 本地兼容性切片已通过；production 与正式 AC 仍为 `NOT_RUN`
 
 ## 1. 目的和边界
 
@@ -14,28 +14,28 @@
 
 ```powershell
 .\scripts\verify-report-artifact-compatibility.ps1 `
-  -BackendImage finaudit-backend-local:compat-023 `
-  -RequireExcel
+  -BackendImage finaudit-backend-local:dev `
+  -RequireExcel `
+  -RequireLibreOffice
 ```
 
 脚本只接受本地唯一镜像 ID，固定 `--pull never`，并以 `network none`、只读根文件系统、`cap-drop ALL` 和 `no-new-privileges` 运行容器。未指定 `-KeepArtifactsAt` 时，临时制品会在退出路径清理。
 
-## 3. 2026-08-17 实际结果
+## 3. 2026-08-21 当前实际结果
 
-- 当前本地镜像 ID：`sha256:44b77246577e3d2d8ba1877fdfe03dc05afeba5f71e8e68bfedfeb1b399d1e11`。
+- 当前本地镜像 ID：`sha256:892c52e2f82af40dbad17604e49b6c41754752ea3701625f50eddd6293857c02`。
 - 宿主与容器均为 Python `3.10.20`。
 - PDF 为 3 页，宿主与容器字节相同；固定正文指纹相同，未发现活动 Catalog 项，Poppler 两份均成功渲染。三页人工视觉检查未见文字裁切、重叠或缺页。
 - XLSX 均包含且只包含 `Summary`、`Rules`、`Risks`；规范化单元格内容指纹相同。压缩包原始字节不同，因此不声明跨运行环境字节一致。
 - Microsoft Excel 以禁用宏、禁用事件、只读方式实际打开宿主和容器两份 XLSX，并核对工作表和关键单元格：`PASS`。
-- LibreOffice `26.2.5.2` 已通过官方 winget 包安装。PDF→ODG 的 headless 路径可完成，但 Calc 对宿主/容器报告 XLSX 和独立最小单单元格 XLSX 的 headless 打开/转换均超过 180 秒未完成；UNO socket/pipe 也未进入可连接状态。随后从 Windows GUI 直接启动 `scalc.exe`，等待后仍没有暴露任何可见或可控窗口，且并未进入打开文件步骤；本次进程与临时合成制品已精确清理为 0。因此 LibreOffice XLSX 兼容性仍为 `NOT_RUN`，不能把安装成功、PDF 路径或无窗口启动写成 Calc 打开通过。
+- LibreOffice `26.2.5.2` 旧挂起已定位为全新用户配置初始化 OpenCL 计算缓存；同一项目 XLSX 在仅给测试子进程设置 `SAL_DISABLE_OPENCL=1` 后可稳定完成。门禁为宿主/容器两份制品分别创建一次性 `UserInstallation`，设置 60 秒硬超时，转换为 ODS 后核对且只核对 `Summary/Rules/Risks` 三表及关键表头；两份均为 `PASS`。该环境变量不写入用户配置，不修改 LibreOffice 或 Windows 全局设置，超时只终止引用本轮 profile 的进程。
 - 最终输出：`REPORT_ARTIFACT_CROSS_IMAGE_SEMANTICS=PASS`、`PDF_POPPLER_RENDER=PASS`、`REPORT_ARTIFACT_COMPATIBILITY=PASS`。
 
 ## 4. 自动化回归
 
-`backend/tests/unit/test_report_artifact_compatibility.py` 固定生成器、PDF 语义检查、XLSX 工作表/单元格语义指纹和同环境确定性。该单元测试不替代上面的容器、Poppler 或 Excel 实际打开门禁。
+`backend/tests/unit/test_report_artifact_compatibility.py` 固定生成器、PDF 语义检查、XLSX 工作表/单元格语义指纹和同环境确定性；`backend/tests/unit/test_p2_compatibility_gates.py` 固定 LibreOffice 隔离 profile、OpenCL 子进程边界、超时与 ODS 合同。单元测试不替代上面的容器、Poppler、Excel 或 LibreOffice 实际打开门禁。
 
 ## 5. 剩余完成条件
 
-- 先解除本机 LibreOffice Calc 启动挂起（可能需要受控重启或环境修复），再在固定版本中实际打开两份 XLSX，并记录版本、退出码和关键工作表检查。
 - 由发布候选镜像而不是临时本地标签重跑，并关联可复现 Git revision、SBOM 和镜像签名。
 - 使用批准的代表性报告数据执行正式 AC-014/UAT；人工确认分页、字体、长文本、公式前缀安全和导出内容。

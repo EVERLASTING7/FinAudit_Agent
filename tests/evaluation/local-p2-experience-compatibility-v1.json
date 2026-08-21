@@ -1,0 +1,236 @@
+{
+  "schema_version": "local-p2-experience-compatibility-v1",
+  "recorded_on": "2026-08-21",
+  "environment_scope": [
+    "local",
+    "test"
+  ],
+  "test_data_classification": "synthetic_non_sensitive",
+  "runtime": {
+    "backend_image_id": "sha256:892c52e2f82af40dbad17604e49b6c41754752ea3701625f50eddd6293857c02",
+    "chrome_version": "151.0.7922.140",
+    "docker_version": "29.6.1",
+    "edge_version": "151.0.4129.93",
+    "excel_version": "16.0.18526.20168",
+    "libreoffice_version": "26.2.5.2",
+    "narrator_version": "10.0.22621.818 (WinBuild.160101.0800)",
+    "postgresql_image_id": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+    "windows_build": "22621.3447"
+  },
+  "report_download": {
+    "browser_family": "Chrome",
+    "browser_surface": "headless_cdp",
+    "console_error_count": 0,
+    "console_warning_count": 0,
+    "download_progress_completed": true,
+    "download_url_scheme": "blob",
+    "download_will_begin_observed": true,
+    "downloaded_bytes": 7581,
+    "downloaded_filename": "audit-report-2f46b6c1-e6cb-45df-876f-2ff43406d5da-v1-risks.xlsx",
+    "downloaded_sha256": "a33519af2339f10df6faf8eb6374a36d1f6bde7769ab8ebfaaf8f4e0fa01ad83",
+    "report_id": "2f46b6c1-e6cb-45df-876f-2ff43406d5da",
+    "size_and_sha256_match_database": true,
+    "status": "passed"
+  },
+  "artifact_compatibility": {
+    "backend_image_xlsx": {
+      "excel_read_only_open": "passed",
+      "libreoffice_xlsx_to_ods": "passed"
+    },
+    "host_xlsx": {
+      "excel_read_only_open": "passed",
+      "libreoffice_xlsx_to_ods": "passed"
+    },
+    "libreoffice_isolated_user_profile": true,
+    "libreoffice_test_process_opencl_disabled": true,
+    "libreoffice_timeout_seconds": 60,
+    "normalized_xlsx_semantics_match": true,
+    "pdf_bytes_identical": true,
+    "pdf_page_count": 3,
+    "pdf_poppler_render": "passed",
+    "worksheets": [
+      "Summary",
+      "Rules",
+      "Risks"
+    ],
+    "xlsx_bytes_identical": false,
+    "status": "passed"
+  },
+  "accessibility": {
+    "browser_family": "Edge",
+    "browser_surface": "visible_cdp_with_win32_foreground",
+    "console_error_count": 0,
+    "console_warning_count": 0,
+    "edge_login_keyboard_order": [
+      "username",
+      "password",
+      "remember_me",
+      "login_button"
+    ],
+    "expected_http_boundaries": [
+      {
+        "method": "GET",
+        "path": "/api/v1/contracts/{contract_id}/evidence",
+        "status": 409
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/auth/refresh",
+        "status": 401
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/files/{file_id}/preview",
+        "status": 503
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/files/{file_id}/text-preview?max_chars=100000",
+        "status": 409
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/files/{file_id}/document-correction-blocks?page_size=50",
+        "status": 409
+      }
+    ],
+    "narrator": {
+      "audio_or_transcript_retained": false,
+      "event_counts": {
+        "audio_playback_completed": 2,
+        "generate_audio_stream": 19,
+        "initiate_speaking": 19,
+        "process_focus_change": 13,
+        "sapi_text_speak": 18,
+        "uia_focus_event_received": 13
+      },
+      "etw_event_payload_retained": false,
+      "etw_provider_id": "835b79e2-e76a-44c4-9885-26ad122d3b4d",
+      "focus_sequence": [
+        "username",
+        "password",
+        "remember_me",
+        "login_button",
+        "report_page",
+        "skip_link",
+        "main_content",
+        "download_xlsx_button"
+      ],
+      "raw_etl_retained": false,
+      "screen_reader": "Windows Narrator",
+      "status": "passed"
+    },
+    "p0_route_matrix": {
+      "checks_per_route": [
+        "single_main",
+        "single_h1",
+        "no_duplicate_ids",
+        "no_unnamed_focusables",
+        "no_horizontal_overflow",
+        "accessibility_tree_main_and_heading",
+        "skip_link_first_and_targets_main",
+        "named_tab_stops_without_focus_trap"
+      ],
+      "route_count": 20,
+      "routes": [
+        "/dashboard",
+        "/files",
+        "/files/{file_id}",
+        "/contracts",
+        "/contracts/{contract_id}",
+        "/contracts/{contract_id}/primary-invoices",
+        "/invoices",
+        "/invoices/{invoice_id}",
+        "/invoices/{invoice_id}/contract-links",
+        "/suppliers",
+        "/suppliers/{supplier_id}",
+        "/contract-invoice-links",
+        "/knowledge-bases",
+        "/knowledge-bases/{knowledge_base_id}",
+        "/qa",
+        "/audit-tasks",
+        "/audit-tasks/{task_id}",
+        "/audit-reports/{report_id}",
+        "/users",
+        "/operation-logs"
+      ],
+      "status": "passed"
+    },
+    "status": "passed"
+  },
+  "cleanup": {
+    "dedicated_minio_running": false,
+    "narrator_process_count": 0,
+    "raw_trace_artifact_count": 0,
+    "remaining_accessibility_container_count": 0,
+    "remaining_edge_profile_process_count": 0,
+    "remaining_report_container_count": 0,
+    "remaining_trace_session_count": 0,
+    "test_port_listener_count": 0
+  },
+  "acceptance_boundary": {
+    "formal_human_accessibility_acceptance": false,
+    "is_formal_ac_acceptance": false,
+    "local_test_p2_accessibility_coverage_closed": true,
+    "local_test_p2_report_compatibility_closed": true,
+    "production_ready": false
+  },
+  "verification": {
+    "backend": {
+      "passed": 3165,
+      "skipped": 147,
+      "warning_count": 1
+    },
+    "frontend": {
+      "build_module_count": 151,
+      "test_count": 539,
+      "test_file_count": 28,
+      "typecheck": "passed"
+    },
+    "local_offline_quality": "passed",
+    "mypy_source_count": 283,
+    "ruff_file_count": 528
+  },
+  "source_binding": [
+    {
+      "bytes": 158936,
+      "path": "backend/tests/manual_financial_read_browser.py",
+      "sha256": "9cb76e55ff5fce97f95fa1a43cad61ea29139b6157c143f5c7b3a60e035225c8"
+    },
+    {
+      "bytes": 53528,
+      "path": "scripts/run-browser-gate.cjs",
+      "sha256": "bd9b0c3c4363a7cdcf719a874e534858d6c5dc80d1d479e9dedc4854db4e8846"
+    },
+    {
+      "bytes": 23268,
+      "path": "scripts/verify-report-browser-gate.ps1",
+      "sha256": "1c2dff6ce99b7dc5530e500e28f670c44d1e294ddf23c83587bd60fddf9c19ca"
+    },
+    {
+      "bytes": 10183,
+      "path": "scripts/narrator-accessibility-etw.ps1",
+      "sha256": "06247fc2b42190d5f06f27a1fa1a58be4352bdd3d08def0ded51bbbeee8afcb3"
+    },
+    {
+      "bytes": 4363,
+      "path": "scripts/focus-accessibility-edge.ps1",
+      "sha256": "58ad1d018b14942c175135fdc9fc6ea554cae2719ed7a6ad5e19acc109d07e51"
+    },
+    {
+      "bytes": 17192,
+      "path": "scripts/verify-report-artifact-compatibility.ps1",
+      "sha256": "5183886dc2bdbb3589aa37b4eb3483ccf340a27705594b68ccd481ac155e6611"
+    },
+    {
+      "bytes": 9834,
+      "path": "scripts/verify_report_artifact_compatibility.py",
+      "sha256": "aab165117d5b139a0d56ad225410d0c2cb43b5c5f4933c8d3b1a1bcb696746fd"
+    },
+    {
+      "bytes": 14257,
+      "path": "frontend/src/views/AuditReportView.vue",
+      "sha256": "90fb6e3b8da2d2208f46e14f377ab44c7480148a1b4c46727b87f8fb0e9a256a"
+    }
+  ]
+}

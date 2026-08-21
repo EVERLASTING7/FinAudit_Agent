@@ -3,6 +3,7 @@ param(
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$')]
     [string]$BackendImage = 'finaudit-backend-local:dev',
     [switch]$RequireExcel,
+    [switch]$RequireLibreOffice,
     [string]$KeepArtifactsAt
 )
 
@@ -128,6 +129,165 @@ function Test-ExcelWorkbook([string]$Path) {
     }
 }
 
+function Resolve-LibreOfficeExecutable {
+    $candidates = [Collections.Generic.List[string]]::new()
+    $command = Get-Command soffice.com -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -ne $command) {
+        $candidates.Add($command.Source)
+    }
+    $command = Get-Command soffice.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -ne $command) {
+        $candidates.Add($command.Source)
+    }
+    $candidates.Add('C:\Program Files\LibreOffice\program\soffice.com')
+    $candidates.Add('C:\Program Files\LibreOffice\program\soffice.exe')
+    $candidates.Add('C:\Program Files (x86)\LibreOffice\program\soffice.com')
+    $candidates.Add('C:\Program Files (x86)\LibreOffice\program\soffice.exe')
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return [IO.Path]::GetFullPath($candidate)
+        }
+    }
+    return $null
+}
+
+function Stop-LibreOfficeProfileProcesses([string]$ProfileUri) {
+    $ownedProcesses = @(
+        Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.Name -in @('soffice.com', 'soffice.exe', 'soffice.bin') -and
+                $_.CommandLine -like "*$ProfileUri*"
+            }
+    )
+    foreach ($ownedProcess in $ownedProcesses) {
+        Stop-Process -Id $ownedProcess.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Test-OdsWorkbookContract([string]$Path) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::OpenRead([IO.Path]::GetFullPath($Path))
+    try {
+        $contentEntry = $archive.GetEntry('content.xml')
+        if ($null -eq $contentEntry) {
+            throw 'LibreOffice output does not contain content.xml.'
+        }
+        $stream = $contentEntry.Open()
+        $reader = [IO.StreamReader]::new($stream, [Text.Encoding]::UTF8, $true)
+        try {
+            [xml]$content = $reader.ReadToEnd()
+        }
+        finally {
+            $reader.Dispose()
+            $stream.Dispose()
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+
+    $tableNamespace = 'urn:oasis:names:tc:opendocument:xmlns:table:1.0'
+    $textNamespace = 'urn:oasis:names:tc:opendocument:xmlns:text:1.0'
+    $namespaces = [Xml.XmlNamespaceManager]::new($content.NameTable)
+    $namespaces.AddNamespace('table', $tableNamespace)
+    $namespaces.AddNamespace('text', $textNamespace)
+    $tables = @($content.SelectNodes('//table:table', $namespaces))
+    $names = @($tables | ForEach-Object { $_.GetAttribute('name', $tableNamespace) })
+    if (($names -join '|') -cne 'Summary|Rules|Risks') {
+        throw 'LibreOffice exposed an unexpected worksheet contract.'
+    }
+
+    $expectedHeaders = @(
+        @('field', 'value'),
+        @('rule_id', 'status'),
+        @('risk_id', 'rule_id')
+    )
+    for ($tableIndex = 0; $tableIndex -lt $tables.Count; $tableIndex++) {
+        $firstRow = $tables[$tableIndex].SelectSingleNode('table:table-row', $namespaces)
+        $cells = @($firstRow.SelectNodes('table:table-cell', $namespaces))
+        if ($cells.Count -lt 2) {
+            throw 'LibreOffice output is missing required header cells.'
+        }
+        for ($cellIndex = 0; $cellIndex -lt 2; $cellIndex++) {
+            $paragraphs = @($cells[$cellIndex].SelectNodes('.//text:p', $namespaces))
+            $value = ($paragraphs | ForEach-Object { $_.InnerText }) -join ''
+            if ($value -cne $expectedHeaders[$tableIndex][$cellIndex]) {
+                throw 'LibreOffice output contains an unexpected header value.'
+            }
+        }
+    }
+}
+
+function Test-LibreOfficeWorkbook(
+    [string]$Executable,
+    [string]$Path,
+    [string]$Workspace
+) {
+    $profileDirectory = Join-Path $Workspace 'profile'
+    $outputDirectory = Join-Path $Workspace 'output'
+    New-Item -ItemType Directory -Path $profileDirectory -Force | Out-Null
+    New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
+    $profileUri = 'file:///' + ([IO.Path]::GetFullPath($profileDirectory) -replace '\\', '/')
+    $stdoutPath = Join-Path $Workspace 'stdout.txt'
+    $stderrPath = Join-Path $Workspace 'stderr.txt'
+    $arguments = @(
+        "`"-env:UserInstallation=$profileUri`"",
+        '--headless',
+        '--nologo',
+        '--nodefault',
+        '--nofirststartwizard',
+        '--norestore',
+        '--convert-to',
+        'ods',
+        '--outdir',
+        "`"$([IO.Path]::GetFullPath($outputDirectory))`"",
+        "`"$([IO.Path]::GetFullPath($Path))`""
+    ) -join ' '
+    $hadOpenClOverride = Test-Path -LiteralPath 'Env:SAL_DISABLE_OPENCL'
+    $previousOpenClOverride = $env:SAL_DISABLE_OPENCL
+    try {
+        $env:SAL_DISABLE_OPENCL = '1'
+        $process = Start-Process -FilePath $Executable -ArgumentList $arguments -PassThru `
+            -WindowStyle Hidden -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        if (-not $process.WaitForExit(60000)) {
+            Stop-LibreOfficeProfileProcesses $profileUri
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            throw 'LibreOffice did not finish opening and converting the workbook within 60 seconds.'
+        }
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) {
+            $stderr = if (Test-Path -LiteralPath $stderrPath) {
+                Get-Content -LiteralPath $stderrPath -Raw
+            }
+            else {
+                ''
+            }
+            throw "LibreOffice workbook conversion failed with exit code $($process.ExitCode).`n$stderr"
+        }
+    }
+    finally {
+        if ($hadOpenClOverride) {
+            $env:SAL_DISABLE_OPENCL = $previousOpenClOverride
+        }
+        else {
+            Remove-Item -LiteralPath 'Env:SAL_DISABLE_OPENCL' -ErrorAction SilentlyContinue
+        }
+    }
+    if (@(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -in @('soffice.com', 'soffice.exe', 'soffice.bin') -and
+        $_.CommandLine -like "*$profileUri*"
+    }).Count -ne 0) {
+        Stop-LibreOfficeProfileProcesses $profileUri
+        throw 'LibreOffice left a process attached to the isolated compatibility profile.'
+    }
+    $outputPath = Join-Path $outputDirectory "$([IO.Path]::GetFileNameWithoutExtension($Path)).ods"
+    if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf) -or
+        (Get-Item -LiteralPath $outputPath).Length -le 0) {
+        throw 'LibreOffice did not produce a non-empty converted workbook.'
+    }
+    Test-OdsWorkbookContract $outputPath
+}
+
 function Render-Pdf([string]$PdfToPpmPath, [string]$Path, [string]$Prefix) {
     $output = @(& $PdfToPpmPath -png $Path $Prefix 2>&1)
     if ($LASTEXITCODE -ne 0) {
@@ -207,12 +367,22 @@ try {
         Write-Output 'EXCEL_OPEN_CONTAINER=PASS'
     }
 
-    $libreOffice = Get-Command soffice -ErrorAction SilentlyContinue | Select-Object -First 1
+    $libreOffice = Resolve-LibreOfficeExecutable
     if ($null -eq $libreOffice) {
+        if ($RequireLibreOffice) {
+            throw 'LibreOffice is not installed on this host.'
+        }
         Write-Output 'LIBREOFFICE_OPEN=NOT_RUN (LibreOffice unavailable)'
     }
     else {
-        Write-Output 'LIBREOFFICE_OPEN=NOT_RUN (no approved headless gate)'
+        Test-LibreOfficeWorkbook $libreOffice `
+            (Join-Path $hostDirectory 'formal-risk-details.xlsx') `
+            (Join-Path $artifactRoot 'libreoffice-host')
+        Test-LibreOfficeWorkbook $libreOffice `
+            (Join-Path $containerDirectory 'formal-risk-details.xlsx') `
+            (Join-Path $artifactRoot 'libreoffice-container')
+        Write-Output 'LIBREOFFICE_OPEN_HOST=PASS'
+        Write-Output 'LIBREOFFICE_OPEN_CONTAINER=PASS'
     }
     Write-Output "BACKEND_IMAGE_ID=$imageId"
     Write-Output "HOST_PYTHON_VERSION=$($hostInspection.python_version)"

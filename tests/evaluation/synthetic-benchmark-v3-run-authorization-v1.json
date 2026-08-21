@@ -1,0 +1,34 @@
+{
+  "authorization": {
+    "allow_offline_fix_and_retest": true,
+    "automatic_provider_retry_cap": 0,
+    "cost_cap_cny": "10.000000",
+    "cost_cap_microunits": 10000000,
+    "cost_currency": "CNY",
+    "input_token_cap": 50000,
+    "no_fx": true,
+    "production": false,
+    "provider_request_cap": 10,
+    "retry_budget_scope": "remaining_cumulative_session_caps",
+    "run_sequence": [
+      "mvp_uat_50",
+      "formal_release_100",
+      "activate_index"
+    ],
+    "until_success_is_bounded_by_caps": true
+  },
+  "authority": {
+    "authority_ref": "current_user_message_2026-08-20",
+    "human_review_claimed": false,
+    "instruction_sha256": "F3DD8479D7E55BFDE41E5A5EDDE329DBB95937A2EA8C00B08C12F1266BE75BAD",
+    "instruction_utf8_bytes": 244,
+    "reuse_existing_bailian_key": true
+  },
+  "bound_assets": {
+    "corpus_path": "tests/evaluation/synthetic-policy-corpus-v1.json",
+    "corpus_sha256": "2CE2BE5118ADAC7D185D239AFD4713D3F637BDF9D12D314D7690732A8DFAD9E3",
+    "review_path": "tests/evaluation/synthetic-benchmark-owner-delegated-review-v3.json",
+    "review_sha256": "AE9B525F2703C22D1A11EDC1FAC28EC52214CF5D306F67CE86F87F522C60E2FA"
+  },
+  "schema_version": "synthetic-benchmark-v3-run-authorization-v1"
+}

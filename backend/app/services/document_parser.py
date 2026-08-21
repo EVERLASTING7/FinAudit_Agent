@@ -116,6 +116,8 @@ class DocumentParser:
                 raise DocumentParseError("PDF_PARSE_INVALID", retryable=False) from None
             try:
                 text = (page.extract_text(extraction_mode="layout") or "").strip()
+                if not text:
+                    text = (page.extract_text() or "").strip()
             except KeyError as error:
                 if error.args != ("/Contents",):
                     raise DocumentParseError("PDF_PARSE_INVALID", retryable=False) from None

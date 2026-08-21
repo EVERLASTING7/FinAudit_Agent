@@ -1,0 +1,187 @@
+{
+  "acceptance_boundary": {
+    "is_customer_business_representative_dataset": false,
+    "is_finaudit_human_uat": false,
+    "is_formal_ac_acceptance": false,
+    "is_public_cross_domain_technical_proxy": true,
+    "may_claim_contract_85_passed": false,
+    "may_claim_duplicate_invoice_quality": false,
+    "may_claim_invoice_95_passed": false,
+    "may_claim_risk_rule_quality": false,
+    "may_mark_ac_accepted": false
+  },
+  "classification": "public_hand_verified_multiformat_technical_proxy",
+  "contract_source_qualification": {
+    "best_case_ref_sha256": "AC8646BF03DB8BBA370790CDFD12F25D1A32A65DF5CC083106AA3351FE924F88",
+    "direct_product_field_count": 4,
+    "formal_13_field_gate_status": "NOT_COMPUTABLE_INSUFFICIENT_SOURCE_FIELD_COVERAGE",
+    "product_frozen_field_count": 13
+  },
+  "current_default_profile_runtime": {
+    "parser_fail_count": 31,
+    "parser_outcome_counts": {
+      "OCR_NOT_CONFIGURED": 6,
+      "PASSED": 34,
+      "PDF_OCR_RENDERER_NOT_CONFIGURED": 23,
+      "PDF_PARSE_INVALID": 2
+    },
+    "parser_outcome_counts_by_extension": {
+      ".docx": {
+        "PASSED": 1
+      },
+      ".jpeg": {
+        "OCR_NOT_CONFIGURED": 5
+      },
+      ".pdf": {
+        "PASSED": 33,
+        "PDF_OCR_RENDERER_NOT_CONFIGURED": 23,
+        "PDF_PARSE_INVALID": 2
+      },
+      ".png": {
+        "OCR_NOT_CONFIGURED": 1
+      }
+    },
+    "parser_pass_count": 34,
+    "parser_pass_rate": "0.523077",
+    "passed_block_count_range": [
+      2,
+      1326
+    ],
+    "passed_page_count_range": [
+      1,
+      22
+    ],
+    "passed_page_count_total": 115,
+    "quality_status": "MEASURED_FAILED_OCR_DISABLED_AND_TWO_INVALID_PDFS",
+    "supported_case_count": 65,
+    "supported_extension_counts": {
+      ".docx": 1,
+      ".jpeg": 5,
+      ".pdf": 58,
+      ".png": 1
+    },
+    "warning_code_counts": {
+      "PYPDF_ROTATED_TEXT_OUTPUT_INCOMPLETE": 12
+    }
+  },
+  "duplicate_capture_proxy": {
+    "document_type": "receipt_not_invoice",
+    "ground_truth_labels_identical": true,
+    "label_sha256": "DBAE6AD1C80F92E16E5CEFED48FB560F07820DED098A2FEBC4137D6223B42791",
+    "may_claim_duplicate_invoice_quality": false,
+    "rotated_case_ref_sha256": "741045C8DA9772DA885790930C7D641D93E4A16DC4FCED5BCA3B598202A10659",
+    "upright_case_ref_sha256": "32DFEBC8C1016ED22B10DF4C2D387694ABA3B59C54599A4742DD5B5CCE95D202"
+  },
+  "invoice_source_qualification": {
+    "best_case_ref_sha256": "F79486DD86B207C66CB182810541DC60F7BFF82B2DA86FA140048CBCA996FC4E",
+    "derived_field_mapping": {
+      "is_red_invoice": "documentType -> boolean"
+    },
+    "derived_product_field_count": 1,
+    "direct_product_field_count": 11,
+    "formal_13_field_gate_status": "NOT_COMPUTABLE_SOURCE_SCHEMA_MISSING_INVOICE_CODE",
+    "format": "pdf",
+    "language": "he",
+    "product_frozen_field_count": 13,
+    "source_schema_absent_assumption_field_count": 1,
+    "source_schema_absent_assumption_fields": [
+      "invoice_code"
+    ]
+  },
+  "privacy_and_storage": {
+    "business_identifiers_persisted_in_evidence": false,
+    "raw_annotation_values_persisted_in_evidence": false,
+    "raw_data_git_ignored": true,
+    "raw_data_path": "%LOCALAPPDATA%/FinAuditAgent/public-benchmark/docubench-43a3f3bc00e591e711075678ca6d154acfedcf42/",
+    "raw_documents_tracked": false,
+    "tracked_output_contains_only_counts_hashes_status_and_field_codes": true
+  },
+  "quality_gate_summary": {
+    "complex_multi_format": "FAILED_CURRENT_DEFAULT_PROFILE_34_OF_65_PARSED",
+    "contract_85": "NOT_COMPUTABLE_INSUFFICIENT_13_FIELD_COVERAGE",
+    "duplicate_invoice": "NOT_COMPUTABLE_RECEIPT_CAPTURE_PAIR_ONLY",
+    "invoice_95": "NOT_COMPUTABLE_SOURCE_MISSING_INVOICE_CODE",
+    "overall_status": "MEASURED_FAILED_WITH_STRONGER_MULTIFORMAT_SOURCE",
+    "risk_rules": "NOT_COMPUTABLE_NO_MATCHING_DISPOSITIONS"
+  },
+  "remaining_quality_gaps": {
+    "contract_13_field_source": "NOT_PRESENT",
+    "duplicate_invoice_pairs": "NOT_PRESENT",
+    "invoice_code_ground_truth": "NOT_PRESENT",
+    "matching_finaudit_risk_dispositions": "NOT_PRESENT",
+    "unsupported_source_formats": [
+      ".tiff",
+      ".xlsx",
+      ".csv",
+      ".xml",
+      ".txt",
+      ".html"
+    ]
+  },
+  "schema_version": "public-docubench-qualification-v1",
+  "selection_authority": {
+    "approval_ref": "public-dataset:DocuBench@43a3f3bc00e591e711075678ca6d154acfedcf42",
+    "approval_ref_kind": "public_dataset_revision_not_business_uat",
+    "human_review_claimed_by_finaudit": false,
+    "owner_instruction_sha256": "F49A3B7877EB6290454114832BA89A563C081541A6185A9E36A0A67B8B1A2CE2",
+    "upstream_labels_claim_hand_verified": true
+  },
+  "source": {
+    "code_license": "MIT",
+    "dataset_id": "DocuPipe/DocuBench",
+    "document_aggregate_sha256": "ADC16A26A871B68C98BFECD07C08333224B20F89EF7EFC074C8D85DE179884BD",
+    "document_count": 72,
+    "document_format_count": 10,
+    "documents_retain_source_specific_terms": true,
+    "format_counts": {
+      "csv": 1,
+      "docx": 1,
+      "html": 1,
+      "jpeg": 5,
+      "pdf": 58,
+      "png": 1,
+      "tiff": 1,
+      "txt": 1,
+      "xlsx": 1,
+      "xml": 2
+    },
+    "ground_truth_method": "hand_verified_schema_shaped_labels",
+    "label_aggregate_sha256": "B7FC49A83429CA505BE85B193924F6D1173DEBB6BDF32BF7047B028F742D8DA7",
+    "label_count": 72,
+    "label_schema_metadata_license": "CC-BY-4.0",
+    "language_count": 12,
+    "language_counts": {
+      "ar": 1,
+      "de": 2,
+      "en": 47,
+      "es": 3,
+      "fr": 1,
+      "he": 7,
+      "hi": 2,
+      "it": 1,
+      "ja": 4,
+      "nl": 1,
+      "pt": 1,
+      "zh": 2
+    },
+    "page_count": 448,
+    "primary_url": "https://github.com/DocuPipe/DocuBench",
+    "schema_aggregate_sha256": "D0C831D84B1732E1B4AB64A6B4C72635F3CE9763EB2075808D3B1C0DA33DC3B5",
+    "schema_count": 72,
+    "source_manifest_bytes": 31703,
+    "source_manifest_sha256": "B6DC608632CD135C555FB65E018C8D8D716F67086922E81D0E5BFB001F369892",
+    "upstream_commit": "43a3f3bc00e591e711075678ca6d154acfedcf42"
+  },
+  "source_binding": [
+    {
+      "bytes": 16892,
+      "path": "scripts/verify_public_docubench_benchmark.py",
+      "sha256": "2883C8A02C6C8E8BE7C8B1BB75F4AFB8A61346D89FE2E50DD14FFFCB68AAEC6D"
+    },
+    {
+      "bytes": 15710,
+      "path": "backend/app/services/document_parser.py",
+      "sha256": "0D55919802C811F592799D045CD39E18705065040DF3B4FC0C8E894900A98E4D"
+    }
+  ]
+}

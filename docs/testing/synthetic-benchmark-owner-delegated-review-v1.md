@@ -3,6 +3,8 @@
 状态：local/test 技术复核完成；真实 `mvp_uat` 运行失败；不构成业务验收。
 日期：2026-08-17
 
+> 本文件与 v1 JSON 保持历史不变。2026-08-20 的后继诊断见 `docs/testing/synthetic-benchmark-owner-delegated-review-v2.md` 与 `docs/testing/synthetic-benchmark-owner-delegated-review-v3.md`。
+
 ## 来源绑定
 
 | 资产 | 用途 | SHA-256 |

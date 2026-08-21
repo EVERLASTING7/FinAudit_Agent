@@ -12,4 +12,4 @@
 
 机器证据位于 `tests/evaluation/browser-keyboard-chrome-local-v1.json`。
 
-以下内容仍为 `NOT_RUN`：Edge 原生键盘（本机 Edge `151.0.4129.86` 已安装，但当前没有可控 Edge 浏览器连接）、屏幕阅读器、所有 P0 路由的完整键盘矩阵、production 和正式可访问性签署。因此 FE/TEST/AC 状态保持 `partial`，不能用本证据标记 accepted。
+本文件只记录 2026-08-17 的历史局部证据；当时 Edge、屏幕阅读器和全 P0 路由矩阵均为 `NOT_RUN`。这些 local/test 技术缺口已由 2026-08-21 的 `tests/evaluation/local-p2-experience-compatibility-v1.json` 取代并关闭；production、残障用户人工验收和正式可访问性签署仍未运行。因此不能单独用本文件或后继技术证据标记正式 AC accepted。

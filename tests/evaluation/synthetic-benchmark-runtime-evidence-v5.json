@@ -1,0 +1,110 @@
+{
+  "acceptance_boundary": {
+    "business_representative": false,
+    "human_uat": false,
+    "is_formal_ac_acceptance": false,
+    "local_test_technical_gate_passed": true,
+    "may_mark_ac_accepted": false,
+    "production": false
+  },
+  "authorization": {
+    "allow_offline_fix_and_retest": true,
+    "automatic_provider_retry_cap": 0,
+    "automatic_provider_retry_count": 0,
+    "cost_cap_microunits": 10000000,
+    "cost_currency": "CNY",
+    "input_token_cap": 50000,
+    "no_fx": true,
+    "production": false,
+    "provider_request_cap": 10,
+    "retest_count": 0,
+    "retry_budget_scope": "remaining_cumulative_session_caps",
+    "run_sequence": [
+      "mvp_uat_50",
+      "formal_release_100",
+      "activate_index"
+    ]
+  },
+  "credential_handling": {
+    "existing_repository_credential_reused": true,
+    "plaintext_credential_emitted": false
+  },
+  "dataset_binding": {
+    "authorization_receipt_sha256": "120618F65F519700E10EC0FB9CAFC94B44B03EE757FAE0A78D732126A2720B72",
+    "corpus_sha256": "2CE2BE5118ADAC7D185D239AFD4713D3F637BDF9D12D314D7690732A8DFAD9E3",
+    "formal_case_count": 100,
+    "mvp_uat_case_count": 50,
+    "review_sha256": "AE9B525F2703C22D1A11EDC1FAC28EC52214CF5D306F67CE86F87F522C60E2FA"
+  },
+  "disposable_runtime": {
+    "database_marker_applied": true,
+    "migration_upgrade_head": "passed",
+    "paid_run_id": "18fe34d4da964fd4af2aaca371c60313",
+    "postgres_image_id": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+    "preflight_cleanup_container_count": 0,
+    "preflight_cleanup_network_count": 0,
+    "preflight_provider_request_count": 0,
+    "preflight_run_id": "3271374d9b864191a07280b86a25672f",
+    "qdrant_image_id": "sha256:2e8646f963a64a21b3e3f851719e17668644d1ed386285064c2548a52d16ede8"
+  },
+  "revision_binding": {
+    "git_branch": "release/local-mvp-0.1.0",
+    "git_head": "1b7fb0b7e2863d680d1b65bb5d44cc2297bab2b3",
+    "runner_sha256": "B01709A558DF9FCE76E91DC7D0F447412DA5A53336F387ACD9B52E062EBD6B4F",
+    "worktree_state": "dirty_bound_by_file_hashes",
+    "wrapper_sha256": "98AE510E3E97ED9047805F0F7CF1B8D35668342219A32E660991B33E3AB2B358"
+  },
+  "run": {
+    "actual_cost_cny": "0.004439",
+    "actual_cost_microunits": 4439,
+    "actual_input_tokens": 8874,
+    "answer_score_threshold": "0.650000",
+    "audit_attempt_count": 10,
+    "audit_projected_event_count": 20,
+    "database_terminal_state": {
+      "approved_dataset_count": 2,
+      "evaluation_result_count": 150,
+      "passed_evaluation_run_count": 2,
+      "successful_embedding_call_log_count": 10
+    },
+    "formal_release_100_metrics": {
+      "authorization_leak_count": 0,
+      "case_count": 100,
+      "case_pass_count": 100,
+      "case_pass_rate": 1.0,
+      "document_hit_at_5": 1.0,
+      "evidence_hit_at_5": 1.0,
+      "mrr": 1.0,
+      "no_answer_false_positive_rate": 0.0,
+      "precision_at_5": 0.975,
+      "recall_at_5": 1.0
+    },
+    "index_member_count": 36,
+    "index_status_before_cleanup": "active",
+    "input_token_upper_bound": 22578,
+    "mvp_uat_50_metrics": {
+      "authorization_leak_count": 0,
+      "case_count": 50,
+      "case_pass_count": 50,
+      "case_pass_rate": 1.0,
+      "document_hit_at_5": 1.0,
+      "evidence_hit_at_5": 1.0,
+      "mrr": 1.0,
+      "no_answer_false_positive_rate": 0.0,
+      "precision_at_5": 0.9666666666666667,
+      "recall_at_5": 1.0
+    },
+    "provider_request_count": 10,
+    "qdrant_collection_verified_before_cleanup": true,
+    "status": "passed",
+    "vector_dimension": 1024,
+    "worker_index_outcome": "succeeded"
+  },
+  "schema_version": "synthetic-benchmark-runtime-evidence-v5",
+  "teardown": {
+    "managed_environment_residual_count": 0,
+    "qdrant_collection_deleted": true,
+    "remaining_container_count": 0,
+    "remaining_network_count": 0
+  }
+}

@@ -157,7 +157,7 @@ backend\.venv\Scripts\python.exe -m pytest -q backend\tests\unit\test_synthetic_
 
 自动质量检查 8 项全部通过，异常计数均为 0：候选 ID/规范化问题重复、版本有效期矛盾、证据缺失或哈希不符、no_answer 探针冲突、权限标签/跨权限边界、问题自然度、100/50 数量和非验收控制。自动矛盾检查只能证明结构引用与有效期自洽，不能代替人工判断所有自然语言语义。
 
-候选生成时的待复核清单共 18 条；逐项问题、基准日、角色、预期/禁止证据和原始空白结论栏见 `docs/testing/synthetic-benchmark-human-review-v1.md`。BOSS 后续将 local/test 技术语义复核委托给 Agent，结果另存为 `tests/evaluation/synthetic-benchmark-owner-delegated-review-v1.json`：12 条原样接受、6 条修订接受，全部 20 条 no_answer 重写复核，待处理为 0。该资产明确 `human_review_claimed=false`，只能批准可丢弃技术数据集与门禁运行，不能作为人类 UAT、业务代表性或正式 AC 签署：
+候选生成时的待复核清单共 18 条；v1/v2 技术复核与对应失败运行保持不可改写。v2 真实运行保留稳定失败 source case `SBCV1-N-APPROVAL-01`，v3 只修订该问题并继续明确 `human_review_claimed=false`；最新 v3 已通过可丢弃 local/test 50→100→激活门禁，但仍不能作为人类 UAT、业务代表性或正式 AC 签署：
 
 | 领域 | 版本/同义改写 | 合理拒答 | 跨权限 | 复核重点 |
 |---|---|---|---|---|
@@ -168,23 +168,28 @@ backend\.venv\Scripts\python.exe -m pytest -q backend\tests\unit\test_synthetic_
 | 审批权限 | `SBCV1-A-APPROVAL-V1-51-2` | `SBCV1-N-APPROVAL-01` | `SBCV1-U-APPROVAL-01` | 历史版本等价、问题确实缺失、角色禁止命中 |
 | 审计留痕 | `SBCV1-A-AUDIT-V1-61-2` | `SBCV1-N-AUDIT-01` | `SBCV1-U-AUDIT-01` | 历史版本等价、问题确实缺失、角色禁止命中 |
 
-单次真实运行前按当前执行器“每题一次 Embedding 请求”、固定 50 会在后续 100 中再次运行、索引单批最多 20 条、零重试和 CNY `500000 microunits / 1M input tokens` 做出的预算如下：
+单次真实运行按 CR-026 每批最多 20 条、固定 50 会在后续 100 中再次运行、零重试和 CNY `500000 microunits / 1M input tokens` 做出的预算如下：
 
 | 步骤或场景 | Provider 请求 | UTF-8 input token 上界 | 费用上界 microunits | CNY |
 |---|---:|---:|---:|---:|
 | 36 条语料索引一次 | 2 | 4079 | 2040 | `0.002040` |
-| 50 条 `mvp_uat` 评测 | 50 | 4216 | 2108 | `0.002108` |
-| 100 条提议集评测 | 100 | 8281 | 4141 | `0.004141` |
-| 两次评测复用兼容 ready 索引 | 150 | 12497 | 6249 | `0.006249` |
-| 先索引一次，再执行两次评测 | 152 | 16576 | 8288 | `0.008288` |
+| 50 条 `mvp_uat` 评测 | 3 | 4216 | 2108 | `0.002108` |
+| 100 条提议集评测 | 5 | 8281 | 4141 | `0.004141` |
+| 两次评测复用兼容 ready 索引 | 8 | 12497 | 6249 | `0.006249` |
+| 先索引一次，再执行两次评测 | 10 | 16576 | 8288 | `0.008288` |
 
-UTF-8 字节计数是付费前保守上界，不是实际 tokenizer usage；真实 Token 和费用应以 Provider usage 与 Event v2 为准。获批运行的 Provider 前接线检查因 PDF-only scanner 错用于 DOCX 而停止，请求、Token、费用均为 0；修复为仓库多格式 clean scanner 后，单次付费运行完成 36 条款处理、两批索引并达到 `ready`，随后在 50 条 `mvp_uat` 返回 `MVP-UAT-050_EVALUATION_FAILED` 并立即停止。100 条 `formal_release` 和激活未运行，无重试；Collection、PostgreSQL/Qdrant 容器残留为 0。失败前精确请求数、Token、费用和标签级指标未持久化，只能证明不超过 52 请求、50000 input tokens 与 CNY 1 元；不得把规划值或时间推测写成实际值。任何再次运行都需新的明确单次 Provider 授权。
+UTF-8 字节计数是付费前保守上界，不是实际 tokenizer usage；真实 Token 和费用应以 Provider usage 与 Event v2 为准。历史首轮的 Provider 前接线检查因 PDF-only scanner 错用于 DOCX 而停止，请求、Token、费用均为 0；修复为仓库多格式 clean scanner 后，该轮付费运行完成 36 条款处理、两批索引并达到 `ready`，随后在 50 条 `mvp_uat` 返回 `MVP-UAT-050_EVALUATION_FAILED` 并立即停止。该历史轮的 100 条和激活未运行，精确 usage 未持久化，只能证明不超过 52 请求、50000 input tokens 与 CNY 1 元；不得把规划值或时间推测写成实际值。后继 v2/v3 的精确结果见 5.3，任何新的 Provider 运行仍需明确授权。
 
-### 5.3 owner-delegated review 与失败运行证据
+### 5.3 owner-delegated review 与运行证据
 
 | 资产 | 用途 | SHA-256 / 状态 |
 |---|---|---|
 | `tests/evaluation/synthetic-benchmark-owner-delegated-review-v1.json` | 100/50 local/test 技术复核集 | `87F5627F0306AA4D5B89E148EB0B4C8D970E80956CFAE624F0783BB66B3DA70F` |
+| `tests/evaluation/synthetic-benchmark-owner-delegated-review-v2.json` | 首次 no-answer 碰撞修订；真实 50 条仍失败 | `1AA98DCC0A35B62F991119065A88B443AF3B71645DC65389BCA3B100F0766384` |
+| `tests/evaluation/synthetic-benchmark-runtime-evidence-v4.json` | v2 真实 49/50、稳定 source ID、费用与清理 | `61DE05137F7487EF6884FE849BF550D819E79E509F86D10D027F9AEACF4B4D20` |
+| `tests/evaluation/synthetic-benchmark-owner-delegated-review-v3.json` | 稳定审批问题碰撞修订；后续获独立 v3 授权 | `AE9B525F2703C22D1A11EDC1FAC28EC52214CF5D306F67CE86F87F522C60E2FA` |
+| `tests/evaluation/synthetic-benchmark-v3-run-authorization-v1.json` | v3 累计请求、Token、费用、复测和执行顺序授权绑定 | `120618F65F519700E10EC0FB9CAFC94B44B03EE757FAE0A78D732126A2720B72` |
+| `tests/evaluation/synthetic-benchmark-runtime-evidence-v5.json` | v3 真实 50/50、100/100、可丢弃激活、费用/审计/清理 | `94D645E131832EAA874A248172E333C366586E62F8633948B77712C15138C8CC` |
 | `tests/evaluation/synthetic-benchmark-runtime-evidence-v1.json` | 两次尝试、硬上界、清理与非验收边界 | 50 条质量门禁 `FAILED` |
 | `docs/testing/synthetic-benchmark-owner-delegated-review-v1.md` | 人类可读来源、覆盖、预算和运行结论 | `human_review_claimed=false` |
 
@@ -193,7 +198,7 @@ backend\.venv\Scripts\python.exe scripts\prepare_synthetic_benchmark_reviewed_as
 backend\.venv\Scripts\python.exe -m pytest -q backend\tests\unit\test_synthetic_benchmark_reviewed_assets.py backend\tests\unit\test_runtime_evidence_assets.py
 ```
 
-`scripts/run_live_bailian_synthetic_benchmark.py` 是付费失败即停运行器，不是日常离线命令。`CR-026` 只为 local/test runner 启用评测批次 20，production 默认仍逐题；冻结请求计划为索引 2 次、50 条 3 次、100 条 5 次。2026-08-18 两次独立真实运行均以 5 次请求、4971 input tokens、CNY 2486 microunits 得到 49/50 和 `no_answer_false_positive_rate=0.1`，100 条和激活未运行。v2 保存首次精确聚合；v3 保存第二次 runtime case UUID 及其无法映射源用例的边界。Runner 后续只离线增加稳定 source case ID 遥测，不包含密钥、问题、制度原文或向量，也不授权第三次调用。
+`scripts/run_live_bailian_synthetic_benchmark.py` 是付费失败即停运行器，不是日常离线命令。历史 v2 的 49/50、稳定失败 ID `SBCV1-N-APPROVAL-01` 和残留 0 继续保留；v3 授权收据不改写 review 资产的 `authorization_state=requires_new_explicit_authorization`，而是独立绑定本次用户授权。`scripts/run-authorized-bailian-v3.ps1` 先以 0 Provider 请求完成临时数据库/Qdrant 预检，再在正式运行中一次得到 50/50、100/100 与索引 active；10 次请求、8874 input tokens、CNY 4439 microunits，零重试、零授权泄露/no-answer 假阳性，Collection、容器、网络和受管环境变量残留为 0。本次授权已消费完 10 次请求，后续 Provider 调用必须重新明确授权。
 
 ## 6. 安全与 AI 负例
 
@@ -245,7 +250,37 @@ manifest 类型门禁要求根、JSON 数据集和每个二进制条目的 `synt
 
 两个版本轴相互独立：`dataset_version` 跟踪四个 JSON fixture，`1.6.0` 在 S5 两个注入负例基础上新增表格单元格角色覆盖和用户伪造候选 ID 两个 Request 明列的结构化负例；`binary_fixture_contract_version` 跟踪 14 个二进制资产及其 manifest 契约。`1.0.1` 只修正既有 C-001/C-002 主体名称和 P-001 多文档名称，不改变资产 ID、路径、场景、关联 fixture 或任务映射；生成器直接复用 `core_business.json` 中已受 Request 门禁保护的主体名称、税号和制度名称。
 
-## 8. 当前缺口
+## 8. 公开业务技术基准（原始数据不入库）
+
+`scripts/verify_public_business_benchmark.py` 在被 `.gitignore` 排除的 `data/public-benchmark/` 中核验公开数据，仓库只保留计数、来源 Hash、运行状态和边界。原始合同、票面、税号、当事人名称、联系方式及标注值均不进入 `tests/`、日志或 Git；机器证据为 `tests/evaluation/public-business-benchmark-runtime-v1.json`。
+
+| 来源 | 当前本地输入 | 许可/使用边界 | 可独立支持的事实 |
+|---|---|---|---|
+| The Atticus Project CUAD v1 | 510 份真实商业合同文本、20,910 条 QA；固定 12 类原始 PDF，共 490 页、单份 8～82 页 | CC BY 4.0；Hugging Face revision 固定 | 合同名称、协议/生效/到期日期 4/13 个直接字段及律师监督条款标签；条款标签不等于本项目 15 条财务规则标准答案 |
+| 海口市公共资源交易中心政府采购合同公告 | 10 个官方结构化公告及对应原始 PDF，共 196 页、单份 6～51 页 | 政府采购公开披露；未检出显式开放数据许可，原件仅作本地评测，不授权再分发 | 合同编号、名称、甲乙方、金额、CNY、签订/履约起止日 9/13 个直接字段；不含双方税号、付款方式和付款条件标准答案 |
+| Zenodo `6371710` | 813 张葡萄牙语私营公司真实发票/收据及 8 字段标注 | CC BY 4.0；图片与标注包均按官方 MD5 固定 | 7/13 个直接发票字段；按卖方税号+单据号有 55 个自然重复组、117 份文档、最大组 4，但缺项目三元组必需的 `invoice_code` |
+| XFUND v1 中文验证集 | 50 张中文高分辨率表单、3,629 个实体和键值关系 | CC BY-NC-SA 4.0；只用于 local/test | 中文复杂表单版式与图片解析边界；不是合同/发票冻结字段标准答案 |
+
+运行方式：
+
+```powershell
+backend\.venv\Scripts\python.exe scripts\verify_public_business_benchmark.py --check
+backend\.venv\Scripts\python.exe -m pytest -q backend\tests\unit\test_public_business_benchmark_evidence.py
+```
+
+当前结果精确为 `PUBLIC_BUSINESS_BENCHMARK_RUNTIME=MEASURED_FAILED_EVIDENCE_PASS`：CUAD 的 11/12 PDF 曾因 `pypdf` layout 模式空文本误转 OCR，加入默认文本提取 fallback 后为 12/12、490 页解析通过；确定性中文标签提取对 CUAD 的 47 个直接字段仍为 0 命中。10 份中文政府采购 PDF 均是扫描件，在批准的 `OCR_PROVIDER=not_configured` Profile 下全部 `PDF_OCR_RENDERER_NOT_CONFIGURED`；50 份真实票据和 50 份 XFUND 中文表单均为 `OCR_NOT_CONFIGURED`。合同组合来源只覆盖 9/13 字段，发票只覆盖 7/13；重复票缺 `invoice_code`，15 条规则没有匹配的独立结果标签。因此数据来源资格为 `PASSED`，85%/95%、重复质量、风险质量和完整多格式质量为 `FAILED/NOT_COMPUTABLE/PARTIAL`，不得标记 AC 或 UAT 通过。
+
+本机另有不改变默认 Profile 的零付费 `public-windows-ocr-pilot-v1`：Windows Media OCR 使用已安装 `en-US/zh-Hans-CN` 对 20 份真实票据、20 份 XFUND 中文表单和 3 份/37 页中文扫描合同共 77 个图片页运行，过程无 Provider 网络和费用，临时 OCR 原文不进入证据。真实票据直接字段为 `28/140 = 20%`，XFUND 实体召回为 `1169/1418 = 82.4401%`，中文合同可见直接字段为 `7/27 = 25.9259%`，均不能关闭 95%/85% 或复杂文档质量。预存本地 `qwen3:8b` 共三次诊断：生产 Schema 因 grammar 不支持 `\d` 返回 HTTP 400，全量 JSON 模式 300 秒超时，字段关键词+相邻行的 80 block 模式在 107.8 秒完成但输出未通过生产 Validator、`0/9` 可采用；Ollama 进程和 11434/8764 listener 清理为 0。机器证据为 `tests/evaluation/public-windows-ocr-pilot-v1.json`，SHA-256 `EBBC264A11C2C42B84B74437D22CD36AC3F952881A9149142E724AECD55D76B4`。
+
+后继 `public-extractbench-qualification-v1` 使用 Apache-2.0 的 ExtractBench revision `f6180e9…e58`：370 份/4869 页企业文档中 325 份真实；本地固定 8 份真实发票、18 页、2 份扫描、3 份多页，10 个直接映射字段共 80 条规则均已验证并要求来源证据。来源直接覆盖从 7/13 提高到 10/13，但 `invoice_code` 与买方税号仍不在源 Schema，红字状态只由 `standard` 类型推导。确定性英文标签修复后默认 Profile 为 `48/104 = 46.1538%`，83 个非空标注命中 32 个；2 份扫描件仍失败。证据 SHA-256 `0A7F94B0A8941129D8A3CB759EF441FA35E074397606424504C5BC21AD2DECBC`，结论仍为 `MEASURED_FAILED`。
+
+`public-docubench-qualification-v1` 使用 DocuBench revision `43a3f3b…cf42`：72 份/448 页，覆盖 12 种语言与 PDF/JPEG/PNG/TIFF/XLSX/CSV/XML/TXT/DOCX/HTML 十种格式，Schema 与标签由上游人工核验。项目支持的 65 份格式中只解析通过 34 份；23 份扫描 PDF、6 份图片、2 份无效 PDF和 12 次旋转文本不完整警告构成真实失败分层。最佳税务发票是 11 个直接字段+1 个派生字段，仍缺 `invoice_code`；最佳合同只有 4/13，旋转对为收据。原始仓库位于 `%LOCALAPPDATA%/FinAuditAgent/public-benchmark/` 的 revision 专用缓存，证据 SHA-256 `2D6F9E8F56B24FCBC8349807CB8E215A0CD8190B2C850F7ECFAA481F9887F3CB`。
+
+`public-local-qwen-invoice-pilot-v1` 进一步只使用现有本机资源：数字 PDF 经产品 Parser，扫描 PDF 经 Poppler + Windows Media OCR；文本只保留字段关键词块及相邻块，超过 40 个时保留首尾各 20 个。`qwen3:8b` 固定纯 CPU、2048 context、256 output tokens、temperature 0、seed 0、8 threads；每案只调用一次。事实先通过 13 键 Schema，再要求每个非空值在原文块中有确定性证据，找不到证据即降为空。最终 8/8 结构合法，模型直接 `81/104`，证据回绑后 `82/104=78.8462%`，74 个非空事实逐一有证据，总推理 295.203 秒。GPU OOM、较长 Prompt 76.92% 回归和最终回退均未隐藏；证据 SHA-256 `BC9DC120365269129BD71981E80BD93360B919860C4444297E3DE0F31E546C72`。
+
+RealKIE 另有 198 份资源合同与 23 类人工 span 标签，但字段体系仍缺项目所需合同编号、金额、币种、双方税号和付款条款；其原始包为 38.4 GB。基于“下载后仍无法达到 13 字段可计算”的数据质量结论，本轮只核对官方 Croissant/论文元数据，没有下载原始包，也没有把标签数量写成合同覆盖率。
+
+## 9. 当前缺口
 
 S2 已补齐基线列举的最小二进制类别，S3 已补齐正式测试方案 5.3/5.4 明列的六类固定合成负例，S5/S6 补齐四个 AI 详细设计明列的固定安全输入；两套 120→100→50 静态检索候选又补充三标签与多领域/版本/日期/权限覆盖，但它们都没有业务代表性审批、数据库身份或运行结果，不能把“数量达到”解释成正式检索集完成。未常驻 51 MB、20/21 文件批次或重复上传 HTTP 样本，这些边界必须按最终 API 字节单位在隔离上传测试中临时生成。账号未实建，环境未初始化或重建，新增样本未经过项目数据库、API、Worker、模型或浏览器运行。
 

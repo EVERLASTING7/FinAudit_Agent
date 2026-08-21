@@ -1,0 +1,176 @@
+{
+  "acceptance_boundary": {
+    "default_local_profile_changed": false,
+    "is_customer_business_representative_dataset": false,
+    "is_formal_ac_acceptance": false,
+    "is_human_uat": false,
+    "may_mark_ac_accepted": false
+  },
+  "classification": "public_open_data_local_test_technical_measurement",
+  "local_qwen_contract_pilot": {
+    "attempt_count": 3,
+    "cleanup_listener_11434": false,
+    "cleanup_listener_8764": false,
+    "cleanup_remaining_process_count": 0,
+    "filtered_json_mode_attempt": {
+      "block_selection": "field_term_plus_adjacent_lines_max_80",
+      "elapsed_ms": "107781.000",
+      "eval_count": 806,
+      "expected_field_count": 9,
+      "matched_field_count": 0,
+      "ocr_block_count": 80,
+      "output_valid": false,
+      "prompt_eval_count": 4098,
+      "response_sha256": "A01C461CE3A02843ED06A4E29C9270D32612679341DD6ACA94DD2D6A445DA8A0",
+      "status": "COMPLETED_INVALID_OUTPUT"
+    },
+    "full_json_mode_attempt": "TIMEOUT_300_SECONDS",
+    "model": "qwen3:8b",
+    "model_storage": "preexisting_local_cache",
+    "output_adopted": false,
+    "paid_cost_cny": "0.000000",
+    "production_schema_attempt": "HTTP_400_GRAMMAR_REGEX_UNSUPPORTED",
+    "provider_network_calls": 0,
+    "retry_count": 0
+  },
+  "metrics": {
+    "contract": {
+      "case_count": 3,
+      "cases": [
+        {
+          "case_id": "93691",
+          "expected_field_count": 9,
+          "matched_field_codes": [
+            "contract_no",
+            "party_a_name",
+            "party_b_name"
+          ],
+          "matched_field_count": 3,
+          "ocr_text_char_count": 7801,
+          "page_count": 10
+        },
+        {
+          "case_id": "93704",
+          "expected_field_count": 9,
+          "matched_field_codes": [
+            "party_a_name",
+            "party_b_name"
+          ],
+          "matched_field_count": 2,
+          "ocr_text_char_count": 7550,
+          "page_count": 9
+        },
+        {
+          "case_id": "94358",
+          "expected_field_count": 9,
+          "matched_field_codes": [
+            "party_a_name",
+            "party_b_name"
+          ],
+          "matched_field_count": 2,
+          "ocr_text_char_count": 18335,
+          "page_count": 18
+        }
+      ],
+      "direct_field_visibility": "0.259259",
+      "matched_direct_field_count": 7,
+      "threshold": "0.850000",
+      "threshold_status": "FAILED",
+      "total_direct_field_count": 27
+    },
+    "failure_count": 0,
+    "invoice": {
+      "case_count": 20,
+      "direct_field_accuracy": "0.200000",
+      "field_counts": {
+        "company": {
+          "matched": 5,
+          "total": 20
+        },
+        "date": {
+          "matched": 6,
+          "total": 20
+        },
+        "invoice_number": {
+          "matched": 2,
+          "total": 20
+        },
+        "iva_amount": {
+          "matched": 4,
+          "total": 20
+        },
+        "nif_buyer": {
+          "matched": 4,
+          "total": 20
+        },
+        "nif_seller": {
+          "matched": 2,
+          "total": 20
+        },
+        "total": {
+          "matched": 5,
+          "total": 20
+        }
+      },
+      "matched_direct_field_count": 28,
+      "ocr_text_char_range": [
+        0,
+        1403
+      ],
+      "threshold": "0.950000",
+      "threshold_status": "FAILED",
+      "total_direct_field_count": 140
+    },
+    "xfund": {
+      "case_count": 20,
+      "entity_recall": "0.824401",
+      "matched_entity_count": 1169,
+      "ocr_text_char_range": [
+        365,
+        3342
+      ],
+      "total_entity_count": 1418
+    }
+  },
+  "quality_gate_summary": {
+    "complex_chinese_form_quality": "BELOW_FORMAL_THRESHOLD_NOT_DEFINED",
+    "contract_85": "FAILED",
+    "invoice_95": "FAILED",
+    "overall_status": "MEASURED_FAILED"
+  },
+  "runtime": {
+    "case_count": 77,
+    "engine": "windows-media-ocr",
+    "languages": [
+      "en-US",
+      "zh-Hans-CN"
+    ],
+    "paid_cost_cny": "0.000000",
+    "provider_network_calls": 0,
+    "raw_ocr_text_persisted_in_evidence": false,
+    "temporary_raw_ocr_output_removed": true
+  },
+  "schema_version": "public-windows-ocr-pilot-v1",
+  "source_binding": [
+    {
+      "bytes": 16662,
+      "path": "scripts/benchmark_public_windows_ocr.py",
+      "sha256": "4F12347198C941C253E651A424C114A59B758B52D293849DFD76C93D5F2A03ED"
+    },
+    {
+      "bytes": 6743,
+      "path": "scripts/windows-media-ocr-batch.ps1",
+      "sha256": "E44CBA15B94069A17233D9C82F07C126D068A1948EB2BCC511FC50F23121CF9F"
+    },
+    {
+      "bytes": 8387,
+      "path": "scripts/run_local_qwen_contract_pilot.py",
+      "sha256": "9B99D423B15AAA61698FFCE4D507B7A586981B3F83718F4FF711C725F064854D"
+    },
+    {
+      "bytes": 27840,
+      "path": "tests/evaluation/public-business-benchmark-runtime-v1.json",
+      "sha256": "89ADBC11602CE81187FD7C36F56FF73D501F04FDBB1CD2B783E41EB3EC914FCC"
+    }
+  ]
+}

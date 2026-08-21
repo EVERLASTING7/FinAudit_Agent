@@ -1,0 +1,316 @@
+{
+  "acceptance_boundary": {
+    "is_customer_business_representative_dataset": false,
+    "is_formal_ac_acceptance": false,
+    "is_human_uat": false,
+    "is_public_cross_domain_technical_proxy": true,
+    "may_claim_contract_85_passed": false,
+    "may_claim_invoice_95_passed": false,
+    "may_mark_ac_accepted": false
+  },
+  "classification": "public_enterprise_document_technical_proxy",
+  "invoice": {
+    "cases": [
+      {
+        "actual_non_null_field_count": 0,
+        "case_ref_sha256": "FEA15F23CBB67498CF60A59B8F31D8C3DA04638E3302E2DF0968674A6802CC9A",
+        "expected_non_null_field_count": 11,
+        "matched_field_codes": [],
+        "matched_field_count": 0,
+        "page_count": 1,
+        "parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "parser_status": "failed",
+        "source_type": null
+      },
+      {
+        "actual_non_null_field_count": 0,
+        "case_ref_sha256": "C56C007B1E20F72B995748548CFB7AB9A73C6BBA561B9F329C12DEA412DA6857",
+        "expected_non_null_field_count": 10,
+        "matched_field_codes": [],
+        "matched_field_count": 0,
+        "page_count": 1,
+        "parser_failure_code": "PDF_OCR_RENDERER_NOT_CONFIGURED",
+        "parser_status": "failed",
+        "source_type": null
+      },
+      {
+        "actual_non_null_field_count": 6,
+        "case_ref_sha256": "65DA6F04A716BBB20190743207BBEF19B7D1077E0637E8DFB26DC91482FF40FC",
+        "expected_non_null_field_count": 9,
+        "matched_field_codes": [
+          "invoice_code",
+          "invoice_type",
+          "is_red_invoice",
+          "buyer_tax_no",
+          "seller_name",
+          "seller_tax_no",
+          "tax_amount",
+          "total_amount",
+          "currency"
+        ],
+        "matched_field_count": 9,
+        "page_count": 1,
+        "parser_failure_code": null,
+        "parser_status": "passed",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_field_count": 5,
+        "case_ref_sha256": "F9CDEE4D90988B945949F57DAA71E90CE07C2F719D25F77C7DE99150462F89D1",
+        "expected_non_null_field_count": 10,
+        "matched_field_codes": [
+          "invoice_code",
+          "invoice_date",
+          "buyer_tax_no",
+          "amount_excluding_tax",
+          "tax_amount"
+        ],
+        "matched_field_count": 5,
+        "page_count": 1,
+        "parser_failure_code": null,
+        "parser_status": "passed",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_field_count": 5,
+        "case_ref_sha256": "D07EE4B663A2164AB29A048AB98A484D0E993A6D147D278062A7903436B6E37F",
+        "expected_non_null_field_count": 11,
+        "matched_field_codes": [
+          "invoice_code",
+          "invoice_number",
+          "invoice_date",
+          "buyer_tax_no",
+          "amount_excluding_tax",
+          "total_amount"
+        ],
+        "matched_field_count": 6,
+        "page_count": 1,
+        "parser_failure_code": null,
+        "parser_status": "passed",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_field_count": 7,
+        "case_ref_sha256": "B716EA7417B3CC4B3F2D42E33CEB8915FAAB4FD1082DA57D1E7AE854C9DB68CC",
+        "expected_non_null_field_count": 11,
+        "matched_field_codes": [
+          "invoice_code",
+          "invoice_type",
+          "is_red_invoice",
+          "buyer_tax_no",
+          "seller_name",
+          "seller_tax_no",
+          "amount_excluding_tax",
+          "tax_amount",
+          "total_amount"
+        ],
+        "matched_field_count": 9,
+        "page_count": 2,
+        "parser_failure_code": null,
+        "parser_status": "passed",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_field_count": 7,
+        "case_ref_sha256": "AC7743DBEF7FE6228C86A5ACBD3A85F24C582C6AC4329CA1AE7BEEA499B79389",
+        "expected_non_null_field_count": 10,
+        "matched_field_codes": [
+          "invoice_code",
+          "invoice_number",
+          "invoice_type",
+          "is_red_invoice",
+          "invoice_date",
+          "buyer_name",
+          "buyer_tax_no",
+          "amount_excluding_tax",
+          "tax_amount",
+          "total_amount"
+        ],
+        "matched_field_count": 10,
+        "page_count": 2,
+        "parser_failure_code": null,
+        "parser_status": "passed",
+        "source_type": "parser"
+      },
+      {
+        "actual_non_null_field_count": 8,
+        "case_ref_sha256": "2D98FB75E65852D3A5DD9D3F24AD690D6CB4087B16172B0416CD51288E35395F",
+        "expected_non_null_field_count": 11,
+        "matched_field_codes": [
+          "invoice_code",
+          "invoice_number",
+          "invoice_type",
+          "is_red_invoice",
+          "buyer_tax_no",
+          "seller_name",
+          "tax_amount",
+          "total_amount",
+          "currency"
+        ],
+        "matched_field_count": 9,
+        "page_count": 9,
+        "parser_failure_code": null,
+        "parser_status": "passed",
+        "source_type": "parser"
+      }
+    ],
+    "current_default_profile_runtime": {
+      "actual_non_null_field_count": 38,
+      "annotated_non_null_field_accuracy": "0.385542",
+      "annotated_non_null_field_count": 83,
+      "invalid_output_count": 2,
+      "matched_annotated_non_null_field_count": 32,
+      "matched_field_count_including_assumed_nulls": 48,
+      "parser": "DocumentParser+NotConfiguredOcrEngine",
+      "parser_outcome_counts": {
+        "PASSED": 6,
+        "PDF_OCR_RENDERER_NOT_CONFIGURED": 2
+      },
+      "provisional_13_field_accuracy": "0.461538",
+      "threshold": "0.950000",
+      "threshold_status": "FAILED",
+      "total_field_count": 104,
+      "valid_output_count": 6
+    },
+    "source_qualification": {
+      "case_count": 8,
+      "derived_field_count": 1,
+      "derived_field_mapping": {
+        "is_red_invoice": "invoice_type=standard -> false"
+      },
+      "direct_source_field_count": 10,
+      "evidence_required_direct_rule_count": 80,
+      "expected_non_null_counts": {
+        "amount_excluding_tax": 8,
+        "buyer_name": 8,
+        "currency": 8,
+        "invoice_date": 8,
+        "invoice_number": 8,
+        "invoice_type": 8,
+        "is_red_invoice": 8,
+        "seller_name": 8,
+        "seller_tax_no": 6,
+        "tax_amount": 5,
+        "total_amount": 8
+      },
+      "formal_13_field_gate_status": "NOT_COMPUTABLE_SOURCE_SCHEMA_MISSING_TWO_FIELDS",
+      "max_page_count": 9,
+      "min_page_count": 1,
+      "multi_page_case_count": 3,
+      "page_count": 18,
+      "pdf_content_hashes_sha256": "66BB79780F6AE87D8AA343139F021EE5650C96CFE002FE9A25BF751D6B8B3A76",
+      "product_frozen_field_count": 13,
+      "qualification_status": "QUALIFIED_WITH_TWO_SCHEMA_ABSENCE_ASSUMPTIONS",
+      "real_document_count": 8,
+      "scanned_case_count": 2,
+      "selected_case_ids_sha256": "4CD8A1630DD849F47A7B66DFB635880BDDA9D79B6762086E76BE4EF3300F58F3",
+      "source_schema_absent_assumption_field_count": 2,
+      "source_schema_absent_assumption_fields": [
+        "invoice_code",
+        "buyer_tax_no"
+      ],
+      "verified_direct_rule_count": 80
+    }
+  },
+  "privacy_and_storage": {
+    "business_identifiers_persisted_in_evidence": false,
+    "raw_annotation_values_persisted_in_evidence": false,
+    "raw_data_git_ignored": true,
+    "raw_data_path": "data/public-benchmark/extractbench/",
+    "raw_documents_tracked": false,
+    "tracked_output_contains_only_counts_hashes_status_and_field_codes": true
+  },
+  "quality_gate_summary": {
+    "complex_multi_format": "PARTIAL_COMPLEX_PDF_ONLY",
+    "contract_85": "NOT_COMPUTABLE_NO_COMPLETE_13_FIELD_SOURCE",
+    "duplicate_invoice": "NOT_COMPUTABLE_NO_LABELED_DUPLICATE_PAIRS",
+    "invoice_95": "FAILED_CURRENT_DEFAULT_PROFILE",
+    "overall_status": "MEASURED_FAILED_WITH_STRONGER_INVOICE_SOURCE",
+    "risk_rules": "NOT_COMPUTABLE_NO_MATCHING_DISPOSITIONS"
+  },
+  "remaining_quality_gaps": {
+    "contract_13_field_source": "NOT_FOUND_IN_EXTRACTBENCH",
+    "duplicate_invoice_labels": "NOT_PRESENT",
+    "invoice_two_source_schema_fields": [
+      "invoice_code",
+      "buyer_tax_no"
+    ],
+    "matching_risk_rule_dispositions": "NOT_PRESENT",
+    "native_docx_cases": 0
+  },
+  "schema_version": "public-extractbench-qualification-v1",
+  "selection_authority": {
+    "approval_ref": "public-dataset:arXiv:2607.29677@f6180e917a050a84582e6366cff85b7dc1e84e58",
+    "approval_ref_kind": "public_dataset_revision_not_business_uat",
+    "human_review_claimed": false,
+    "owner_instruction_sha256": "F49A3B7877EB6290454114832BA89A563C081541A6185A9E36A0A67B8B1A2CE2"
+  },
+  "source": {
+    "dataset_id": "llamaindex/ExtractBench",
+    "dataset_revision": "f6180e917a050a84582e6366cff85b7dc1e84e58",
+    "declared_document_count": 370,
+    "declared_document_type_count": 67,
+    "declared_page_count": 4869,
+    "domain_counts": {
+      "D1": 145,
+      "D2": 98,
+      "D3": 49,
+      "D4": 27,
+      "D5": 20,
+      "D6": 15,
+      "D7": 10,
+      "D8": 6
+    },
+    "ground_truth_method": "verified deterministic field rules with source evidence",
+    "license": "Apache-2.0",
+    "observed_row_count": 370,
+    "observed_schema_hash_count": 70,
+    "paper_ref": "arXiv:2607.29677",
+    "perception_challenge_counts": {
+      "handwriting": 55,
+      "rotated_or_image_only": 38,
+      "scanned": 134
+    },
+    "primary_url": "https://huggingface.co/datasets/llamaindex/ExtractBench",
+    "publisher": "LlamaIndex",
+    "raw_split_bindings": [
+      {
+        "bytes": 29881640,
+        "path": "data/public-benchmark/extractbench/short.jsonl",
+        "row_count": 252,
+        "sha256": "E4B07B3612F1D4BCF4157D5B97B8692D671AEDDAF96E5B5898338345B654E740"
+      },
+      {
+        "bytes": 62894509,
+        "path": "data/public-benchmark/extractbench/medium.jsonl",
+        "row_count": 98,
+        "sha256": "8AE0884D8E8DDDB1282EB98282D942B65C8D99B82DD37E650EDC53CD0F5BB5DF"
+      },
+      {
+        "bytes": 159965789,
+        "path": "data/public-benchmark/extractbench/long.jsonl",
+        "row_count": 20,
+        "sha256": "AC5B22BBF810548A5E086E792D4AFE0AA98DC572D24DECEAB820A2558570F3BD"
+      }
+    ],
+    "real_document_count": 325,
+    "synthetic_document_count": 45
+  },
+  "source_binding": [
+    {
+      "bytes": 22003,
+      "path": "scripts/verify_public_extractbench_benchmark.py",
+      "sha256": "8D55ED46BF8E1DF960EDDC30222B3F7FBB77202BB66E62192662FE608671262E"
+    },
+    {
+      "bytes": 15710,
+      "path": "backend/app/services/document_parser.py",
+      "sha256": "0D55919802C811F592799D045CD39E18705065040DF3B4FC0C8E894900A98E4D"
+    },
+    {
+      "bytes": 16197,
+      "path": "backend/app/services/invoice_extractor.py",
+      "sha256": "8AD1E07A2366124648C80A022174E1F50C3BAA49FB5296C02A1B3C6D9EE5A53D"
+    }
+  ]
+}
