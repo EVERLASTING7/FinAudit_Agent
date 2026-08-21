@@ -12,7 +12,7 @@
 | 技术门禁 | `PASS` |
 | 持久管理员复登 | `PASS / YHBX ATTESTED` |
 | 独立人工 UAT | `PASS / YHBX HUMAN UAT`；不继承 0.1.0/0.1.1 结论 |
-| 远程发布 | `AUTHORIZED / PENDING NORMAL PUSH`；禁止 Force Push |
+| 远程发布 | `PASS / NORMAL PUSH`；UAT 证据 revision `85b65c7ca9bd2d53202990767655baabb7932510` 与远端 SHA 一致，Force Push 未使用 |
 | 记录日期 | 2026-08-21（Asia/Shanghai） |
 
 0.1.2 是 0.1.1 的后继，不覆盖历史记录。本记录只绑定 Windows 本机、Docker Desktop、`127.0.0.1` HTTP、ClamAV、OCR/AI disabled 与本机 PostgreSQL/MinIO/备份边界。YHBX 已在当前任务中按约定文本签署持久管理员复登和独立人工 UAT，并授权对当前 release 分支执行普通 push；人工步骤记为 `YHBX ATTESTED`，不是 Codex 代替输入密码或独立观察所得。
@@ -26,6 +26,7 @@
 - 报告兼容性：Microsoft Excel、LibreOffice Calc、PDF/XLSX 跨镜像语义与 Poppler 渲染全部通过，`REPORT_ARTIFACT_COMPATIBILITY=PASS`。
 - 持久项目：Backend image ID `sha256:86127b8348c93bb46a2e52dd2d32452f36e9ef635221cef533400063e0401387`，Frontend image ID `sha256:7d4ec725964bd69f0d114a385ae1e0b1492aa45bb90b8a8bbc22eb2d6eda9e1d`；运行容器与 0.1.2 tags 一致。head 027、58 表、权威行数 7→7、必需依赖失败 0、Frontend 200，依赖、bounded logging、restart policy 和受保护 metrics 均 PASS。
 - 当前权威备份 ID `9b5acc63-bcc5-471e-98b2-83ee4099a426`；PostgreSQL/MinIO 包含，Secrets 排除，旧备份未覆盖。
+- 远程 release 分支已通过普通快进 push 发布到 UAT 证据 revision `85b65c7ca9bd2d53202990767655baabb7932510`，`git ls-remote` 与本地 SHA 一致，首次推送后的 ahead/behind 为 0/0；没有使用 Force Push。
 
 机器可读事实见 `local-mvp-0.1.2-2026-08-21.manifest.json`；YHBX 人工 UAT 结果见 `docs/testing/local-mvp-uat-2026-08-21.md`。
 

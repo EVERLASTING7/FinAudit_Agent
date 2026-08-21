@@ -29,7 +29,7 @@
 
 任务状态和证据以 `docs/testing/p0-traceability-matrix.csv` 及实际测试输出为准。旧表/API/工作包数量只作历史盘点，不是产品数量合同。
 
-当前后继发布见 [Local MVP 0.1.2 发布记录](docs/releases/local-mvp-0.1.2-2026-08-21.md)：应用源码 revision 为 `140c31156412360ecc7f48ae5a26f3112d050763`，当前技术 Gate、持久 0.1.2 运行和 YHBX 独立人工 UAT 已通过，只对 CR-025 Windows 本机 loopback HTTP Profile 为 `GO`；普通 push 已授权并等待远端绑定，不声明 production ready。0.1.0/0.1.1 的历史记录保持不变。
+当前后继发布见 [Local MVP 0.1.2 发布记录](docs/releases/local-mvp-0.1.2-2026-08-21.md)：应用源码 revision 为 `140c31156412360ecc7f48ae5a26f3112d050763`，当前技术 Gate、持久 0.1.2 运行和 YHBX 独立人工 UAT 已通过，只对 CR-025 Windows 本机 loopback HTTP Profile 为 `GO`；UAT 证据 revision `85b65c7…` 已普通推送并核对远端 SHA，Force Push 未使用，不声明 production ready。0.1.0/0.1.1 的历史记录保持不变。
 
 ## 架构边界
 

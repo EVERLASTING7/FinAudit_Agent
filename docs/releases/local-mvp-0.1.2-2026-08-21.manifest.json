@@ -6,8 +6,13 @@
     "branch": "release/local-mvp-0.1.0",
     "revision": "140c31156412360ecc7f48ae5a26f3112d050763",
     "parent_revision": "1b7fb0b7e2863d680d1b65bb5d44cc2297bab2b3",
-    "remote_publish": "authorized_normal_push_pending",
-    "remote_ahead_before_evidence_commit": 4
+    "remote_publish": "pass_normal_push",
+    "remote_ahead_before_evidence_commit": 4,
+    "uat_evidence_revision": "85b65c7ca9bd2d53202990767655baabb7932510",
+    "remote_verified_revision": "85b65c7ca9bd2d53202990767655baabb7932510",
+    "remote_verified_ref": "refs/heads/release/local-mvp-0.1.0",
+    "remote_verified_at": "2026-08-21T10:27:44+08:00",
+    "force_push_used": false
   },
   "images": {
     "revision": "local-mvp-0.1.2",
@@ -79,6 +84,6 @@
     "business_representative": false,
     "formal_production_acceptance": false,
     "provider_run_for_release": false,
-    "remote_release": false
+    "remote_release": true
   }
 }

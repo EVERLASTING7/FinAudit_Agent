@@ -11,6 +11,7 @@
 - 人工签署继承：`NO`；0.1.0 的历史签署和 0.1.1 的最小技术 UAT 均不转移
 - YHBX 签署：`Local MVP 0.1.2 UAT通过`
 - 普通 push 授权：`AUTHORIZED`；当前 release 分支，禁止 Force Push
+- 远程 UAT 证据：`PASS / NORMAL PUSH`；revision `85b65c7ca9bd2d53202990767655baabb7932510`，远端 SHA 一致，Force Push 未使用
 - 签署记录时间：2026-08-21T10:23:23+08:00
 - 签署文本绑定：UTF-8 87 bytes；SHA-256 `24F56175644C59F3E7A0167A65BE5EEFFC218EAD52314A023DDDB4BF6601E245`
 
